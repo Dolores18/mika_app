@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:markdown/markdown.dart' as md;
 
 void main() {
   HttpOverrides.global = MyHttpOverrides();
@@ -24,8 +26,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'AI 单词测试',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      title: 'AI Word Test',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
       home: const WordTestScreen(),
     );
   }
@@ -51,51 +56,61 @@ class _WordTestScreenState extends State<WordTestScreen> {
     super.dispose();
   }
 
-  // 解码 Unicode 转义序列
+  // 解码Unicode转义序列
   String decodeUnicodeEscapes(String text) {
-    if (text.isEmpty) return '';
-
-    try {
-      // 替换所有 Unicode 转义序列为实际字符
-      RegExp unicodeRegex = RegExp(r'\\u([0-9a-fA-F]{4})');
-      return text.replaceAllMapped(unicodeRegex, (Match m) {
-        try {
-          int charCode = int.parse(m.group(1)!, radix: 16);
-          return String.fromCharCode(charCode);
-        } catch (e) {
-          return m.group(0)!;
-        }
-      });
-    } catch (e) {
-      // 如果解析过程中出错，返回原始文本
-      return text;
-    }
+    // 替换所有Unicode转义序列为实际字符
+    RegExp unicodeRegex = RegExp(r'\\u([0-9a-fA-F]{4})');
+    return text.replaceAllMapped(unicodeRegex, (Match m) {
+      try {
+        int charCode = int.parse(m.group(1)!, radix: 16);
+        return String.fromCharCode(charCode);
+      } catch (e) {
+        return m.group(0)!;
+      }
+    });
   }
 
-  // 清理响应文本
-  String cleanResponseText(String text) {
-    if (text.isEmpty) return '';
+  // 处理API响应数据
+  String processApiResponse(String text) {
+    // 解码Unicode转义序列
+    String decoded = decodeUnicodeEscapes(text);
 
     try {
-      // 首先解码 Unicode 转义序列
-      String decoded = decodeUnicodeEscapes(text);
+      // 尝试提取JSON内容
+      RegExp jsonPattern = RegExp(r'\{.*?\}');
+      Iterable<Match> matches = jsonPattern.allMatches(decoded);
 
-      // 移除 JSON 内容标记和其他格式化工件
-      decoded = decoded.replaceAll(RegExp(r'\{"content":\s*"'), '');
-      decoded = decoded.replaceAll(RegExp(r'"\}\{"content":\s*"'), '');
-      decoded = decoded.replaceAll(RegExp(r'"\}'), '');
+      String result = '';
+      for (Match match in matches) {
+        try {
+          Map<String, dynamic> jsonData = json.decode(match.group(0)!);
+          if (jsonData.containsKey('content')) {
+            result += jsonData['content'].toString();
+          }
+        } catch (e) {
+          // 忽略无效的JSON
+        }
+      }
 
-      // 替换常见的转义序列
-      decoded = decoded.replaceAll('\\n', '\n');
-      decoded = decoded.replaceAll('\\t', '\t');
-      decoded = decoded.replaceAll('\\"', '"');
-      decoded = decoded.replaceAll('\\\\', '\\');
-
-      return decoded;
+      if (result.isNotEmpty) {
+        return result;
+      }
     } catch (e) {
-      // 如果处理过程中出错，返回原始文本
-      return text;
+      // 如果JSON解析失败，继续使用基本处理
     }
+
+    // 基本清理 - 如果JSON解析失败
+    decoded = decoded.replaceAll(RegExp(r'\{"content":\s*"'), '');
+    decoded = decoded.replaceAll(RegExp(r'"\}\{"content":\s*"'), '');
+    decoded = decoded.replaceAll(RegExp(r'"\}'), '');
+
+    // 替换转义序列
+    decoded = decoded.replaceAll('\\n', '\n');
+    decoded = decoded.replaceAll('\\t', '\t');
+    decoded = decoded.replaceAll('\\"', '"');
+    decoded = decoded.replaceAll('\\\\', '\\');
+
+    return decoded.trim();
   }
 
   Future<void> _fetchExplanation(String word) async {
@@ -131,11 +146,11 @@ class _WordTestScreenState extends State<WordTestScreen> {
               if (eventData != '[DONE]') {
                 buffer += eventData;
 
-                // 清理接收到的文本
-                String cleanedText = cleanResponseText(buffer);
+                // 处理API响应
+                String processedText = processApiResponse(buffer);
 
                 setState(() {
-                  _explanation = cleanedText;
+                  _explanation = processedText;
                 });
               }
             }
@@ -145,20 +160,20 @@ class _WordTestScreenState extends State<WordTestScreen> {
           setState(() {
             _isLoading = false;
 
-            // 最终清理文本
-            _explanation = cleanResponseText(buffer);
+            // 最终处理
+            _explanation = processApiResponse(buffer);
           });
         },
         onError: (error) {
           setState(() {
-            _explanation = '错误: $error';
+            _explanation = 'Error: $error';
             _isLoading = false;
           });
         },
       );
     } catch (e) {
       setState(() {
-        _explanation = '错误: $e';
+        _explanation = 'Error: $e';
         _isLoading = false;
       });
     }
@@ -167,7 +182,7 @@ class _WordTestScreenState extends State<WordTestScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('AI 单词测试')),
+      appBar: AppBar(title: const Text('AI Word Test')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -176,7 +191,7 @@ class _WordTestScreenState extends State<WordTestScreen> {
             TextField(
               controller: _wordController,
               decoration: InputDecoration(
-                labelText: '输入一个单词',
+                labelText: 'Enter a word',
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.clear),
                   onPressed: () => _wordController.clear(),
@@ -192,6 +207,7 @@ class _WordTestScreenState extends State<WordTestScreen> {
                       : () => _fetchExplanation(_wordController.text.trim()),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
               child:
@@ -204,16 +220,17 @@ class _WordTestScreenState extends State<WordTestScreen> {
                           color: Colors.white,
                         ),
                       )
-                      : const Text('获取解释', style: TextStyle(fontSize: 16)),
+                      : const Text('Get Explanation'),
             ),
             const SizedBox(height: 16),
             Expanded(
               child: Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
+                  color: Colors.grey[50],
+                  border: Border.all(color: Colors.grey[300]!),
                   borderRadius: BorderRadius.circular(8),
-                  color: Colors.grey.shade50,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,26 +246,74 @@ class _WordTestScreenState extends State<WordTestScreen> {
                     if (_wordController.text.isNotEmpty)
                       const SizedBox(height: 8),
                     Expanded(
-                      child: SingleChildScrollView(
-                        child:
-                            _explanation.isEmpty && !_isLoading
-                                ? const Text('解释将显示在这里')
-                                : SelectableText(
-                                  _explanation,
-                                  style: const TextStyle(
+                      child:
+                          _explanation.isEmpty && !_isLoading
+                              ? const Text('Explanation will appear here')
+                              : Markdown(
+                                data: _explanation,
+                                selectable: true,
+                                styleSheet: MarkdownStyleSheet(
+                                  h1: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                  h2: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                  h3: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                  p: const TextStyle(
                                     fontSize: 16,
                                     height: 1.5,
+                                    color: Colors.black87,
+                                  ),
+                                  code: TextStyle(
+                                    fontSize: 14,
+                                    backgroundColor: Colors.grey[200],
+                                    fontFamily: 'monospace',
+                                  ),
+                                  codeblockDecoration: BoxDecoration(
+                                    color: Colors.grey[200],
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  blockquote: const TextStyle(
+                                    fontSize: 16,
+                                    height: 1.5,
+                                    color: Colors.black54,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                  blockquoteDecoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border(
+                                      left: BorderSide(
+                                        color: Colors.grey[400]!,
+                                        width: 4,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                      ),
+                                extensionSet: md.ExtensionSet(
+                                  md.ExtensionSet.commonMark.blockSyntaxes,
+                                  [
+                                    ...md
+                                        .ExtensionSet
+                                        .commonMark
+                                        .inlineSyntaxes,
+                                    md.EmojiSyntax(),
+                                  ],
+                                ),
+                              ),
                     ),
                     if (_isLoading) ...[
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16.0),
-                          child: CircularProgressIndicator(),
-                        ),
-                      ),
+                      const SizedBox(height: 16),
+                      const Center(child: CircularProgressIndicator()),
                     ],
                   ],
                 ),
