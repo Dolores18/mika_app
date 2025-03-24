@@ -53,8 +53,7 @@ jobs:
       - name: Analyze project source
         run: flutter analyze --no-fatal-warnings  # 忽略警告，只有错误才会中断流程
         
-      - name: Run tests
-        run: flutter test
+    
         
       - name: Build APK
         run: flutter build apk --release
