@@ -7,6 +7,13 @@ on:
     branches: [ "main" ]
   release:
     types: [created]
+  workflow_dispatch:
+    inputs:
+      clear_cache:
+        description: '清除缓存并强制重新构建'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -17,18 +24,30 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Check code version
+        run: |
+          echo "当前提交: $(git rev-parse HEAD)"
+          echo "最近5次提交:"
+          git log -n 5 --oneline
+          echo "修改的文件:"
+          git diff --name-only HEAD~1 HEAD
       
       - name: Cache Gradle files
+        if: ${{ github.event.inputs.clear_cache != 'true' }}
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-gradle-
 
       - name: Cache Flutter dependencies
+        if: ${{ github.event.inputs.clear_cache != 'true' }}
         uses: actions/cache@v4
         with:
           path: |
@@ -36,7 +55,7 @@ jobs:
             build
             .dart_tool
             android/.gradle
-          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-flutter-
 
@@ -51,7 +70,7 @@ jobs:
         with:
           flutter-version: '3.29.2'
           channel: 'stable'
-          cache: true
+          cache: ${{ github.event.inputs.clear_cache != 'true' }}
 
       - name: Decode Keystore
         run: |
@@ -110,10 +129,11 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
         
       - name: Analyze project source
-        run: flutter analyze --no-fatal-warnings  # 忽略警告，只有错误才会中断流程
+        run: flutter analyze --no-fatal-warnings
         
-    
-        
+      - name: Clean before build
+        run: flutter clean
+              
       - name: Build APK
         run: flutter build apk --release --target-platform android-arm64
 
