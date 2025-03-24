@@ -1,41 +1,58 @@
-name: Flutter CI
+name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - master
+    paths-ignore:
+      - '.idea/**'
+      - '.gitattributes'
+      - '.github/**.json'
+      - '.gitignore'
+      - '.gitmodules'
+      - '**.md'
+      - '**/*.txt'
+      - '**/*.png'
+      - '**/*.jpg'
+      - 'LICENSE'
+      - 'NOTICE'
   pull_request:
-    branches: [ "main" ]
+    paths-ignore:
+      - '.idea/**'
+      - '.gitattributes'
+      - '.github/**.json'
+      - '.gitignore'
+      - '.gitmodules'
+      - '**.md'
+      - '**/*.txt'
+      - '**/*.png'
+      - '**/*.jpg'
+      - 'LICENSE'
+      - 'NOTICE'
 
 jobs:
-  build:
+  publish:
+    name: Publish to MavenLocal
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
-      
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/setup-java@v3
         with:
-          flutter-version: '3.19.0'
-          channel: 'stable'
-          
-      - name: Install dependencies
-        run: flutter pub get
-        
-      - name: Verify formatting
-        run: flutter format --output=none --set-exit-if-changed .
-        
-      - name: Analyze project source
-        run: flutter analyze
-        
-      - name: Run tests
-        run: flutter test
-        
-      - name: Build APK
-        run: flutter build apk
-        
-      - name: Upload APK
-        uses: actions/upload-artifact@v3.1.3
+          distribution: 'zulu'
+          java-version: 17
+      - uses: gradle/gradle-build-action@v2
         with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          arguments: publishToMavenLocal
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: 17
+      - uses: gradle/gradle-build-action@v2
+        with:
+          arguments: app:assembleDebug
