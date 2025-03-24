@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -24,10 +25,25 @@ class _WordLookupPageState extends State<WordLookupPage> {
   StreamSubscription? _streamSubscription;
 
   @override
+  void initState() {
+    super.initState();
+    // 设置全屏模式
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+      overlays: [SystemUiOverlay.top],
+    );
+  }
+
+  @override
   void dispose() {
     _wordController.dispose();
     _scrollController.dispose();
     _streamSubscription?.cancel();
+    // 退出页面时恢复正常模式
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
     super.dispose();
   }
 
@@ -189,13 +205,12 @@ class _WordLookupPageState extends State<WordLookupPage> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        if (_showResults) {
+    return PopScope(
+      canPop: !_showResults,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (!didPop) {
           _clearAndShowNavBar();
-          return false; // 不关闭页面，只返回到搜索状态
         }
-        return true; // 允许正常退出页面
       },
       child: GestureDetector(
         // 添加捕获右滑手势的检测器，整个页面都可以触发
@@ -204,215 +219,245 @@ class _WordLookupPageState extends State<WordLookupPage> {
             _clearAndShowNavBar();
           }
         },
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (!_showResults) ...[
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 7,
-                        child: Container(
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(50),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.2),
-                                spreadRadius: 1,
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              const SizedBox(width: 14),
-                              const Icon(Icons.search, color: Colors.grey),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: TextField(
-                                  controller: _wordController,
-                                  decoration: const InputDecoration(
-                                    hintText: '输入单词',
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                  ),
-                                  onSubmitted: (value) {
-                                    if (!_isLoading &&
-                                        value.trim().isNotEmpty) {
-                                      _fetchExplanation(value.trim());
-                                    }
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        height: 50,
-                        width: 100,
-                        child: ElevatedButton(
-                          onPressed:
-                              _isLoading
-                                  ? null
-                                  : () {
-                                    final word = _wordController.text.trim();
-                                    if (word.isNotEmpty) {
-                                      _fetchExplanation(word);
-                                    }
-                                  },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF6b4bbd), // 紫色按钮
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            elevation: 2,
-                          ),
-                          child: const Text(
-                            '查询',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ] else ...[
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_ios),
-                      onPressed: _clearAndShowNavBar,
-                      tooltip: '返回',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      iconSize: 20,
-                      splashRadius: 20,
+        child: Scaffold(
+          backgroundColor: Colors.white,
+          body: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!_showResults) ...[
+                  Container(
+                    margin: const EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      bottom: 16,
+                      top: 30,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _searchedWord,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
                         Expanded(
-                          child:
-                              _explanation.isEmpty && !_isLoading
-                                  ? const SizedBox()
-                                  : Markdown(
-                                    controller: _scrollController,
-                                    data: _explanation,
-                                    selectable: true,
-                                    styleSheet: MarkdownStyleSheet(
-                                      h1: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                      h2: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                      h3: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                      p: const TextStyle(
-                                        fontSize: 14,
-                                        height: 1.5,
-                                        color: Colors.black87,
-                                      ),
-                                      code: TextStyle(
-                                        fontSize: 12,
-                                        backgroundColor: Colors.grey[200],
-                                        fontFamily: 'monospace',
-                                      ),
-                                      codeblockDecoration: BoxDecoration(
-                                        color: Colors.grey[200],
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      blockquote: const TextStyle(
-                                        fontSize: 14,
-                                        height: 1.5,
-                                        color: Colors.black54,
-                                        fontStyle: FontStyle.italic,
-                                      ),
-                                      blockquoteDecoration: BoxDecoration(
-                                        color: Colors.grey[100],
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border(
-                                          left: BorderSide(
-                                            color: Colors.grey[400]!,
-                                            width: 4,
-                                          ),
+                          flex: 7,
+                          child: Container(
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(36),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withValues(
+                                    alpha: 51,
+                                  ), // 0.2 * 255 = 51
+                                  spreadRadius: 1,
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Row(
+                                children: [
+                                  const SizedBox(width: 10),
+                                  const Icon(
+                                    Icons.search,
+                                    color: Colors.grey,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _wordController,
+                                      decoration: const InputDecoration(
+                                        hintText: '输入单词',
+                                        border: InputBorder.none,
+                                        isDense: true,
+                                        contentPadding: EdgeInsets.symmetric(
+                                          vertical: 6,
                                         ),
                                       ),
-                                    ),
-                                    extensionSet: md.ExtensionSet(
-                                      md.ExtensionSet.commonMark.blockSyntaxes,
-                                      [
-                                        ...md
-                                            .ExtensionSet
-                                            .commonMark
-                                            .inlineSyntaxes,
-                                        md.EmojiSyntax(),
-                                      ],
+                                      style: const TextStyle(fontSize: 13),
+                                      onSubmitted: (value) {
+                                        if (!_isLoading &&
+                                            value.trim().isNotEmpty) {
+                                          _fetchExplanation(value.trim());
+                                        }
+                                      },
                                     ),
                                   ),
-                        ),
-                        if (_isLoading) ...[
-                          const SizedBox(height: 16),
-                          const Center(
-                            child: Text(
-                              "正在加载...",
-                              style: TextStyle(color: Colors.grey),
+                                ],
+                              ),
                             ),
                           ),
-                        ],
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          height: 36,
+                          width: 70,
+                          child: ElevatedButton(
+                            onPressed:
+                                _isLoading
+                                    ? null
+                                    : () {
+                                      final word = _wordController.text.trim();
+                                      if (word.isNotEmpty) {
+                                        _fetchExplanation(word);
+                                      }
+                                    },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF6b4bbd), // 紫色按钮
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(25),
+                              ),
+                              elevation: 1,
+                              padding: EdgeInsets.zero,
+                            ),
+                            child: const Center(
+                              child: Text(
+                                '查询',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ),
+                ] else ...[
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16, right: 16, top: 8),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios),
+                          onPressed: _clearAndShowNavBar,
+                          tooltip: '返回',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          iconSize: 20,
+                          splashRadius: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _searchedWord,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child:
+                                _explanation.isEmpty && !_isLoading
+                                    ? const SizedBox()
+                                    : Markdown(
+                                      controller: _scrollController,
+                                      data: _explanation,
+                                      selectable: true,
+                                      styleSheet: MarkdownStyleSheet(
+                                        h1: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                        h2: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                        h3: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                        p: const TextStyle(
+                                          fontSize: 14,
+                                          height: 1.5,
+                                          color: Colors.black87,
+                                        ),
+                                        code: TextStyle(
+                                          fontSize: 12,
+                                          backgroundColor: Colors.grey[200],
+                                          fontFamily: 'monospace',
+                                        ),
+                                        codeblockDecoration: BoxDecoration(
+                                          color: Colors.grey[200],
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        blockquote: const TextStyle(
+                                          fontSize: 14,
+                                          height: 1.5,
+                                          color: Colors.black54,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                        blockquoteDecoration: BoxDecoration(
+                                          color: Colors.grey[100],
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                          border: Border(
+                                            left: BorderSide(
+                                              color: Colors.grey[400]!,
+                                              width: 4,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      extensionSet: md.ExtensionSet(
+                                        md
+                                            .ExtensionSet
+                                            .commonMark
+                                            .blockSyntaxes,
+                                        [
+                                          ...md
+                                              .ExtensionSet
+                                              .commonMark
+                                              .inlineSyntaxes,
+                                          md.EmojiSyntax(),
+                                        ],
+                                      ),
+                                    ),
+                          ),
+                          if (_isLoading) ...[
+                            const SizedBox(height: 16),
+                            const Center(
+                              child: Text(
+                                "正在加载...",
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16), // 底部留出空间
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
