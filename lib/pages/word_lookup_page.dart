@@ -4,12 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
-import 'package:flutter/services.dart';
 
 class WordLookupPage extends StatefulWidget {
   final Function(bool)? onSearchStateChanged;
 
-  const WordLookupPage({Key? key, this.onSearchStateChanged}) : super(key: key);
+  const WordLookupPage({super.key, this.onSearchStateChanged});
 
   @override
   State<WordLookupPage> createState() => _WordLookupPageState();

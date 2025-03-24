@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
 import 'pages/word_lookup_page.dart';
 
 void main() {
@@ -18,7 +18,7 @@ class MyHttpOverrides extends HttpOverrides {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +34,7 @@ class MyApp extends StatelessWidget {
 }
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({Key? key}) : super(key: key);
+  const MainScreen({super.key});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -42,17 +42,15 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
-  bool _isSearchActive = false; // 添加搜索状态变量
+  bool _isSearchActive = false;
 
-  // 页面列表
   final List<Widget> _pages = [
     const Center(child: Text('首页')),
     const Center(child: Text('学习')),
-    const Center(child: Text('占位符')), // 占位符，实际会在build方法中替换
+    const Center(child: Text('占位符')),
     const Center(child: Text('我的')),
   ];
 
-  // 切换搜索状态的方法
   void toggleSearchState(bool isActive) {
     setState(() {
       _isSearchActive = isActive;
@@ -62,14 +60,13 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 移除AppBar，现代应用更简洁
       body:
           _currentIndex == 2
               ? WordLookupPage(onSearchStateChanged: toggleSearchState)
               : _pages[_currentIndex],
       bottomNavigationBar:
           _isSearchActive
-              ? null // 当搜索激活时隐藏导航栏
+              ? null
               : BottomNavigationBar(
                 type: BottomNavigationBarType.fixed,
                 currentIndex: _currentIndex,
