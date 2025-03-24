@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
+import 'package:flutter/services.dart';
 
 class WordLookupPage extends StatefulWidget {
-  final Function(bool)? onSearchStateChanged; // 添加回调函数属性
+  final Function(bool)? onSearchStateChanged;
 
   const WordLookupPage({Key? key, this.onSearchStateChanged}) : super(key: key);
 
@@ -19,6 +20,8 @@ class _WordLookupPageState extends State<WordLookupPage> {
   final ScrollController _scrollController = ScrollController();
   String _explanation = '';
   bool _isLoading = false;
+  bool _showResults = false;
+  String _searchedWord = '';
   StreamSubscription? _streamSubscription;
 
   @override
@@ -102,12 +105,14 @@ class _WordLookupPageState extends State<WordLookupPage> {
   Future<void> _fetchExplanation(String word) async {
     if (word.isEmpty) return;
 
+    _searchedWord = word;
+
     setState(() {
+      _showResults = true;
       _isLoading = true;
       _explanation = '';
     });
 
-    // 通知父组件搜索开始，显示搜索状态
     widget.onSearchStateChanged?.call(true);
 
     try {
@@ -149,16 +154,11 @@ class _WordLookupPageState extends State<WordLookupPage> {
         onDone: () {
           setState(() {
             _isLoading = false;
-
-            // 最终处理
             _explanation = processApiResponse(buffer);
             _scrollToBottom();
           });
 
-          // 搜索完成，可以选择保持导航栏隐藏或显示
-          // 如果希望结果显示时保持导航栏隐藏，保持为true
-          // 如果希望搜索完成后显示导航栏，改为false
-          widget.onSearchStateChanged?.call(true); // 保持隐藏状态
+          widget.onSearchStateChanged?.call(true);
         },
         onError: (error) {
           setState(() {
@@ -166,7 +166,6 @@ class _WordLookupPageState extends State<WordLookupPage> {
             _isLoading = false;
           });
 
-          // 发生错误时恢复导航栏
           widget.onSearchStateChanged?.call(false);
         },
       );
@@ -176,9 +175,17 @@ class _WordLookupPageState extends State<WordLookupPage> {
         _isLoading = false;
       });
 
-      // 发生错误时恢复导航栏
       widget.onSearchStateChanged?.call(false);
     }
+  }
+
+  void _clearAndShowNavBar() {
+    setState(() {
+      _explanation = '';
+      _showResults = false;
+      _searchedWord = '';
+    });
+    widget.onSearchStateChanged?.call(false);
   }
 
   @override
@@ -188,46 +195,69 @@ class _WordLookupPageState extends State<WordLookupPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
-            controller: _wordController,
-            decoration: InputDecoration(
-              labelText: '输入单词',
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.clear),
-                onPressed: () => _wordController.clear(),
+          if (!_showResults) ...[
+            TextField(
+              controller: _wordController,
+              decoration: InputDecoration(
+                labelText: '输入单词',
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () => _wordController.clear(),
+                ),
+                border: const OutlineInputBorder(),
               ),
-              border: const OutlineInputBorder(),
+              onSubmitted: (value) {
+                if (!_isLoading && value.trim().isNotEmpty) {
+                  _fetchExplanation(value.trim());
+                }
+              },
             ),
-            onSubmitted: (value) {
-              if (!_isLoading) {
-                _fetchExplanation(value.trim());
-              }
-            },
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed:
-                _isLoading
-                    ? null
-                    : () => _fetchExplanation(_wordController.text.trim()),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepPurple,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed:
+                  _isLoading
+                      ? null
+                      : () {
+                        final word = _wordController.text.trim();
+                        if (word.isNotEmpty) {
+                          _fetchExplanation(word);
+                        }
+                      },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: const Text('获取解释'),
             ),
-            child:
-                _isLoading
-                    ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                    : const Text('获取解释'),
-          ),
-          const SizedBox(height: 16),
+          ] else ...[
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_ios),
+                  onPressed: _clearAndShowNavBar,
+                  tooltip: '返回',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  iconSize: 20,
+                  splashRadius: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _searchedWord,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+
           Expanded(
             child: Container(
               width: double.infinity,
@@ -240,12 +270,10 @@ class _WordLookupPageState extends State<WordLookupPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_wordController.text.isNotEmpty)
-                    const SizedBox(height: 8),
                   Expanded(
                     child:
                         _explanation.isEmpty && !_isLoading
-                            ? const Text('解释将显示在这里')
+                            ? const SizedBox()
                             : Markdown(
                               controller: _scrollController,
                               data: _explanation,
@@ -308,31 +336,17 @@ class _WordLookupPageState extends State<WordLookupPage> {
                   ),
                   if (_isLoading) ...[
                     const SizedBox(height: 16),
-                    const Center(child: CircularProgressIndicator()),
+                    const Center(
+                      child: Text(
+                        "正在加载...",
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
                   ],
                 ],
               ),
             ),
           ),
-          // 添加一个返回按钮，用于显示导航栏
-          if (_explanation.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                // 清空解释内容
-                setState(() {
-                  _explanation = '';
-                });
-                // 显示导航栏
-                widget.onSearchStateChanged?.call(false);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey[300],
-                foregroundColor: Colors.black87,
-              ),
-              child: const Text('返回'),
-            ),
-          ],
         ],
       ),
     );
