@@ -28,8 +28,8 @@ android {
 
     buildTypes {
         release {
-            // 删除签名配置
-            // signingConfig = signingConfigs.getByName("release") 
+            // 使用debug签名配置
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 }
