@@ -27,10 +27,21 @@ class _WordLookupPageState extends State<WordLookupPage> {
   @override
   void initState() {
     super.initState();
-    // 设置全屏模式
+    // 设置全屏模式，让内容延伸到挖孔区域
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.edgeToEdge,
       overlays: [SystemUiOverlay.top],
+    );
+    // 设置系统UI透明，允许内容显示在状态栏和挖孔区域下方
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
     );
   }
 
@@ -205,6 +216,10 @@ class _WordLookupPageState extends State<WordLookupPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 获取屏幕安全区域信息
+    final mediaQuery = MediaQuery.of(context);
+    final topPadding = mediaQuery.padding.top;
+
     return PopScope(
       canPop: !_showResults,
       onPopInvokedWithResult: (didPop, result) async {
@@ -213,263 +228,260 @@ class _WordLookupPageState extends State<WordLookupPage> {
         }
       },
       child: GestureDetector(
-        // 添加捕获右滑手势的检测器，整个页面都可以触发
         onHorizontalDragEnd: (details) {
           if (details.primaryVelocity! > 0 && _showResults) {
             _clearAndShowNavBar();
           }
         },
         child: Scaffold(
-          backgroundColor: Colors.white,
-          body: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (!_showResults) ...[
-                  Container(
-                    margin: const EdgeInsets.only(
-                      left: 16,
-                      right: 16,
-                      bottom: 16,
-                      top: 30,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 7,
-                          child: Container(
-                            height: 29,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(36),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.withValues(
-                                    alpha: 51,
-                                  ), // 0.2 * 255 = 51
-                                  spreadRadius: 1,
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                              child: Row(
-                                children: [
-                                  const SizedBox(width: 10),
-                                  const Icon(
-                                    Icons.search,
-                                    color: Colors.grey,
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _wordController,
-                                      decoration: const InputDecoration(
-                                        hintText: '输入单词',
-                                        border: InputBorder.none,
-                                        isDense: true,
-                                        contentPadding: EdgeInsets.symmetric(
-                                          vertical: 6,
-                                        ),
-                                      ),
-                                      style: const TextStyle(fontSize: 13),
-                                      onSubmitted: (value) {
-                                        if (!_isLoading &&
-                                            value.trim().isNotEmpty) {
-                                          _fetchExplanation(value.trim());
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          height: 36,
-                          width: 70,
+          backgroundColor: const Color(0xFFFCE4EC), // 使用淡粉红色作为背景色
+          // 移除SafeArea，使用自定义padding来适配挖孔屏
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 添加与状态栏等高的SizedBox
+              SizedBox(height: topPadding),
+              if (!_showResults) ...[
+                Container(
+                  margin: const EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    bottom: 16,
+                    top: 30,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 7,
+                        child: Container(
+                          height: 25,
                           decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.9), // 透明度使其更融入背景
                             borderRadius: BorderRadius.circular(36),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withValues(alpha: 41),
+                                color: Colors.grey.withValues(
+                                  alpha: 30,
+                                ), // 更轻微的阴影
                                 spreadRadius: 0,
-                                blurRadius: 1,
+                                blurRadius: 2,
                                 offset: const Offset(0, 1),
                               ),
                             ],
                           ),
-                          child: ElevatedButton(
-                            onPressed:
-                                _isLoading
-                                    ? null
-                                    : () {
-                                      final word = _wordController.text.trim();
-                                      if (word.isNotEmpty) {
-                                        _fetchExplanation(word);
+                          child: Center(
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 10),
+                                const Icon(
+                                  Icons.search,
+                                  color: Colors.grey,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _wordController,
+                                    decoration: const InputDecoration(
+                                      hintText: '输入单词',
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        vertical: 4,
+                                      ),
+                                      isCollapsed: false,
+                                    ),
+                                    style: const TextStyle(fontSize: 13),
+                                    textAlignVertical: TextAlignVertical.center,
+                                    onSubmitted: (value) {
+                                      if (!_isLoading &&
+                                          value.trim().isNotEmpty) {
+                                        _fetchExplanation(value.trim());
                                       }
                                     },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF6b4bbd),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(37),
-                              ),
-                              elevation: 0,
-                              padding: EdgeInsets.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: const Center(
-                              child: Text(
-                                '查询',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
+                                  ),
                                 ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        height: 36,
+                        width: 70,
+                        child: ElevatedButton(
+                          onPressed:
+                              _isLoading
+                                  ? null
+                                  : () {
+                                    final word = _wordController.text.trim();
+                                    if (word.isNotEmpty) {
+                                      _fetchExplanation(word);
+                                    }
+                                  },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(
+                              0xFF6b4bbd,
+                            ).withOpacity(0.95), // 轻微透明度
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(36),
+                              side: BorderSide.none,
+                            ),
+                            elevation: 0,
+                            shadowColor: Colors.transparent,
+                            padding: EdgeInsets.zero,
+                            surfaceTintColor: Colors.transparent,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          child: const Center(
+                            child: Text(
+                              '查询',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ] else ...[
-                  Padding(
-                    padding: const EdgeInsets.only(left: 16, right: 16, top: 8),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back_ios),
-                          onPressed: _clearAndShowNavBar,
-                          tooltip: '返回',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          iconSize: 20,
-                          splashRadius: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _searchedWord,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        border: Border.all(color: Colors.grey[300]!),
-                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child:
-                                _explanation.isEmpty && !_isLoading
-                                    ? const SizedBox()
-                                    : Markdown(
-                                      controller: _scrollController,
-                                      data: _explanation,
-                                      selectable: true,
-                                      styleSheet: MarkdownStyleSheet(
-                                        h1: const TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black87,
-                                        ),
-                                        h2: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black87,
-                                        ),
-                                        h3: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black87,
-                                        ),
-                                        p: const TextStyle(
-                                          fontSize: 14,
-                                          height: 1.5,
-                                          color: Colors.black87,
-                                        ),
-                                        code: TextStyle(
-                                          fontSize: 12,
-                                          backgroundColor: Colors.grey[200],
-                                          fontFamily: 'monospace',
-                                        ),
-                                        codeblockDecoration: BoxDecoration(
-                                          color: Colors.grey[200],
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                        ),
-                                        blockquote: const TextStyle(
-                                          fontSize: 14,
-                                          height: 1.5,
-                                          color: Colors.black54,
-                                          fontStyle: FontStyle.italic,
-                                        ),
-                                        blockquoteDecoration: BoxDecoration(
-                                          color: Colors.grey[100],
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                          border: Border(
-                                            left: BorderSide(
-                                              color: Colors.grey[400]!,
-                                              width: 4,
-                                            ),
-                                          ),
-                                        ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, right: 16, top: 8),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_ios),
+                        onPressed: _clearAndShowNavBar,
+                        tooltip: '返回',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        iconSize: 20,
+                        splashRadius: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _searchedWord,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.75), // 半透明白色背景
+                      borderRadius: BorderRadius.circular(16), // 更大的圆角
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03), // 非常轻微的阴影
+                          blurRadius: 5,
+                          spreadRadius: 0,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child:
+                              _explanation.isEmpty && !_isLoading
+                                  ? const SizedBox()
+                                  : Markdown(
+                                    controller: _scrollController,
+                                    data: _explanation,
+                                    selectable: true,
+                                    styleSheet: MarkdownStyleSheet(
+                                      h1: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
                                       ),
-                                      extensionSet: md.ExtensionSet(
-                                        md
-                                            .ExtensionSet
-                                            .commonMark
-                                            .blockSyntaxes,
-                                        [
-                                          ...md
-                                              .ExtensionSet
-                                              .commonMark
-                                              .inlineSyntaxes,
-                                          md.EmojiSyntax(),
-                                        ],
+                                      h2: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                      ),
+                                      h3: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                      ),
+                                      p: const TextStyle(
+                                        fontSize: 14,
+                                        height: 1.5,
+                                        color: Colors.black87,
+                                      ),
+                                      code: TextStyle(
+                                        fontSize: 12,
+                                        backgroundColor: Colors.grey[200],
+                                        fontFamily: 'monospace',
+                                      ),
+                                      codeblockDecoration: BoxDecoration(
+                                        color: Colors.grey[200],
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      blockquote: const TextStyle(
+                                        fontSize: 14,
+                                        height: 1.5,
+                                        color: Colors.black54,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                      blockquoteDecoration: BoxDecoration(
+                                        color: Colors.grey[100],
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border(
+                                          left: BorderSide(
+                                            color: Colors.grey[400]!,
+                                            width: 4,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                          ),
-                          if (_isLoading) ...[
-                            const SizedBox(height: 16),
-                            const Center(
-                              child: Text(
-                                "正在加载...",
-                                style: TextStyle(color: Colors.grey),
-                              ),
+                                    extensionSet: md.ExtensionSet(
+                                      md.ExtensionSet.commonMark.blockSyntaxes,
+                                      [
+                                        ...md
+                                            .ExtensionSet
+                                            .commonMark
+                                            .inlineSyntaxes,
+                                        md.EmojiSyntax(),
+                                      ],
+                                    ),
+                                  ),
+                        ),
+                        if (_isLoading) ...[
+                          const SizedBox(height: 16),
+                          const Center(
+                            child: Text(
+                              "正在加载...",
+                              style: TextStyle(color: Colors.grey),
                             ),
-                          ],
+                          ),
                         ],
-                      ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16), // 底部留出空间
-                ],
+                ),
+                const SizedBox(height: 16), // 底部留出空间
               ],
-            ),
+            ],
           ),
         ),
       ),

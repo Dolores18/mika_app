@@ -27,6 +27,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
+        scaffoldBackgroundColor: const Color(0xFFFCE4EC), // 淡粉色
       ),
       home: const MainScreen(),
     );
@@ -67,31 +68,61 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar:
           _isSearchActive
               ? null
-              : BottomNavigationBar(
-                type: BottomNavigationBarType.fixed,
-                currentIndex: _currentIndex,
-                onTap: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
-                },
-                selectedItemColor: Colors.deepPurple,
-                unselectedItemColor: Colors.grey,
-                items: const [
-                  BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.school),
-                    label: '学习',
+              : Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.75), // 半透明白色
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
                   ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.search),
-                    label: 'AI查询',
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 4,
+                      spreadRadius: 0,
+                      offset: const Offset(0, -1),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
                   ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.person),
-                    label: '我的',
+                  child: BottomNavigationBar(
+                    type: BottomNavigationBarType.fixed,
+                    currentIndex: _currentIndex,
+                    onTap: (index) {
+                      setState(() {
+                        _currentIndex = index;
+                      });
+                    },
+                    selectedItemColor: const Color(0xFF6b4bbd), // 与查询按钮相同的紫色
+                    unselectedItemColor: Colors.grey[600],
+                    backgroundColor: Colors.transparent, // 透明背景，让Container的颜色显示
+                    elevation: 0, // 移除阴影
+                    showSelectedLabels: true,
+                    showUnselectedLabels: true,
+                    items: const [
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.home),
+                        label: '首页',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.school),
+                        label: '学习',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.search),
+                        label: 'AI查询',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.person),
+                        label: '我的',
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
     );
   }
