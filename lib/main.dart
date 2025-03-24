@@ -70,19 +70,11 @@ class _MainScreenState extends State<MainScreen> {
               ? null
               : Container(
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.75), // 半透明白色
+                  color: const Color(0xFFFCE4EC), // 使用与应用背景相同的淡粉色
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(20),
                     topRight: Radius.circular(20),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 4,
-                      spreadRadius: 0,
-                      offset: const Offset(0, -1),
-                    ),
-                  ],
                 ),
                 child: ClipRRect(
                   borderRadius: const BorderRadius.only(

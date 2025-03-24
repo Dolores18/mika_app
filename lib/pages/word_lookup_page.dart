@@ -252,11 +252,12 @@ class _WordLookupPageState extends State<WordLookupPage> {
                   child: Row(
                     children: [
                       Expanded(
-                        flex: 7,
                         child: Container(
-                          height: 25,
+                          height: 36,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9), // 透明度使其更融入背景
+                            color: Colors.white.withValues(
+                              alpha: 230,
+                            ), // 透明度使其更融入背景
                             borderRadius: BorderRadius.circular(36),
                             boxShadow: [
                               BoxShadow(
@@ -269,81 +270,69 @@ class _WordLookupPageState extends State<WordLookupPage> {
                               ),
                             ],
                           ),
-                          child: Center(
-                            child: Row(
-                              children: [
-                                const SizedBox(width: 10),
-                                const Icon(
-                                  Icons.search,
-                                  color: Colors.grey,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _wordController,
-                                    decoration: const InputDecoration(
-                                      hintText: '输入单词',
-                                      border: InputBorder.none,
-                                      isDense: true,
-                                      contentPadding: EdgeInsets.symmetric(
-                                        vertical: 4,
-                                      ),
-                                      isCollapsed: false,
+                          child: Row(
+                            children: [
+                              const SizedBox(width: 10),
+                              const Icon(
+                                Icons.search,
+                                color: Colors.grey,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: _wordController,
+                                  decoration: const InputDecoration(
+                                    hintText: '输入单词',
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      vertical: 4,
                                     ),
-                                    style: const TextStyle(fontSize: 13),
-                                    textAlignVertical: TextAlignVertical.center,
-                                    onSubmitted: (value) {
-                                      if (!_isLoading &&
-                                          value.trim().isNotEmpty) {
-                                        _fetchExplanation(value.trim());
-                                      }
-                                    },
+                                    isCollapsed: false,
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        height: 36,
-                        width: 70,
-                        child: ElevatedButton(
-                          onPressed:
-                              _isLoading
-                                  ? null
-                                  : () {
-                                    final word = _wordController.text.trim();
-                                    if (word.isNotEmpty) {
-                                      _fetchExplanation(word);
+                                  style: const TextStyle(fontSize: 13),
+                                  textAlignVertical: TextAlignVertical.center,
+                                  onSubmitted: (value) {
+                                    if (!_isLoading &&
+                                        value.trim().isNotEmpty) {
+                                      _fetchExplanation(value.trim());
                                     }
                                   },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(
-                              0xFF6b4bbd,
-                            ).withOpacity(0.95), // 轻微透明度
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(36),
-                              side: BorderSide.none,
-                            ),
-                            elevation: 0,
-                            shadowColor: Colors.transparent,
-                            padding: EdgeInsets.zero,
-                            surfaceTintColor: Colors.transparent,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          child: const Center(
-                            child: Text(
-                              '查询',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
+                              MaterialButton(
+                                onPressed:
+                                    _isLoading
+                                        ? null
+                                        : () {
+                                          final word =
+                                              _wordController.text.trim();
+                                          if (word.isNotEmpty) {
+                                            _fetchExplanation(word);
+                                          }
+                                        },
+                                color: Colors.transparent,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(36),
+                                ),
+                                padding: EdgeInsets.zero,
+                                minWidth: 60,
+                                height: 28,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                child: const Text(
+                                  '查询',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF6b4bbd),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
                           ),
                         ),
                       ),
@@ -384,18 +373,6 @@ class _WordLookupPageState extends State<WordLookupPage> {
                     width: double.infinity,
                     margin: const EdgeInsets.symmetric(horizontal: 16),
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.75), // 半透明白色背景
-                      borderRadius: BorderRadius.circular(16), // 更大的圆角
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.03), // 非常轻微的阴影
-                          blurRadius: 5,
-                          spreadRadius: 0,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
