@@ -238,7 +238,7 @@ class _WordLookupPageState extends State<WordLookupPage> {
                         Expanded(
                           flex: 7,
                           child: Container(
-                            height: 36,
+                            height: 29,
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(36),
@@ -289,9 +289,20 @@ class _WordLookupPageState extends State<WordLookupPage> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        SizedBox(
+                        Container(
                           height: 36,
                           width: 70,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(36),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withValues(alpha: 41),
+                                spreadRadius: 0,
+                                blurRadius: 1,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
                           child: ElevatedButton(
                             onPressed:
                                 _isLoading
@@ -303,13 +314,14 @@ class _WordLookupPageState extends State<WordLookupPage> {
                                       }
                                     },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF6b4bbd), // 紫色按钮
+                              backgroundColor: const Color(0xFF6b4bbd),
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25),
+                                borderRadius: BorderRadius.circular(37),
                               ),
-                              elevation: 1,
+                              elevation: 0,
                               padding: EdgeInsets.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                             child: const Center(
                               child: Text(
