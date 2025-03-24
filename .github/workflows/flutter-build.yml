@@ -78,7 +78,8 @@ jobs:
     
         
       - name: Build APK
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --debug --target-platform android-arm64
+
 
 
       - name: Get version from pubspec
@@ -93,9 +94,9 @@ jobs:
       - name: Rename APK with version
         run: |
           cd build/app/outputs/flutter-apk/
-          for file in *-release.apk; do
+          for file in *-debug.apk; do
             if [ -f "$file" ]; then
-              arch=$(echo $file | sed 's/app-\(.*\)-release.apk/\1/')
+              arch=$(echo $file | sed 's/app-\(.*\)-debug.apk/\1/')
               mv "$file" "app-${{ steps.version.outputs.version }}-${arch}.apk"
             fi
           done
