@@ -53,6 +53,35 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Decode Keystore
+        run: |
+          echo "开始处理密钥文件..."
+          echo "检查目标目录是否存在..."
+          mkdir -p android/app
+          echo "目标目录创建完成"
+          
+          echo "解码并保存密钥文件..."
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+          
+          echo "验证密钥文件..."
+          if [ -f "android/app/upload-keystore.jks" ]; then
+            echo "密钥文件已成功创建"
+            ls -l android/app/upload-keystore.jks
+          else
+            echo "错误：密钥文件未创建成功"
+            exit 1
+          fi
+          
+          echo "检查key.properties文件..."
+          if [ -f "android/key.properties" ]; then
+            echo "key.properties文件存在"
+            echo "验证密钥文件路径..."
+            cat android/key.properties | grep -v "password" | grep -v "alias"
+          else
+            echo "错误：key.properties文件不存在"
+            exit 1
+          fi
+
       - name: Check Environment
         run: |
           echo "Flutter version:"

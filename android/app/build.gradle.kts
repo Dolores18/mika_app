@@ -26,10 +26,18 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(project.property("storeFile").toString())
+            storePassword = project.property("storePassword").toString()
+            keyAlias = project.property("keyAlias").toString()
+            keyPassword = project.property("keyPassword").toString()
+        }
+    }
+
     buildTypes {
         release {
-            // 使用debug签名配置
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
