@@ -356,7 +356,7 @@
 		331C80DA294CF71000263BE5 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 33CC10EC2044A3C60003C045 /* Runner */;
-			targetProxy = 331C80D9294CF71000263BE5 /* PBXContainerItemProxy */;
+			target = 331C80D9294CF71000263BE5 /* PBXContainerItemProxy */;
 		};
 		33CC11202044C79F0003C045 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
