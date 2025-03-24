@@ -72,6 +72,14 @@ jobs:
             exit 1
           fi
           
+          echo "创建key.properties文件..."
+          cat << EOF > android/key.properties
+          storePassword=${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=../app/upload-keystore.jks
+          EOF
+          
           echo "检查key.properties文件..."
           if [ -f "android/key.properties" ]; then
             echo "key.properties文件存在"
