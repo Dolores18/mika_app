@@ -42,14 +42,22 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  bool _isSearchActive = false; // 添加搜索状态变量
 
   // 页面列表
   final List<Widget> _pages = [
     const Center(child: Text('首页')),
     const Center(child: Text('学习')),
-    const WordLookupPage(),
+    const Center(child: Text('占位符')), // 占位符，实际会在build方法中替换
     const Center(child: Text('我的')),
   ];
+  
+  // 切换搜索状态的方法
+  void toggleSearchState(bool isActive) {
+    setState(() {
+      _isSearchActive = isActive;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,24 +66,28 @@ class _MainScreenState extends State<MainScreen> {
         title: const Text('AI 语言助手'),
         systemOverlayStyle: SystemUiOverlayStyle.light,
       ),
-      body: _pages[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        selectedItemColor: Colors.deepPurple,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
-          BottomNavigationBarItem(icon: Icon(Icons.school), label: '学习'),
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'AI查询'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
-        ],
-      ),
+      body: _currentIndex == 2 
+          ? WordLookupPage(onSearchStateChanged: toggleSearchState)
+          : _pages[_currentIndex],
+      bottomNavigationBar: _isSearchActive 
+          ? null  // 当搜索激活时隐藏导航栏
+          : BottomNavigationBar(
+              type: BottomNavigationBarType.fixed,
+              currentIndex: _currentIndex,
+              onTap: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              selectedItemColor: Colors.deepPurple,
+              unselectedItemColor: Colors.grey,
+              items: const [
+                BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
+                BottomNavigationBarItem(icon: Icon(Icons.school), label: '学习'),
+                BottomNavigationBarItem(icon: Icon(Icons.search), label: 'AI查询'),
+                BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
+              ],
+            ),
     );
   }
 }

@@ -6,7 +6,9 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 
 class WordLookupPage extends StatefulWidget {
-  const WordLookupPage({Key? key}) : super(key: key);
+  final Function(bool)? onSearchStateChanged; // 添加回调函数属性
+
+  const WordLookupPage({Key? key, this.onSearchStateChanged}) : super(key: key);
 
   @override
   State<WordLookupPage> createState() => _WordLookupPageState();
@@ -105,6 +107,9 @@ class _WordLookupPageState extends State<WordLookupPage> {
       _explanation = '';
     });
 
+    // 通知父组件搜索开始，显示搜索状态
+    widget.onSearchStateChanged?.call(true);
+
     try {
       await _streamSubscription?.cancel();
 
@@ -149,12 +154,20 @@ class _WordLookupPageState extends State<WordLookupPage> {
             _explanation = processApiResponse(buffer);
             _scrollToBottom();
           });
+
+          // 搜索完成，可以选择保持导航栏隐藏或显示
+          // 如果希望结果显示时保持导航栏隐藏，保持为true
+          // 如果希望搜索完成后显示导航栏，改为false
+          widget.onSearchStateChanged?.call(true); // 保持隐藏状态
         },
         onError: (error) {
           setState(() {
             _explanation = 'Error: $error';
             _isLoading = false;
           });
+
+          // 发生错误时恢复导航栏
+          widget.onSearchStateChanged?.call(false);
         },
       );
     } catch (e) {
@@ -162,6 +175,9 @@ class _WordLookupPageState extends State<WordLookupPage> {
         _explanation = 'Error: $e';
         _isLoading = false;
       });
+
+      // 发生错误时恢复导航栏
+      widget.onSearchStateChanged?.call(false);
     }
   }
 
@@ -298,6 +314,25 @@ class _WordLookupPageState extends State<WordLookupPage> {
               ),
             ),
           ),
+          // 添加一个返回按钮，用于显示导航栏
+          if (_explanation.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                // 清空解释内容
+                setState(() {
+                  _explanation = '';
+                });
+                // 显示导航栏
+                widget.onSearchStateChanged?.call(false);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey[300],
+                foregroundColor: Colors.black87,
+              ),
+              child: const Text('返回'),
+            ),
+          ],
         ],
       ),
     );
