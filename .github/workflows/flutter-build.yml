@@ -7,6 +7,7 @@ on:
     branches: [ "main" ]
   release:
     types: [created]
+  # 手动触发选项
   workflow_dispatch:
     inputs:
       clear_cache:
@@ -25,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # 获取完整历史以便调试
       
       - name: Check code version
         run: |
@@ -35,29 +36,29 @@ jobs:
           echo "修改的文件:"
           git diff --name-only HEAD~1 HEAD
       
-      - name: Cache Gradle files
+      # 只缓存Gradle依赖项，不包含任何编译产物
+      - name: Cache Gradle dependencies
         if: ${{ github.event.inputs.clear_cache != 'true' }}
         uses: actions/cache@v4
         with:
           path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}-${{ github.sha }}
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/jars-*
+            ~/.gradle/wrapper/dists
+          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-gradle-
-
+            ${{ runner.os }}-gradle-deps-
+      
+      # 只缓存pub依赖项，不包含任何代码编译产物
       - name: Cache Flutter dependencies
         if: ${{ github.event.inputs.clear_cache != 'true' }}
         uses: actions/cache@v4
         with:
           path: |
             ~/.pub-cache
-            build
-            .dart_tool
-            android/.gradle
-          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}-${{ github.sha }}
+          key: ${{ runner.os }}-flutter-deps-${{ hashFiles('**/pubspec.lock') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-flutter-
+            ${{ runner.os }}-flutter-deps-
 
       - name: Setup Java
         uses: actions/setup-java@v3
@@ -131,13 +132,12 @@ jobs:
       - name: Analyze project source
         run: flutter analyze --no-fatal-warnings
         
+      # 强制清理编译产物，确保使用最新代码
       - name: Clean before build
         run: flutter clean
               
       - name: Build APK
-        run: flutter build apk --release --target-platform android-arm64
-
-
+        run: flutter build apk --release --target-platform android-arm64 --split-per-abi
 
       - name: Get version from pubspec
         id: version
@@ -151,23 +151,20 @@ jobs:
       - name: Rename APK with version
         run: |
           cd build/app/outputs/flutter-apk/
-          for file in *-release.apk; do
-            if [ -f "$file" ]; then
-              arch=$(echo $file | sed 's/app-\(.*\)-release.apk/\1/')
-              mv "$file" "app-${{ steps.version.outputs.version }}-${arch}.apk"
-            fi
-          done
+          if [ -f "app-arm64-v8a-release.apk" ]; then
+            mv "app-arm64-v8a-release.apk" "app-${{ steps.version.outputs.version }}-arm64-v8a.apk"
+          fi
 
       - name: Upload Release Asset
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            build/app/outputs/flutter-apk/app-${{ steps.version.outputs.version }}-*.apk
+            build/app/outputs/flutter-apk/app-${{ steps.version.outputs.version }}-arm64-v8a.apk
           
       - name: Upload Artifact for Debug
         uses: actions/upload-artifact@v4
         with:
-          name: debug-apk
-          path: build/app/outputs/flutter-apk/app-*.apk
+          name: arm64-v8a-apk
+          path: build/app/outputs/flutter-apk/app-${{ steps.version.outputs.version }}-arm64-v8a.apk
           retention-days: 7
