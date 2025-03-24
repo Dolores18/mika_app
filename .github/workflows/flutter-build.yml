@@ -56,7 +56,8 @@ jobs:
     
         
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --split-per-abi
+
 
       - name: Get version from pubspec
         id: version
