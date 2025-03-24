@@ -4,6 +4,10 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = java.util.Properties()
+keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+
 android {
     namespace = "com.example.mika_app"
     compileSdk = flutter.compileSdkVersion
@@ -28,10 +32,10 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file(project.property("storeFile").toString())
-            storePassword = project.property("storePassword").toString()
-            keyAlias = project.property("keyAlias").toString()
-            keyPassword = project.property("keyPassword").toString()
+            storeFile = file(keystoreProperties["storeFile"].toString())
+            storePassword = keystoreProperties["storePassword"].toString()
+            keyAlias = keystoreProperties["keyAlias"].toString()
+            keyPassword = keystoreProperties["keyPassword"].toString()
         }
     }
 
