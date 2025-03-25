@@ -18,7 +18,7 @@ class _ArticleListPageState extends State<ArticleListPage> {
   final ScrollController _scrollController = ScrollController();
 
   List<Article> _articles = [];
-  List<Category> _categories = [];
+
   String? _selectedCategoryId;
   String? _selectedDifficulty;
   String? _selectedTopic;
@@ -33,7 +33,7 @@ class _ArticleListPageState extends State<ArticleListPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _loadCategories();
+
     _selectedTopic = widget.initialTopic;
     _loadArticles();
   }
@@ -50,17 +50,6 @@ class _ArticleListPageState extends State<ArticleListPage> {
       if (!_isLoading && _hasMore) {
         _loadMoreArticles();
       }
-    }
-  }
-
-  Future<void> _loadCategories() async {
-    try {
-      final categories = await _articleService.getCategories();
-      setState(() {
-        _categories = categories;
-      });
-    } catch (e) {
-      log.e('加载分类失败: $e');
     }
   }
 

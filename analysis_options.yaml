@@ -15,6 +15,8 @@ analyzer:
     unused_import: ignore
     depend_on_referenced_packages: ignore
     use_super_parameters: ignore
+    deprecated_member_use: ignore
+    unused_element: ignore
 
 linter:
   # The lint rules applied to this project can be customized in the
