@@ -162,7 +162,7 @@ class ArticleService {
   // 根据主题获取文章列表 - 只使用主题ID
   Future<List<Map<String, dynamic>>> getArticlesByTopic(
     String topicOrId, {
-    int page = 1,
+    int page = 1, // 保留参数但不使用，避免破坏现有调用
   }) async {
     // 修正可能的编码问题
     String fixedTopicOrId = correctEncodingIssues(topicOrId);
@@ -193,11 +193,11 @@ class ArticleService {
     }
 
     try {
-      // 只使用ID路径，添加page参数
-      final uri = Uri.parse('$_baseUrl/analysis/by_topic/$topicId?page=$page');
+      // 只使用ID路径，不再添加page参数
+      final uri = Uri.parse('$_baseUrl/analysis/by_topic/$topicId');
 
       log.i('请求主题文章: $uri');
-      log.i('使用主题ID: $topicId, 页码: $page');
+      log.i('使用主题ID: $topicId');
 
       final response = await http
           .get(

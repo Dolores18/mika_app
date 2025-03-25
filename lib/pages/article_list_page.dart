@@ -15,7 +15,8 @@ class ArticleListPage extends StatefulWidget {
 
 class _ArticleListPageState extends State<ArticleListPage> {
   final ArticleService _articleService = ArticleService();
-  final ScrollController _scrollController = ScrollController();
+  // 移除滚动控制器，因为不再需要监听滚动位置
+  // final ScrollController _scrollController = ScrollController();
 
   List<Article> _articles = [];
 
@@ -24,15 +25,17 @@ class _ArticleListPageState extends State<ArticleListPage> {
   String? _selectedTopic;
 
   bool _isLoading = true;
-  bool _hasMore = true;
   String? _error;
-  int _currentPage = 1;
-  static const int _pageSize = 10;
+  // 移除分页相关变量
+  // bool _hasMore = true;
+  // int _currentPage = 1;
+  // static const int _pageSize = 10;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
+    // 不再需要滚动监听
+    // _scrollController.addListener(_onScroll);
 
     _selectedTopic = widget.initialTopic;
     _loadArticles();
@@ -40,18 +43,15 @@ class _ArticleListPageState extends State<ArticleListPage> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    // 不再需要处理滚动控制器
+    // _scrollController.dispose();
     super.dispose();
   }
 
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      if (!_isLoading && _hasMore) {
-        _loadMoreArticles();
-      }
-    }
-  }
+  // 移除或简化_onScroll方法
+  // void _onScroll() {
+  //   // 分页加载逻辑已移除
+  // }
 
   Future<void> _loadArticles() async {
     try {
@@ -63,6 +63,8 @@ class _ArticleListPageState extends State<ArticleListPage> {
       if (_selectedTopic != null) {
         final articlesList = await _articleService.getArticlesByTopic(
           _selectedTopic!,
+          // 移除分页参数
+          // page: _currentPage,
         );
 
         // 将简单的文章数据转换为Article对象
@@ -124,6 +126,7 @@ class _ArticleListPageState extends State<ArticleListPage> {
         setState(() {
           _articles = articles;
           _isLoading = false;
+          // 不再设置_hasMore和_currentPage
         });
       } else {
         setState(() {
@@ -140,110 +143,10 @@ class _ArticleListPageState extends State<ArticleListPage> {
     }
   }
 
-  Future<void> _loadMoreArticles() async {
-    if (_isLoading || !_hasMore) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // 使用已知正常工作的API端点，而不是/api/articles/ids
-      if (_selectedTopic != null) {
-        final articlesData = await _articleService.getArticlesByTopic(
-          _selectedTopic!,
-          page: _currentPage + 1,
-        );
-
-        // 如果没有更多数据，则标记为没有更多
-        if (articlesData.isEmpty) {
-          setState(() {
-            _hasMore = false;
-            _isLoading = false;
-          });
-          return;
-        }
-
-        // 将简单的文章数据转换为Article对象
-        final List<Article> newArticles =
-            articlesData.map((articleData) {
-              // 同样的文章转换逻辑
-              final String safeTitle =
-                  articleData['title'] is String
-                      ? articleData['title'] as String
-                      : '未知标题';
-
-              final String safeSection =
-                  articleData['section'] is String
-                      ? articleData['section'] as String
-                      : '未知栏目';
-
-              final String safeDate =
-                  articleData['issue_date'] is String
-                      ? articleData['issue_date'] as String
-                      : '未知日期';
-
-              return Article(
-                id: articleData['id'] as int,
-                title: safeTitle,
-                sectionId: 0,
-                sectionTitle: safeSection,
-                issueId: 0,
-                issueDate: safeDate,
-                issueTitle: '',
-                order: 0,
-                path: articleData['path'] as String? ?? '',
-                hasImages: false,
-                audioUrl: null,
-                analysis: ArticleAnalysis(
-                  id: 0,
-                  articleId: articleData['id'] as int,
-                  readingTime: articleData['reading_time'] as int? ?? 8,
-                  difficulty: Difficulty(
-                    level: 'B2-C1',
-                    description: '中高级',
-                    features: ['经济学人文章'],
-                  ),
-                  topics: Topics(
-                    primary: _selectedTopic!,
-                    secondary: [],
-                    keywords: _selectedTopic!.isEmpty ? [] : [_selectedTopic!],
-                  ),
-                  summary: Summary(short: '', keyPoints: []),
-                  vocabulary: [],
-                  createdAt: DateTime.now(),
-                  updatedAt: DateTime.now(),
-                ),
-              );
-            }).toList();
-
-        setState(() {
-          _articles.addAll(newArticles);
-          _currentPage++;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _hasMore = false;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      log.e('加载更多文章失败: $e');
-      if (mounted) {
-        setState(() {
-          _hasMore = false;
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('加载更多文章失败: $e'),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
-  }
+  // 移除_loadMoreArticles方法，不再需要
+  // Future<void> _loadMoreArticles() async {
+  //   // 已移除分页加载功能
+  // }
 
   void _filterArticles() {
     _loadArticles(); // 重新加载文章
@@ -281,19 +184,10 @@ class _ArticleListPageState extends State<ArticleListPage> {
               : _articles.isEmpty
               ? const Center(child: Text('没有找到相关文章'))
               : ListView.builder(
-                controller: _scrollController,
-                itemCount: _articles.length + (_hasMore ? 1 : 0),
+                // 不再需要滚动控制器
+                // controller: _scrollController,
+                itemCount: _articles.length,
                 itemBuilder: (context, index) {
-                  if (index == _articles.length) {
-                    return _isLoading
-                        ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
-                        : const SizedBox.shrink();
-                  }
                   return _buildArticleCard(_articles[index]);
                 },
               ),
