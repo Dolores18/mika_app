@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/article.dart';
 import '../services/article_service.dart';
 import 'article_detail_page.dart';
+import '../utils/logger.dart';
 
 class ArticleListPage extends StatefulWidget {
   final String? initialTopic;
@@ -59,7 +60,7 @@ class _ArticleListPageState extends State<ArticleListPage> {
         _categories = categories;
       });
     } catch (e) {
-      print('加载分类失败: $e');
+      log.e('加载分类失败: $e');
     }
   }
 
@@ -94,7 +95,7 @@ class _ArticleListPageState extends State<ArticleListPage> {
                       ? articleData['issue_date'] as String
                       : '未知日期';
 
-              print('准备解析文章标题: $safeTitle');
+              log.d('准备解析文章标题: $safeTitle');
 
               return Article(
                 id: articleData['id'] as int,
@@ -142,7 +143,7 @@ class _ArticleListPageState extends State<ArticleListPage> {
         });
       }
     } catch (e) {
-      print('加载文章列表时出错: $e');
+      log.e('加载文章列表时出错: $e');
       setState(() {
         _error = '加载文章列表时出错: $e';
         _isLoading = false;
@@ -182,7 +183,7 @@ class _ArticleListPageState extends State<ArticleListPage> {
         _isLoading = false;
       });
     } catch (e) {
-      print('加载更多文章失败: $e');
+      log.e('加载更多文章失败: $e');
       setState(() {
         _hasMore = false; // 停止尝试加载更多
         _isLoading = false;

@@ -3,6 +3,7 @@ import '../models/article.dart';
 import 'article_list_page.dart';
 import 'article_detail_page.dart';
 import '../services/article_service.dart';
+import '../utils/logger.dart';
 
 class ReadingPage extends StatefulWidget {
   const ReadingPage({super.key});
@@ -181,7 +182,7 @@ class _ReadingPageState extends State<ReadingPage> {
         });
       }
     } catch (e) {
-      print('加载主题失败: $e');
+      log.e('加载主题失败', e);
 
       // 只有在API失败时才使用固定主题数据作为备选
       setState(() {

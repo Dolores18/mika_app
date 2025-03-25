@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
+import '../utils/logger.dart';
 
 class WordLookupPage extends StatefulWidget {
   final Function(bool)? onSearchStateChanged;

@@ -40,6 +40,7 @@ dependencies:
   shared_preferences: ^2.2.0
   markdown: ^7.3.0
   webview_flutter: ^4.10.0
+  logger: ^2.5.0
 
 dev_dependencies:
   flutter_test:
@@ -51,7 +52,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
-  flutter_tts: ^3.8.3
+
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

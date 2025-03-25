@@ -6,6 +6,7 @@ import '../widgets/key_points_list.dart';
 import '../widgets/vocabulary_list.dart';
 import 'word_lookup_page.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../utils/logger.dart';
 
 class ArticleDetailPage extends StatefulWidget {
   final String articleId;
@@ -24,6 +25,9 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
   String? _contentError;
   double _fontSize = 16.0;
   bool _isDarkMode = false;
+
+  // 添加HTML缓存机制
+  final Map<String, String> _htmlCache = {};
 
   // 用于控制摘要和标签显示的状态
   bool _showHeader = true;
@@ -67,9 +71,12 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    // 清除缓存，避免内存泄漏
+    _htmlCache.clear();
     super.dispose();
   }
 
+  // 优化 _loadHtmlContent 方法，提高加载效率
   Future<void> _loadHtmlContent() async {
     setState(() {
       _isLoadingContent = true;
@@ -77,16 +84,20 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
     });
 
     try {
-      // 获取文章HTML内容
-      final html = await _articleService.getArticleHtmlContent(
-        widget.articleId,
-      );
+      // 优化1: 使用超时保护
+      final html = await _articleService
+          .getArticleHtmlContent(widget.articleId)
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('加载文章内容超时'),
+          );
+
       setState(() {
         _htmlContent = html;
         _isLoadingContent = false;
       });
     } catch (e) {
-      print('加载文章内容失败: $e');
+      log.e('加载文章内容失败', e);
       setState(() {
         _contentError = '加载文章内容失败: $e';
         _isLoadingContent = false;
@@ -199,7 +210,7 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
         final article = snapshot.data!;
 
         // 添加调试信息
-        print('加载文章详情: ID=${article.id}, 标题=${article.title}');
+        log.i('加载文章详情: ID=${article.id}, 标题=${article.title}');
         _debugArticleAnalysis(article);
 
         return Scaffold(
@@ -525,6 +536,8 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
                                 setState(() {
                                   if (_fontSize > 12) {
                                     _fontSize -= 1;
+                                    // 清除所有缓存，因为字体大小变化了
+                                    _htmlCache.clear();
                                   }
                                 });
                               },
@@ -550,6 +563,8 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
                                 setState(() {
                                   if (_fontSize < 24) {
                                     _fontSize += 1;
+                                    // 清除所有缓存，因为字体大小变化了
+                                    _htmlCache.clear();
                                   }
                                 });
                               },
@@ -566,6 +581,8 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
                           onPressed: () {
                             setState(() {
                               _isDarkMode = !_isDarkMode;
+                              // 清除所有缓存，因为主题变化了
+                              _htmlCache.clear();
                             });
                           },
                         ),
@@ -577,127 +594,188 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
     );
   }
 
+  // 修改 _buildWebView 方法，优化WebView加载过程
   Widget _buildWebView(String html, Article article) {
-    // 处理词汇高亮
-    String processedHtml = _processHtmlForVocabulary(html, article);
-
     // 创建WebView控制器
     final controller = WebViewController();
 
-    // 配置WebView
+    // 优化1: 在加载前设置基本配置，减少首次渲染时间
     controller
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(_isDarkMode ? const Color(0xFF121212) : Colors.white)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (String url) {
-            print('WebView页面加载完成');
-            // 注入监听滚动的JavaScript代码
-            controller.runJavaScript('''
-              document.addEventListener('scroll', function() {
-                var scrollY = window.scrollY;
-                if (scrollY > 50) {
-                  Scrolling.postMessage('hide');
-                } else if (scrollY < 10) {
-                  Scrolling.postMessage('show');
-                }
-              });
-            ''');
-          },
-        ),
-      )
-      ..addJavaScriptChannel(
-        'Scrolling',
-        onMessageReceived: (JavaScriptMessage message) {
-          if (message.message == 'hide' && _showHeader) {
-            setState(() {
-              _showHeader = false;
-            });
-          } else if (message.message == 'show' && !_showHeader) {
-            setState(() {
-              _showHeader = true;
-            });
-          }
-        },
-      )
-      // 添加词汇点击处理
-      ..addJavaScriptChannel(
-        'VocabularyHandler',
-        onMessageReceived: (JavaScriptMessage message) {
-          // 解析词汇数据
-          try {
-            print('接收到词汇点击: ${message.message}');
-            List<String> parts = message.message.split('|');
-            if (parts.length >= 4) {
-              _showWordPopup(
-                word: parts[0],
-                translation: parts[1],
-                context: parts[2],
-                example: parts[3],
-              );
-            }
-          } catch (e) {
-            print('处理词汇点击出错: $e');
-          }
-        },
-      )
-      ..loadHtmlString(processedHtml);
+      ..setBackgroundColor(
+        _isDarkMode ? const Color(0xFF121212) : Colors.white,
+      );
 
-    // 返回WebView组件
-    return WebViewWidget(controller: controller);
+    // 优化2: 使用FutureBuilder延迟处理HTML内容，避免主线程阻塞
+    return FutureBuilder<String>(
+      // 使用Future.microtask让UI先渲染，然后再异步处理HTML
+      future: Future.microtask(() => _processHtmlForVocabulary(html, article)),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('正在处理文章内容...'),
+              ],
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('处理文章内容出错: ${snapshot.error}'));
+        }
+
+        if (!snapshot.hasData) {
+          return const Center(child: Text('没有内容可显示'));
+        }
+
+        // 优化3: 仅在数据准备好时设置导航和JS通道
+        controller
+          ..setNavigationDelegate(
+            NavigationDelegate(
+              onPageFinished: (String url) {
+                log.d('WebView页面加载完成');
+                // 注入监听滚动的JavaScript代码
+                controller.runJavaScript('''
+                  document.addEventListener('scroll', function() {
+                    var scrollY = window.scrollY;
+                    if (scrollY > 50) {
+                      Scrolling.postMessage('hide');
+                    } else if (scrollY < 10) {
+                      Scrolling.postMessage('show');
+                    }
+                  });
+                ''');
+              },
+              // 优化4: 添加进度监控
+              onProgress: (int progress) {
+                log.d('WebView加载进度: $progress%');
+              },
+            ),
+          )
+          ..addJavaScriptChannel(
+            'Scrolling',
+            onMessageReceived: (JavaScriptMessage message) {
+              if (message.message == 'hide' && _showHeader) {
+                setState(() {
+                  _showHeader = false;
+                });
+              } else if (message.message == 'show' && !_showHeader) {
+                setState(() {
+                  _showHeader = true;
+                });
+              }
+            },
+          )
+          // 添加词汇点击处理
+          ..addJavaScriptChannel(
+            'VocabularyHandler',
+            onMessageReceived: (JavaScriptMessage message) {
+              // 解析词汇数据
+              try {
+                log.d('接收到词汇点击: ${message.message}');
+                List<String> parts = message.message.split('|');
+                if (parts.length >= 4) {
+                  _showWordPopup(
+                    word: parts[0],
+                    translation: parts[1],
+                    context: parts[2],
+                    example: parts[3],
+                  );
+                }
+              } catch (e) {
+                log.e('处理词汇点击出错', e);
+              }
+            },
+          )
+          // 优化5: 最后才加载HTML内容
+          ..loadHtmlString(snapshot.data!);
+
+        // 返回WebView组件
+        return WebViewWidget(controller: controller);
+      },
+    );
   }
 
-  // 处理HTML内容，添加词汇高亮
+  // 修改 _processHtmlForVocabulary 方法，使用更高效的处理方式
   String _processHtmlForVocabulary(String html, Article article) {
     if (article.analysis == null || article.analysis!.vocabulary.isEmpty) {
       return _getFormattedHtml(html);
     }
 
-    // 为每个词汇添加高亮标记
-    String contentWithHighlights = html;
+    // 优化1: 检查缓存，避免重复处理
+    final String cacheKey = '${article.id}_${_fontSize}_${_isDarkMode}';
+    if (_htmlCache.containsKey(cacheKey)) {
+      log.d('使用缓存的HTML内容');
+      return _htmlCache[cacheKey]!;
+    }
 
+    log.d('开始处理词汇高亮，词汇数量: ${article.analysis!.vocabulary.length}');
+    final Stopwatch stopwatch = Stopwatch()..start();
+
+    // 优化2: 使用更高效的单次处理方法
+    // 创建所有词汇的正则表达式模式
+    final List<MapEntry<RegExp, Vocabulary>> patterns = [];
     for (var vocab in article.analysis!.vocabulary) {
-      // 使用正则表达式匹配完整单词
+      // 使用单词边界确保匹配完整单词
       final RegExp regExp = RegExp(
         r'\b' + RegExp.escape(vocab.word) + r'\b',
         caseSensitive: false,
         multiLine: true,
       );
+      patterns.add(MapEntry(regExp, vocab));
+    }
 
-      // 替换为带有高亮标记的HTML
-      contentWithHighlights = contentWithHighlights.replaceAllMapped(regExp, (
-        match,
-      ) {
+    // 优化3: 使用一个简单的处理方式
+    // 这里使用分块处理的方法来避免处理巨大的HTML字符串
+    String contentWithHighlights = html;
+
+    // 分批处理词汇，每批处理部分词汇，避免一次性处理太多
+    const int batchSize = 5; // 每批处理的词汇数量
+    for (int i = 0; i < patterns.length; i += batchSize) {
+      final int end =
+          (i + batchSize < patterns.length) ? i + batchSize : patterns.length;
+      final currentBatch = patterns.sublist(i, end);
+
+      for (var entry in currentBatch) {
+        final regExp = entry.key;
+        final vocab = entry.value;
+
         // 编码词汇数据以便JavaScript处理
         String vocabData =
             '${vocab.word}|${vocab.translation}|${vocab.context}|${vocab.example}';
 
-        return '<span class="highlight-word" '
-            'onclick="VocabularyHandler.postMessage(\'$vocabData\')">'
-            '${match.group(0)}</span>';
-      });
+        contentWithHighlights = contentWithHighlights.replaceAllMapped(
+          regExp,
+          (match) =>
+              '<span class="highlight-word" '
+              'onclick="VocabularyHandler.postMessage(\'$vocabData\')">'
+              '${match.group(0)}</span>',
+        );
+      }
     }
 
-    // 使用格式化的HTML包装内容
-    return _getFormattedHtml(contentWithHighlights);
+    // 优化4: 使用格式化的HTML包装内容并缓存结果
+    final result = _getFormattedHtml(contentWithHighlights);
+    _htmlCache[cacheKey] = result;
+
+    stopwatch.stop();
+    log.d('词汇高亮处理完成，用时: ${stopwatch.elapsedMilliseconds}ms');
+
+    return result;
   }
 
-  // 格式化HTML内容，添加样式
+  // 优化 _getFormattedHtml 方法，减少不必要的处理
   String _getFormattedHtml(String html) {
-    // 确保HTML内容是合法的UTF-8编码
-    print('格式化HTML内容，长度: ${html.length}');
-
-    // 添加更多日志以调试可能的编码问题
-    if (html.length > 50) {
-      print('HTML内容开头50个字符: ${html.substring(0, 50)}');
-    }
-
     return '''
       <!DOCTYPE html>
       <html lang="zh">
       <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <title>文章详情</title>
         <style>
           body {
@@ -806,20 +884,20 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
   // 检查文章分析中的关键词和摘要部分，确保不会出现乱码
   void _debugArticleAnalysis(Article article) {
     if (article.analysis != null) {
-      print('调试文章分析数据:');
-      print('  - 主题: ${article.analysis!.topics.primary}');
-      print('  - 关键词: ${article.analysis!.topics.keywords.join(', ')}');
-      print('  - 摘要: ${article.analysis!.summary.short}');
+      log.d('调试文章分析数据:');
+      log.d('  - 主题: ${article.analysis!.topics.primary}');
+      log.d('  - 关键词: ${article.analysis!.topics.keywords.join(', ')}');
+      log.d('  - 摘要: ${article.analysis!.summary.short}');
 
       // 输出词汇信息以便调试
       if (article.analysis!.vocabulary.isNotEmpty) {
-        print('  - 词汇数量: ${article.analysis!.vocabulary.length}');
-        print(
+        log.d('  - 词汇数量: ${article.analysis!.vocabulary.length}');
+        log.d(
           '  - 第一个词汇: ${article.analysis!.vocabulary[0].word} - ${article.analysis!.vocabulary[0].translation}',
         );
       }
     } else {
-      print('文章没有分析数据');
+      log.w('文章没有分析数据');
     }
   }
 

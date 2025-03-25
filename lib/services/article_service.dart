@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'dart:math';
 import '../models/article.dart';
+import '../utils/logger.dart';
 
 class ArticleService {
   // 根据运行环境选择合适的地址
@@ -19,15 +21,15 @@ class ArticleService {
         text.contains('å') ||
         text.contains('ä') ||
         text.contains('é')) {
-      print('检测到可能的编码问题，尝试修正: $text');
+      log.i('检测到可能的编码问题，尝试修正: $text');
       try {
         // 尝试将错误解码的UTF-8重新编码为UTF-8
         List<int> latinBytes = latin1.encode(text);
         String decoded = utf8.decode(latinBytes, allowMalformed: true);
-        print('编码修正结果: $decoded');
+        log.i('编码修正结果: $decoded');
         return decoded;
       } catch (e) {
-        print('编码修正失败: $e');
+        log.i('编码修正失败: $e');
       }
     }
     return text;
@@ -52,7 +54,7 @@ class ArticleService {
   // 获取所有主题及其文章数量
   Future<List<Map<String, dynamic>>> getTopics() async {
     try {
-      print('开始请求主题数据: $_baseUrl/analysis/topics/list');
+      log.i('开始请求主题数据: $_baseUrl/analysis/topics/list');
 
       // 添加正确的请求头，指定UTF-8编码
       final response = await http
@@ -65,13 +67,13 @@ class ArticleService {
           )
           .timeout(_requestTimeout);
 
-      print('主题数据响应状态: ${response.statusCode}');
+      log.i('主题数据响应状态: ${response.statusCode}');
       if (response.statusCode == 200) {
         // 使用UTF-8解码确保中文字符正确处理
         final String decodedBody = utf8.decode(response.bodyBytes);
         final List<dynamic> data = json.decode(decodedBody);
 
-        print('成功获取主题数据: ${data.length} 项');
+        log.i('成功获取主题数据: ${data.length} 项');
 
         // 准备固定的主题列表，初始化count为0
         final List<Map<String, dynamic>> result = [
@@ -105,16 +107,16 @@ class ArticleService {
 
         return result;
       } else {
-        print('获取主题列表失败: HTTP ${response.statusCode}, 响应内容: ${response.body}');
+        log.i('获取主题列表失败: HTTP ${response.statusCode}, 响应内容: ${response.body}');
         throw Exception('获取主题列表失败: ${response.statusCode}');
       }
     } catch (e) {
-      print('获取主题列表出现异常: $e');
+      log.i('获取主题列表出现异常: $e');
       // 提供模拟数据以便开发和测试，但确保数量更加真实
       if (e.toString().contains('Connection refused') ||
           e.toString().contains('timeout') ||
           e.toString().contains('SocketException')) {
-        print('使用模拟主题数据');
+        log.i('使用模拟主题数据');
 
         // 获取各主题实际文章数量
         final Map<int, int> topicCounts = await _getTopicArticleCounts();
@@ -142,13 +144,13 @@ class ArticleService {
           final articles = await getArticlesByTopic(topicId.toString());
           counts[topicId] = articles.length;
         } catch (e) {
-          print('获取主题 $topicId 文章数量失败: $e');
+          log.i('获取主题 $topicId 文章数量失败: $e');
           // 失败时设置默认值
           counts[topicId] = 0;
         }
       }
     } catch (e) {
-      print('获取主题文章数量失败: $e');
+      log.i('获取主题文章数量失败: $e');
     }
 
     return counts;
@@ -161,7 +163,7 @@ class ArticleService {
     // 修正可能的编码问题
     String fixedTopicOrId = correctEncodingIssues(topicOrId);
     if (fixedTopicOrId != topicOrId) {
-      print('主题名称修正: $topicOrId -> $fixedTopicOrId');
+      log.i('主题名称修正: $topicOrId -> $fixedTopicOrId');
       topicOrId = fixedTopicOrId;
     }
 
@@ -182,7 +184,7 @@ class ArticleService {
       };
 
       topicId = topicNameToId[topicOrId] ?? 1; // 默认使用政治主题ID
-      print('非数字主题名: $topicOrId 已映射到主题ID: $topicId');
+      log.i('非数字主题名: $topicOrId 已映射到主题ID: $topicId');
     }
 
     try {
@@ -191,8 +193,8 @@ class ArticleService {
         'http://10.0.2.2:8000/api/analysis/by_topic/$topicId',
       );
 
-      print('请求主题文章: $uri');
-      print('使用主题ID: $topicId');
+      log.i('请求主题文章: $uri');
+      log.i('使用主题ID: $topicId');
 
       final response = await http
           .get(
@@ -204,27 +206,27 @@ class ArticleService {
           )
           .timeout(_requestTimeout);
 
-      print('主题文章响应状态: ${response.statusCode}');
+      log.i('主题文章响应状态: ${response.statusCode}');
       if (response.statusCode == 200) {
         // 使用UTF-8解码响应内容
         final String decodedBody = utf8.decode(response.bodyBytes);
-        print('响应原始内容: ${response.body}');
-        print('UTF-8解码后内容: $decodedBody');
+        log.v('响应原始内容: ${response.body}');
+        log.i('UTF-8解码后内容: $decodedBody');
 
         final data = json.decode(decodedBody);
-        print('成功获取主题文章: ${data.length} 篇');
+        log.i('成功获取主题文章: ${data.length} 篇');
 
         // 检查解析后的数据结构
         if (data is List && data.isNotEmpty) {
-          print('第一篇文章数据结构: ${data[0].keys.join(', ')}');
+          log.i('第一篇文章数据结构: ${data[0].keys.join(', ')}');
           if (data[0].containsKey('title')) {
-            print('第一篇文章标题: ${data[0]['title']}');
+            log.i('第一篇文章标题: ${data[0]['title']}');
           }
         }
 
         // 如果返回空数据，提供模拟数据
         if (data.isEmpty) {
-          print('主题文章数据为空，使用模拟数据');
+          log.i('主题文章数据为空，使用模拟数据');
           return _getMockArticlesByTopicId(topicId.toString());
         }
 
@@ -240,7 +242,7 @@ class ArticleService {
             fixedItem['title'] = fixedTitle;
 
             if (originalTitle != fixedTitle) {
-              print('文章标题修正: $originalTitle -> $fixedTitle');
+              log.i('文章标题修正: $originalTitle -> $fixedTitle');
             }
           }
 
@@ -252,7 +254,7 @@ class ArticleService {
             fixedItem['section'] = fixedSection;
 
             if (originalSection != fixedSection) {
-              print('栏目标题修正: $originalSection -> $fixedSection');
+              log.i('栏目标题修正: $originalSection -> $fixedSection');
             }
           }
 
@@ -264,7 +266,7 @@ class ArticleService {
             fixedItem['summary'] = fixedSummary;
 
             if (originalSummary != fixedSummary) {
-              print('摘要修正: $originalSummary -> $fixedSummary');
+              log.i('摘要修正: $originalSummary -> $fixedSummary');
             }
           }
 
@@ -273,11 +275,11 @@ class ArticleService {
 
         return result;
       } else {
-        print('获取主题文章失败: HTTP ${response.statusCode}, 响应内容: ${response.body}');
+        log.i('获取主题文章失败: HTTP ${response.statusCode}, 响应内容: ${response.body}');
         return _getMockArticlesByTopicId(topicId.toString());
       }
     } catch (e) {
-      print('获取主题文章出现异常: $e');
+      log.i('获取主题文章出现异常: $e');
       return _getMockArticlesByTopicId(topicId.toString());
     }
   }
@@ -288,7 +290,7 @@ class ArticleService {
 
     // 如果是ID，根据ID返回不同的模拟数据
     if (topicId != null) {
-      print('使用主题ID[$topicId]获取模拟文章数据');
+      log.i('使用主题ID[$topicId]获取模拟文章数据');
 
       switch (topicId) {
         case 1: // 政治
@@ -338,7 +340,7 @@ class ArticleService {
 
   // 获取模拟主题文章数据 (按主题名称)
   List<Map<String, dynamic>> _getMockArticlesByTopic(String topic) {
-    print('使用主题名[$topic]获取模拟文章数据');
+    log.i('使用主题名[$topic]获取模拟文章数据');
 
     // 一些常用的主题名检查，兼容可能的乱码情况
     if (topic.contains('政') ||
@@ -346,7 +348,7 @@ class ArticleService {
         topic == 'æ¿æ²»' ||
         topic.contains('zhen') ||
         topic.toLowerCase().contains('polit')) {
-      print('检测到"政治"相关主题，使用政治模拟数据');
+      log.i('检测到"政治"相关主题，使用政治模拟数据');
       return [
         {'id': 1, 'title': '全球政治格局分析'},
         {'id': 4, 'title': '欧盟新政策影响评估'},
@@ -399,10 +401,10 @@ class ArticleService {
 
     try {
       final uri = Uri.parse('$_baseUrl/articles/$id/with_analysis');
-      print('开始请求文章详情: $uri');
+      log.i('开始请求文章详情: $uri');
 
       // 打印完整的请求头信息
-      print(
+      log.d(
         '请求头: {Accept: application/json; charset=utf-8, Content-Type: application/json; charset=utf-8}',
       );
 
@@ -416,16 +418,16 @@ class ArticleService {
           )
           .timeout(_requestTimeout);
 
-      print('文章详情响应状态: ${response.statusCode}');
+      log.d('文章详情响应状态: ${response.statusCode}');
 
       // 打印详细的响应头信息
-      print('响应头:');
+      log.d('响应头:');
       response.headers.forEach((key, value) {
-        print('  $key: $value');
+        log.d('  $key: $value');
       });
 
       // 打印原始字节内容的十六进制表示
-      print('响应正文原始字节 (前100字节, 十六进制): ');
+      log.v('响应正文原始字节 (前100字节, 十六进制): ');
       final bytes = response.bodyBytes;
       final hexList =
           bytes
@@ -433,19 +435,19 @@ class ArticleService {
               .map((b) => b.toRadixString(16).padLeft(2, '0'))
               .toList();
       for (int i = 0; i < hexList.length; i += 16) {
-        print('  ${hexList.skip(i).take(16).join(' ')}');
+        log.v('  ${hexList.skip(i).take(16).join(' ')}');
       }
 
       // 打印原始响应内容
-      print('文章详情响应原始内容: ${response.body}');
+      log.v('文章详情响应原始内容: ${response.body}');
 
       // 使用UTF-8解码并打印
       final String decodedBody = utf8.decode(response.bodyBytes);
-      print('文章详情UTF-8解码后内容: $decodedBody');
+      log.d('文章详情UTF-8解码后内容: $decodedBody');
 
       // 安全解析JSON
       if (decodedBody.isEmpty) {
-        print('文章详情响应内容为空，使用模拟数据');
+        log.w('文章详情响应内容为空，使用模拟数据');
         return _getMockArticleById(id);
       }
 
@@ -454,7 +456,7 @@ class ArticleService {
 
       // 检查响应格式 - 处理第一项作为article
       if (data == null) {
-        print('文章详情响应解析为null，使用模拟数据');
+        log.w('文章详情响应解析为null，使用模拟数据');
         return _getMockArticleById(id);
       }
 
@@ -463,13 +465,13 @@ class ArticleService {
       Map<String, dynamic>? analysisData;
 
       if (data is List && data.isNotEmpty) {
-        print('API返回了数组格式的文章数据');
+        log.d('API返回了数组格式的文章数据');
         articleData = Map<String, dynamic>.from(data[0]);
 
         // 检查是否有分析数据
         if (data.length > 1 && data[1] is Map) {
           analysisData = Map<String, dynamic>.from(data[1]);
-          print('找到分析数据: ${analysisData.keys.join(', ')}');
+          log.d('找到分析数据: ${analysisData.keys.join(', ')}');
         }
       } else if (data is Map && data.containsKey('article')) {
         // 如果返回了嵌套格式 {article: {...}, analysis: {...}}
@@ -501,26 +503,26 @@ class ArticleService {
         analysis: null, // 稍后处理
       );
 
-      print('加载文章详情: ID=${article.id}, 标题=${article.title}');
+      log.i('加载文章详情: ID=${article.id}, 标题=${article.title}');
 
       // 处理analysis字段
       if (analysisData != null) {
-        print('开始处理文章分析数据');
+        log.d('开始处理文章分析数据');
         try {
           // 先使用原始数据格式辅助调试
           final rawTopics = analysisData['topics'];
           final rawSummary = analysisData['summary'];
 
           if (rawTopics != null) {
-            print('调试文章分析数据:');
+            log.d('调试文章分析数据:');
             if (rawTopics is Map) {
-              print('  - 主题: ${rawTopics['primary']}');
+              log.d('  - 主题: ${rawTopics['primary']}');
               if (rawTopics['keywords'] is List) {
-                print('  - 关键词: ${(rawTopics['keywords'] as List).join(', ')}');
+                log.d('  - 关键词: ${(rawTopics['keywords'] as List).join(', ')}');
               }
             }
             if (rawSummary is Map && rawSummary['short'] != null) {
-              print('  - 摘要: ${rawSummary['short']}');
+              log.d('  - 摘要: ${rawSummary['short']}');
             }
           }
 
@@ -669,14 +671,14 @@ class ArticleService {
               analysisData['updated_at'] ?? DateTime.now().toIso8601String();
 
           // 输出修正后的数据
-          print('修正后的topics.primary: ${fixedAnalysis['topics']['primary']}');
+          log.i('修正后的topics.primary: ${fixedAnalysis['topics']['primary']}');
           if (fixedAnalysis['topics']['keywords'] is List &&
               (fixedAnalysis['topics']['keywords'] as List).isNotEmpty) {
-            print(
+            log.i(
               '修正后的keywords: ${(fixedAnalysis['topics']['keywords'] as List).join(', ')}',
             );
           }
-          print('修正后的summary.short: ${fixedAnalysis['summary']['short']}');
+          log.i('修正后的summary.short: ${fixedAnalysis['summary']['short']}');
 
           // 创建ArticleAnalysis对象
           try {
@@ -721,15 +723,15 @@ class ArticleService {
               updatedAt: DateTime.parse(fixedAnalysis['updated_at']),
             );
           } catch (e) {
-            print('创建ArticleAnalysis对象失败: $e');
+            log.i('创建ArticleAnalysis对象失败: $e');
             article.analysis = _createMockAnalysis(article.id);
           }
         } catch (e) {
-          print('解析analysis字段出错: $e，使用模拟分析数据');
+          log.i('解析analysis字段出错: $e，使用模拟分析数据');
           article.analysis = _createMockAnalysis(article.id);
         }
       } else {
-        print('API返回的analysis为null，使用模拟分析数据');
+        log.i('API返回的analysis为null，使用模拟分析数据');
         article.analysis = _createMockAnalysis(article.id);
       }
 
@@ -737,7 +739,7 @@ class ArticleService {
       _articleCache[id] = article;
       return article;
     } catch (e) {
-      print('获取文章详情出现异常: $e');
+      log.i('获取文章详情出现异常: $e');
       // 返回模拟文章数据
       return _getMockArticleById(id);
     }
@@ -779,7 +781,7 @@ class ArticleService {
   // 获取模拟文章详情
   Article _getMockArticleById(String id) {
     final int articleId = int.tryParse(id) ?? 1;
-    print('使用模拟文章详情数据，ID: $articleId');
+    log.i('使用模拟文章详情数据，ID: $articleId');
 
     // 根据不同ID返回不同的模拟文章
     switch (articleId) {
@@ -925,7 +927,7 @@ class ArticleService {
   Future<List<Category>> getCategories() async {
     try {
       // 使用主题API替代分类API
-      print('开始请求分类数据: $_baseUrl/analysis/topics/list');
+      log.i('开始请求分类数据: $_baseUrl/analysis/topics/list');
       final response = await http
           .get(
             Uri.parse('$_baseUrl/analysis/topics/list'),
@@ -936,20 +938,20 @@ class ArticleService {
           )
           .timeout(_requestTimeout);
 
-      print('分类数据响应状态: ${response.statusCode}');
+      log.i('分类数据响应状态: ${response.statusCode}');
       if (response.statusCode == 200) {
         // 使用UTF-8解码响应内容
         final String decodedBody = utf8.decode(response.bodyBytes);
-        print('分类数据原始响应内容: ${response.body}');
-        print('分类数据UTF-8解码后内容: $decodedBody');
+        log.i('分类数据原始响应内容: ${response.body}');
+        log.i('分类数据UTF-8解码后内容: $decodedBody');
 
         final List<dynamic> data = json.decode(decodedBody);
 
         // 检查解析后的数据
         if (data.isNotEmpty) {
-          print('第一个分类数据: ${data[0]}');
+          log.i('第一个分类数据: ${data[0]}');
           if (data[0] is Map && data[0].containsKey('topic')) {
-            print('第一个分类主题名: ${data[0]['topic']}');
+            log.i('第一个分类主题名: ${data[0]['topic']}');
           }
         }
 
@@ -961,7 +963,7 @@ class ArticleService {
           String fixedTopic = correctEncodingIssues(originalTopic);
 
           if (originalTopic != fixedTopic) {
-            print('分类名称修正: $originalTopic -> $fixedTopic');
+            log.i('分类名称修正: $originalTopic -> $fixedTopic');
           }
 
           categories.add(
@@ -975,16 +977,16 @@ class ArticleService {
 
         return categories;
       } else {
-        print('获取分类列表失败: HTTP ${response.statusCode}, 响应内容: ${response.body}');
+        log.i('获取分类列表失败: HTTP ${response.statusCode}, 响应内容: ${response.body}');
         throw Exception('获取分类列表失败: ${response.statusCode}');
       }
     } catch (e) {
-      print('获取分类列表出现异常: $e');
+      log.i('获取分类列表出现异常: $e');
       // 当连接出现问题时，提供模拟数据
       if (e.toString().contains('Connection refused') ||
           e.toString().contains('timeout') ||
           e.toString().contains('SocketException')) {
-        print('使用模拟分类数据');
+        log.i('使用模拟分类数据');
         return [
           Category(id: '1', name: '政治', count: 15),
           Category(id: '2', name: '经济', count: 23),
@@ -1054,7 +1056,7 @@ class ArticleService {
   Future<String> getArticleHtmlContent(String id) async {
     try {
       final uri = Uri.parse('$_baseUrl/articles/$id/html');
-      print('开始请求文章HTML内容: $uri');
+      log.i('开始请求文章HTML内容: $uri');
 
       final response = await http
           .get(
@@ -1066,23 +1068,23 @@ class ArticleService {
           )
           .timeout(_requestTimeout);
 
-      print('文章HTML内容响应状态: ${response.statusCode}');
+      log.i('文章HTML内容响应状态: ${response.statusCode}');
       if (response.statusCode == 200) {
         // 使用UTF-8解码确保中文字符正确处理
         return utf8.decode(response.bodyBytes);
       } else {
-        print(
+        log.i(
           '获取文章HTML内容失败: HTTP ${response.statusCode}, 响应内容: ${response.body}',
         );
         throw Exception('获取文章HTML内容失败: ${response.statusCode}');
       }
     } catch (e) {
-      print('获取文章HTML内容出现异常: $e');
+      log.i('获取文章HTML内容出现异常: $e');
       // 如果是连接问题，返回模拟HTML内容
       if (e.toString().contains('Connection refused') ||
           e.toString().contains('timeout') ||
           e.toString().contains('SocketException')) {
-        print('使用模拟HTML内容');
+        log.i('使用模拟HTML内容');
         return _getMockHtmlContent(id);
       }
       throw e;
