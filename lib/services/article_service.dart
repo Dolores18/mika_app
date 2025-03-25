@@ -194,9 +194,7 @@ class ArticleService {
 
     try {
       // 只使用ID路径，添加page参数
-      final uri = Uri.parse(
-        'http://10.0.2.2:8000/api/analysis/by_topic/$topicId?page=$page',
-      );
+      final uri = Uri.parse('$_baseUrl/analysis/by_topic/$topicId?page=$page');
 
       log.i('请求主题文章: $uri');
       log.i('使用主题ID: $topicId, 页码: $page');
