@@ -148,29 +148,86 @@ class _ArticleListPageState extends State<ArticleListPage> {
     });
 
     try {
-      final response = await _articleService.getArticleIds(
-        page: _currentPage,
-        pageSize: _pageSize,
-        categoryId: _selectedCategoryId,
-        difficulty: _selectedDifficulty,
-      );
+      // 使用已知正常工作的API端点，而不是/api/articles/ids
+      if (_selectedTopic != null) {
+        final articlesData = await _articleService.getArticlesByTopic(
+          _selectedTopic!,
+          page: _currentPage + 1,
+        );
 
-      if (response.ids.isEmpty) {
+        // 如果没有更多数据，则标记为没有更多
+        if (articlesData.isEmpty) {
+          setState(() {
+            _hasMore = false;
+            _isLoading = false;
+          });
+          return;
+        }
+
+        // 将简单的文章数据转换为Article对象
+        final List<Article> newArticles =
+            articlesData.map((articleData) {
+              // 同样的文章转换逻辑
+              final String safeTitle =
+                  articleData['title'] is String
+                      ? articleData['title'] as String
+                      : '未知标题';
+
+              final String safeSection =
+                  articleData['section'] is String
+                      ? articleData['section'] as String
+                      : '未知栏目';
+
+              final String safeDate =
+                  articleData['issue_date'] is String
+                      ? articleData['issue_date'] as String
+                      : '未知日期';
+
+              return Article(
+                id: articleData['id'] as int,
+                title: safeTitle,
+                sectionId: 0,
+                sectionTitle: safeSection,
+                issueId: 0,
+                issueDate: safeDate,
+                issueTitle: '',
+                order: 0,
+                path: articleData['path'] as String? ?? '',
+                hasImages: false,
+                audioUrl: null,
+                analysis: ArticleAnalysis(
+                  id: 0,
+                  articleId: articleData['id'] as int,
+                  readingTime: articleData['reading_time'] as int? ?? 8,
+                  difficulty: Difficulty(
+                    level: 'B2-C1',
+                    description: '中高级',
+                    features: ['经济学人文章'],
+                  ),
+                  topics: Topics(
+                    primary: _selectedTopic!,
+                    secondary: [],
+                    keywords: _selectedTopic!.isEmpty ? [] : [_selectedTopic!],
+                  ),
+                  summary: Summary(short: '', keyPoints: []),
+                  vocabulary: [],
+                  createdAt: DateTime.now(),
+                  updatedAt: DateTime.now(),
+                ),
+              );
+            }).toList();
+
+        setState(() {
+          _articles.addAll(newArticles);
+          _currentPage++;
+          _isLoading = false;
+        });
+      } else {
         setState(() {
           _hasMore = false;
           _isLoading = false;
         });
-        return;
       }
-
-      final articles = await _articleService.getArticlesByIds(response.ids);
-
-      setState(() {
-        _articles.addAll(articles);
-        _currentPage++;
-        _hasMore = response.hasMore;
-        _isLoading = false;
-      });
     } catch (e) {
       log.e('加载更多文章失败: $e');
       if (mounted) {
@@ -204,6 +261,7 @@ class _ArticleListPageState extends State<ArticleListPage> {
         '3': '科技',
         '4': '文化',
         '5': '其他',
+        '6': '社会',
       };
       pageTitle = topicIdToName[_selectedTopic] ?? _selectedTopic!;
     }

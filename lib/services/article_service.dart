@@ -83,6 +83,7 @@ class ArticleService {
           {'id': 3, 'topic': '科技', 'count': 0},
           {'id': 4, 'topic': '文化', 'count': 0},
           {'id': 5, 'topic': '其他', 'count': 0},
+          {'id': 6, 'topic': '社会', 'count': 0},
         ];
 
         // 从API获取真实数量并更新固定主题
@@ -128,6 +129,7 @@ class ArticleService {
           {'id': 3, 'topic': '科技', 'count': topicCounts[3] ?? 0},
           {'id': 4, 'topic': '文化', 'count': topicCounts[4] ?? 0},
           {'id': 5, 'topic': '其他', 'count': topicCounts[5] ?? 0},
+          {'id': 6, 'topic': '社会', 'count': topicCounts[6] ?? 0},
         ];
       }
       throw Exception('获取主题列表失败: $e');
@@ -139,8 +141,8 @@ class ArticleService {
     final Map<int, int> counts = {};
 
     try {
-      // 遍历各主题ID，获取实际文章数量
-      for (int topicId = 1; topicId <= 5; topicId++) {
+      // 遍历各主题ID，获取实际文章数量，范围从1到6
+      for (int topicId = 1; topicId <= 6; topicId++) {
         try {
           final articles = await getArticlesByTopic(topicId.toString());
           counts[topicId] = articles.length;
@@ -159,8 +161,9 @@ class ArticleService {
 
   // 根据主题获取文章列表 - 只使用主题ID
   Future<List<Map<String, dynamic>>> getArticlesByTopic(
-    String topicOrId,
-  ) async {
+    String topicOrId, {
+    int page = 1,
+  }) async {
     // 修正可能的编码问题
     String fixedTopicOrId = correctEncodingIssues(topicOrId);
     if (fixedTopicOrId != topicOrId) {
@@ -180,6 +183,7 @@ class ArticleService {
         '科技': 3,
         '文化': 4,
         '其他': 5,
+        '社会': 6,
         // 添加乱码主题名的映射
         'æ¿æ²»': 1, // 政治
       };
@@ -189,13 +193,13 @@ class ArticleService {
     }
 
     try {
-      // 只使用ID路径
+      // 只使用ID路径，添加page参数
       final uri = Uri.parse(
-        'http://10.0.2.2:8000/api/analysis/by_topic/$topicId',
+        'http://10.0.2.2:8000/api/analysis/by_topic/$topicId?page=$page',
       );
 
       log.i('请求主题文章: $uri');
-      log.i('使用主题ID: $topicId');
+      log.i('使用主题ID: $topicId, 页码: $page');
 
       final response = await http
           .get(
@@ -324,6 +328,12 @@ class ArticleService {
             {'id': 10, 'title': '可再生能源市场发展'},
             {'id': 11, 'title': '全球健康挑战与对策'},
           ];
+        case 6: // 社会
+          return [
+            {'id': 18, 'title': '社会问题分析'},
+            {'id': 19, 'title': '社会发展趋势研究'},
+            {'id': 20, 'title': '社会政策全球比较'},
+          ];
         default:
           return [
             {'id': 12, 'title': '主题#$topicId 文章1'},
@@ -375,6 +385,14 @@ class ArticleService {
           {'id': 1, 'title': '全球芯片竞争加剧，台湾面临压力'},
           {'id': 6, 'title': 'AI发展的伦理考量'},
           {'id': 9, 'title': '量子计算最新进展'},
+        ];
+      case '社会':
+      case 'society':
+      case 'social':
+        return [
+          {'id': 18, 'title': '社会问题分析'},
+          {'id': 19, 'title': '社会发展趋势研究'},
+          {'id': 20, 'title': '社会政策全球比较'},
         ];
       case '环境':
       case 'environment':

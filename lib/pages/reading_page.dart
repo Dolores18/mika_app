@@ -26,6 +26,7 @@ class _ReadingPageState extends State<ReadingPage> {
     {'id': 2, 'topic': '经济', 'count': 0},
     {'id': 3, 'topic': '科技', 'count': 0},
     {'id': 4, 'topic': '文化', 'count': 0},
+    {'id': 6, 'topic': '社会', 'count': 0},
     {'id': 5, 'topic': '其他', 'count': 0},
   ];
 
@@ -178,6 +179,21 @@ class _ReadingPageState extends State<ReadingPage> {
         setState(() {
           // 直接使用API返回的主题数据
           _topics = List.from(apiTopics);
+
+          // 自定义排序：将"社会"主题（ID为6）放在"其他"主题（ID为5）前面
+          _topics.sort((a, b) {
+            // 如果是"社会"主题，则将其排在"其他"前面
+            if (a['id'] == 6 && b['id'] == 5) {
+              return -1; // "社会"排在"其他"前面
+            }
+            // 如果是"其他"主题，则将其排在"社会"后面
+            if (a['id'] == 5 && b['id'] == 6) {
+              return 1; // "其他"排在"社会"后面
+            }
+            // 其他情况按ID排序
+            return a['id'].compareTo(b['id']);
+          });
+
           _isLoading = false;
         });
       }
@@ -187,6 +203,18 @@ class _ReadingPageState extends State<ReadingPage> {
       // 只有在API失败时才使用固定主题数据作为备选
       setState(() {
         _topics = List.from(_fixedTopics);
+
+        // 同样应用排序逻辑
+        _topics.sort((a, b) {
+          if (a['id'] == 6 && b['id'] == 5) {
+            return -1;
+          }
+          if (a['id'] == 5 && b['id'] == 6) {
+            return 1;
+          }
+          return a['id'].compareTo(b['id']);
+        });
+
         _isLoading = false;
       });
     }
@@ -515,6 +543,8 @@ class _ReadingPageState extends State<ReadingPage> {
         return Icons.devices;
       case '文化':
         return Icons.theater_comedy;
+      case '社会':
+        return Icons.people;
       case '其他':
         return Icons.more_horiz;
       default:

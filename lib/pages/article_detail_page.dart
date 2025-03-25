@@ -84,25 +84,106 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
     });
 
     try {
-      // 优化1: 使用超时保护
-      final html = await _articleService
-          .getArticleHtmlContent(widget.articleId)
-          .timeout(
-            const Duration(seconds: 15),
-            onTimeout: () => throw Exception('加载文章内容超时'),
-          );
+      // 获取原始HTML
+      final html = await _articleService.getArticleHtmlContent(
+        widget.articleId,
+      );
+
+      // 清理HTML，移除重复标题
+      _htmlContent = _cleanupArticleHtml(html);
 
       setState(() {
-        _htmlContent = html;
         _isLoadingContent = false;
       });
     } catch (e) {
-      log.e('加载文章内容失败', e);
+      log.e('获取文章内容失败', e);
       setState(() {
-        _contentError = '加载文章内容失败: $e';
+        _contentError = '获取文章内容失败: $e';
         _isLoadingContent = false;
       });
     }
+  }
+
+  String _cleanupArticleHtml(String html) {
+    // 提取正文内容
+    final document = RegExp(
+      r'<body>(.*?)</body>',
+      dotAll: true,
+    ).firstMatch(html);
+    if (document == null) return html;
+
+    String content = document.group(1) ?? '';
+
+    // 提取文章标题（假设它是第一个h1标签或te_article_title类）
+    final titleMatch = RegExp(
+      r'<h1.*?>(.*?)</h1>',
+      dotAll: true,
+    ).firstMatch(content);
+    final articleTitle = titleMatch?.group(1)?.trim() ?? '';
+
+    if (articleTitle.isNotEmpty) {
+      log.d('检测到文章标题: $articleTitle');
+
+      // 1. 删除开头的重复h1标题
+      RegExp firstH1Pattern = RegExp(
+        r'<h1>\s*' + RegExp.escape(articleTitle) + r'\s*</h1>',
+        caseSensitive: false,
+      );
+      content = content.replaceFirst(firstH1Pattern, '');
+
+      // 2. 提取从section_title开始的内容
+      final mainContentMatch = RegExp(
+        r'<span class="te_section_title">(.*?)</body>',
+        dotAll: true,
+      ).firstMatch(content);
+      if (mainContentMatch != null) {
+        content = mainContentMatch.group(0) ?? content;
+      }
+
+      // 3. 删除所有te_article_title类的重复标题
+      RegExp titleClassPattern = RegExp(
+        r'<h1 class="te_article_title">\s*' +
+            RegExp.escape(articleTitle) +
+            r'\s*</h1>',
+        caseSensitive: false,
+      );
+      content = content.replaceAll(titleClassPattern, '');
+
+      // 4. 删除其他可能的重复标题（谨慎使用，防止误删）
+      // 如果有更多标题出现在正文之后，可能需要保留
+      // 只删除显然重复的标题块
+      RegExp repeatTitlePattern = RegExp(
+        r'<h1[^>]*>\s*' +
+            RegExp.escape(articleTitle) +
+            r'\s*</h1>\s*(<h3[^>]*>.*?</h3>)?',
+        caseSensitive: false,
+      );
+      int titleCount = 0;
+      content = content.replaceAllMapped(repeatTitlePattern, (match) {
+        titleCount++;
+        // 保留第一个标题实例，删除其他的
+        return titleCount == 1 ? match.group(0)! : '';
+      });
+    }
+
+    // 构建简化的HTML结构
+    return '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body { padding: 16px; line-height: 1.6; }
+        img { max-width: 100%; height: auto; }
+        h2 { margin-top: 24px; }
+      </style>
+    </head>
+    <body>
+      $content
+    </body>
+    </html>
+    ''';
   }
 
   void _lookupWord(String word) {
