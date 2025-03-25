@@ -8,8 +8,13 @@ import 'package:markdown/markdown.dart' as md;
 
 class WordLookupPage extends StatefulWidget {
   final Function(bool)? onSearchStateChanged;
+  final String? wordToLookup;
 
-  const WordLookupPage({super.key, this.onSearchStateChanged});
+  const WordLookupPage({
+    super.key,
+    this.onSearchStateChanged,
+    this.wordToLookup,
+  });
 
   @override
   State<WordLookupPage> createState() => _WordLookupPageState();
@@ -43,6 +48,12 @@ class _WordLookupPageState extends State<WordLookupPage> {
         statusBarBrightness: Brightness.light,
       ),
     );
+
+    // 如果传入了待查询的单词，自动进行查询
+    if (widget.wordToLookup != null && widget.wordToLookup!.isNotEmpty) {
+      _wordController.text = widget.wordToLookup!;
+      Future.microtask(() => _fetchExplanation(widget.wordToLookup!));
+    }
   }
 
   @override
