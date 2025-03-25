@@ -19,6 +19,15 @@ class _ReadingPageState extends State<ReadingPage> {
   bool _isLoading = true;
   String? _error;
 
+  // 定义固定的主题分类数据
+  final List<Map<String, dynamic>> _fixedTopics = [
+    {'id': 1, 'topic': '政治', 'count': 0},
+    {'id': 2, 'topic': '经济', 'count': 0},
+    {'id': 3, 'topic': '科技', 'count': 0},
+    {'id': 4, 'topic': '文化', 'count': 0},
+    {'id': 5, 'topic': '其他', 'count': 0},
+  ];
+
   final List<Article> _latestArticles = [
     Article(
       id: 1,
@@ -156,14 +165,27 @@ class _ReadingPageState extends State<ReadingPage> {
 
   Future<void> _loadTopics() async {
     try {
-      final topics = await _articleService.getTopics();
       setState(() {
-        _topics = topics;
-        _isLoading = false;
+        _isLoading = true;
       });
+
+      // 尝试从API获取主题数量
+      final apiTopics = await _articleService.getTopics();
+
+      // 如果API成功返回，使用API返回的数据
+      if (mounted) {
+        setState(() {
+          // 直接使用API返回的主题数据
+          _topics = List.from(apiTopics);
+          _isLoading = false;
+        });
+      }
     } catch (e) {
+      print('加载主题失败: $e');
+
+      // 只有在API失败时才使用固定主题数据作为备选
       setState(() {
-        _error = '加载主题失败，请稍后重试';
+        _topics = List.from(_fixedTopics);
         _isLoading = false;
       });
     }
@@ -276,7 +298,8 @@ class _ReadingPageState extends State<ReadingPage> {
                                       MaterialPageRoute(
                                         builder:
                                             (context) => ArticleListPage(
-                                              initialTopic: topic['topic'],
+                                              initialTopic:
+                                                  topic['id'].toString(),
                                             ),
                                       ),
                                     );
@@ -491,10 +514,8 @@ class _ReadingPageState extends State<ReadingPage> {
         return Icons.devices;
       case '文化':
         return Icons.theater_comedy;
-      case '环境':
-        return Icons.eco;
-      case '健康':
-        return Icons.health_and_safety;
+      case '其他':
+        return Icons.more_horiz;
       default:
         return Icons.article;
     }

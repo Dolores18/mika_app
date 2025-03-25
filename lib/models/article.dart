@@ -168,11 +168,61 @@ class Topics {
   });
 
   factory Topics.fromJson(Map<String, dynamic> json) {
-    return Topics(
-      primary: json['primary'],
-      secondary: List<String>.from(json['secondary']),
-      keywords: List<String>.from(json['keywords']),
-    );
+    // 确保能正确处理UTF-8字符
+    try {
+      // 检查primary是否为字符串
+      String primaryTopic = '';
+      if (json['primary'] is String) {
+        primaryTopic = json['primary'];
+      } else {
+        print('警告: 主题不是字符串: ${json['primary']}');
+        primaryTopic = '未知主题';
+      }
+
+      // 处理secondary数组
+      List<String> secondaryTopics = [];
+      if (json['secondary'] is List) {
+        secondaryTopics = List<String>.from(
+          (json['secondary'] as List).map((item) {
+            if (item is String) {
+              return item;
+            } else {
+              print('警告: 次要主题项不是字符串: $item');
+              return '未知';
+            }
+          }),
+        );
+      } else {
+        print('警告: 次要主题不是列表: ${json['secondary']}');
+      }
+
+      // 处理keywords数组
+      List<String> topicKeywords = [];
+      if (json['keywords'] is List) {
+        topicKeywords = List<String>.from(
+          (json['keywords'] as List).map((item) {
+            if (item is String) {
+              return item;
+            } else {
+              print('警告: 关键词项不是字符串: $item');
+              return '未知';
+            }
+          }),
+        );
+      } else {
+        print('警告: 关键词不是列表: ${json['keywords']}');
+      }
+
+      return Topics(
+        primary: primaryTopic,
+        secondary: secondaryTopics,
+        keywords: topicKeywords,
+      );
+    } catch (e) {
+      print('解析Topics时出错: $e');
+      // 返回一个默认的Topics对象
+      return Topics(primary: '未知主题', secondary: [], keywords: []);
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -188,10 +238,39 @@ class Summary {
   Summary({required this.short, required this.keyPoints});
 
   factory Summary.fromJson(Map<String, dynamic> json) {
-    return Summary(
-      short: json['short'],
-      keyPoints: List<String>.from(json['key_points']),
-    );
+    try {
+      // 检查short是否为字符串
+      String shortSummary = '';
+      if (json['short'] is String) {
+        shortSummary = json['short'];
+      } else {
+        print('警告: 摘要不是字符串: ${json['short']}');
+        shortSummary = '无摘要';
+      }
+
+      // 处理keyPoints数组
+      List<String> points = [];
+      if (json['key_points'] is List) {
+        points = List<String>.from(
+          (json['key_points'] as List).map((item) {
+            if (item is String) {
+              return item;
+            } else {
+              print('警告: 关键点不是字符串: $item');
+              return '未知要点';
+            }
+          }),
+        );
+      } else {
+        print('警告: 关键点不是列表: ${json['key_points']}');
+      }
+
+      return Summary(short: shortSummary, keyPoints: points);
+    } catch (e) {
+      print('解析Summary时出错: $e');
+      // 返回一个默认的Summary对象
+      return Summary(short: '无摘要', keyPoints: []);
+    }
   }
 
   Map<String, dynamic> toJson() {

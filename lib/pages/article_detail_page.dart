@@ -5,6 +5,7 @@ import '../widgets/audio_player.dart';
 import '../widgets/key_points_list.dart';
 import '../widgets/vocabulary_list.dart';
 import 'word_lookup_page.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 class ArticleDetailPage extends StatefulWidget {
   final String articleId;
@@ -17,37 +18,78 @@ class ArticleDetailPage extends StatefulWidget {
 
 class _ArticleDetailPageState extends State<ArticleDetailPage> {
   final ArticleService _articleService = ArticleService();
-  Article? _article;
-  bool _isLoading = true;
+  late Future<Article> _articleFuture;
+  String? _htmlContent;
+  bool _isLoadingContent = false;
+  String? _contentError;
   double _fontSize = 16.0;
   bool _isDarkMode = false;
-  String? _error;
+
+  // 用于控制摘要和标签显示的状态
+  bool _showHeader = true;
+  double _scrollOffset = 0;
 
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _loadArticle();
+    _articleFuture = _articleService.getArticleById(widget.articleId);
+    _loadHtmlContent();
+
+    // 添加滚动监听
+    _scrollController.addListener(_onScroll);
+  }
+
+  // 滚动监听回调
+  void _onScroll() {
+    // 获取当前滚动位置
+    final double offset = _scrollController.offset;
+
+    // 向下滚动超过50像素时隐藏头部
+    if (offset > 50 && _showHeader && offset > _scrollOffset) {
+      setState(() {
+        _showHeader = false;
+      });
+    }
+    // 向上滚动时显示头部
+    else if ((offset < 50 || offset < _scrollOffset) && !_showHeader) {
+      setState(() {
+        _showHeader = true;
+      });
+    }
+
+    // 更新上次滚动位置
+    _scrollOffset = offset;
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadArticle() async {
+  Future<void> _loadHtmlContent() async {
+    setState(() {
+      _isLoadingContent = true;
+      _contentError = null;
+    });
+
     try {
-      final article = await _articleService.getArticleById(widget.articleId);
+      // 获取文章HTML内容
+      final html = await _articleService.getArticleHtmlContent(
+        widget.articleId,
+      );
       setState(() {
-        _article = article;
-        _isLoading = false;
+        _htmlContent = html;
+        _isLoadingContent = false;
       });
     } catch (e) {
+      print('加载文章内容失败: $e');
       setState(() {
-        _error = '加载文章失败，请稍后重试';
-        _isLoading = false;
+        _contentError = '加载文章内容失败: $e';
+        _isLoadingContent = false;
       });
     }
   }
@@ -63,181 +105,726 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
     );
   }
 
+  // 显示单词悬浮卡片
+  void _showWordPopup({
+    required String word,
+    required String translation,
+    required String context,
+    required String example,
+  }) {
+    showDialog(
+      context: this.context,
+      builder:
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Container(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        word,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Divider(),
+                  Text(
+                    translation,
+                    style: TextStyle(fontSize: 18, color: Colors.blue[800]),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    "上下文: $context",
+                    style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                  ),
+                  SizedBox(height: 8),
+                  Text("例句: $example", style: TextStyle(fontSize: 14)),
+                  SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        child: Text("添加到生词本"),
+                        onPressed: () {
+                          // 添加生词本功能
+                          Navigator.pop(context);
+                        },
+                      ),
+                      TextButton(
+                        child: Text("关闭"),
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor:
-          _isDarkMode ? const Color(0xFF121212) : const Color(0xFFFCE4EC),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: IconThemeData(
-          color: _isDarkMode ? Colors.white : Colors.black87,
-        ),
-        actions: [
-          // 收藏按钮
-          IconButton(
-            icon: const Icon(Icons.bookmark_border),
-            onPressed: () {
-              // TODO: 实现收藏功能
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('收藏功能即将上线')));
-            },
-          ),
-          // 分享按钮
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () {
-              // TODO: 实现分享功能
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('分享功能即将上线')));
-            },
-          ),
-        ],
-      ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-              ? Center(child: Text(_error!))
-              : _article == null
-              ? const Center(child: Text('文章不存在'))
-              : SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 标题
-                    Text(
-                      _article!.title,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // 章节和期号信息
-                    Text(
-                      '${_article!.sectionTitle} · ${_article!.issueTitle}',
-                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                    ),
-                    const SizedBox(height: 16),
-                    // 音频播放器
-                    if (_article!.audioUrl != null)
-                      AudioPlayer(url: _article!.audioUrl!),
-                    const SizedBox(height: 16),
-                    // 文章内容
-                    Text(
-                      _article!.analysis?.summary.short ?? '',
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 24),
-                    // 关键要点
-                    if (_article!.analysis?.summary.keyPoints != null)
-                      KeyPointsList(
-                        points: _article!.analysis!.summary.keyPoints,
-                      ),
-                    const SizedBox(height: 24),
-                    // 词汇列表
-                    if (_article!.analysis?.vocabulary != null)
-                      VocabularyList(
-                        vocabulary: _article!.analysis!.vocabulary,
-                      ),
-                    const SizedBox(height: 24),
-                    // 难度信息
-                    if (_article!.analysis?.difficulty != null)
-                      _buildDifficultySection(),
-                    const SizedBox(height: 24),
-                    // 主题信息
-                    if (_article!.analysis?.topics != null)
-                      _buildTopicsSection(),
-                  ],
-                ),
+    return FutureBuilder<Article>(
+      future: _articleFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        } else if (snapshot.hasError) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('文章详情')),
+            body: Center(child: Text('加载失败: ${snapshot.error}')),
+          );
+        } else if (!snapshot.hasData) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('文章详情')),
+            body: const Center(child: Text('找不到文章')),
+          );
+        }
+
+        final article = snapshot.data!;
+
+        // 添加调试信息
+        print('加载文章详情: ID=${article.id}, 标题=${article.title}');
+        _debugArticleAnalysis(article);
+
+        return Scaffold(
+          backgroundColor: _isDarkMode ? const Color(0xFF121212) : Colors.white,
+          appBar: AppBar(
+            backgroundColor:
+                _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+            elevation: 0,
+            iconTheme: IconThemeData(
+              color: _isDarkMode ? Colors.white : Colors.black87,
+            ),
+            title: Text(
+              article.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: _isDarkMode ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.bold,
               ),
-      // 底部工具栏
-      bottomNavigationBar:
-          _isLoading
-              ? null
-              : Container(
-                decoration: BoxDecoration(
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: _loadHtmlContent,
+              ),
+              IconButton(
+                icon: const Icon(Icons.bookmark_border),
+                onPressed: () {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('收藏功能即将上线')));
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.share),
+                onPressed: () {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('分享功能即将上线')));
+                },
+              ),
+            ],
+          ),
+          body: Column(
+            children: [
+              // 文章头部信息
+              if (_showHeader)
+                Container(
+                  padding: const EdgeInsets.all(16.0),
+                  color:
+                      _isDarkMode ? const Color(0xFF1E1E1E) : Colors.grey[50],
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 标题
+                      Text(
+                        article.title,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: _isDarkMode ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // 来源和日期
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF6b4bbd).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              article.sectionTitle,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF6b4bbd),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            article.issueDate,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color:
+                                  _isDarkMode
+                                      ? Colors.grey[400]
+                                      : Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // 文章信息
+                      if (article.analysis != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Row(
+                            children: [
+                              // 阅读时间
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.timer_outlined,
+                                    size: 14,
+                                    color:
+                                        _isDarkMode
+                                            ? Colors.grey[400]
+                                            : Colors.grey[600],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${article.analysis!.readingTime} 分钟',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          _isDarkMode
+                                              ? Colors.grey[400]
+                                              : Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 16),
+
+                              // 难度
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _getDifficultyColor(
+                                    article.analysis!.difficulty.level,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  // 转换难度级别为中文描述
+                                  _getDifficultyLevelText(
+                                    article.analysis!.difficulty.level,
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // 摘要
+                      if (article.analysis != null &&
+                          article.analysis!.summary.short.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 16),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color:
+                                  _isDarkMode
+                                      ? Colors.grey[850]
+                                      : const Color(0xFFF5F5F5),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color:
+                                    _isDarkMode
+                                        ? Colors.grey[700]!
+                                        : Colors.grey[300]!,
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '摘要',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color:
+                                        _isDarkMode
+                                            ? Colors.grey[300]
+                                            : Colors.grey[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  article.analysis!.summary.short,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    height: 1.5,
+                                    color:
+                                        _isDarkMode
+                                            ? Colors.grey[300]
+                                            : Colors.grey[800],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+
+              // 主题关键词
+              if (_showHeader &&
+                  article.analysis != null &&
+                  article.analysis!.topics.keywords.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   color: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 5,
-                      offset: const Offset(0, -1),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children:
+                        article.analysis!.topics.keywords.map((keyword) {
+                          return Chip(
+                            label: Text(
+                              keyword,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color:
+                                    _isDarkMode
+                                        ? Colors.white70
+                                        : Colors.grey[800],
+                              ),
+                            ),
+                            backgroundColor:
+                                _isDarkMode
+                                    ? Colors.grey[800]
+                                    : Colors.grey[200],
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          );
+                        }).toList(),
+                  ),
+                ),
+
+              // 文章内容区域
+              Expanded(
+                child:
+                    _isLoadingContent
+                        ? const Center(child: CircularProgressIndicator())
+                        : _contentError != null
+                        ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                _contentError!,
+                                style: TextStyle(
+                                  color:
+                                      _isDarkMode
+                                          ? Colors.grey[400]
+                                          : Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _loadHtmlContent,
+                                child: const Text('重试'),
+                              ),
+                            ],
+                          ),
+                        )
+                        : _htmlContent != null
+                        ? _buildWebView(_htmlContent!, article)
+                        : const Center(child: Text('没有内容可显示')),
+              ),
+            ],
+          ),
+          // 底部工具栏
+          bottomNavigationBar:
+              _isLoadingContent
+                  ? null
+                  : Container(
+                    decoration: BoxDecoration(
+                      color:
+                          _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 5,
+                          offset: const Offset(0, -1),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // 字体大小调整
-                    Row(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        // 字体大小调整
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                Icons.text_decrease,
+                                color:
+                                    _isDarkMode
+                                        ? Colors.white70
+                                        : Colors.grey[700],
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  if (_fontSize > 12) {
+                                    _fontSize -= 1;
+                                  }
+                                });
+                              },
+                            ),
+                            Text(
+                              '${_fontSize.toInt()}',
+                              style: TextStyle(
+                                color:
+                                    _isDarkMode
+                                        ? Colors.white70
+                                        : Colors.grey[700],
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.text_increase,
+                                color:
+                                    _isDarkMode
+                                        ? Colors.white70
+                                        : Colors.grey[700],
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  if (_fontSize < 24) {
+                                    _fontSize += 1;
+                                  }
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                        // 黑暗模式切换
                         IconButton(
                           icon: Icon(
-                            Icons.text_decrease,
+                            _isDarkMode ? Icons.light_mode : Icons.dark_mode,
                             color:
                                 _isDarkMode ? Colors.white70 : Colors.grey[700],
                           ),
                           onPressed: () {
                             setState(() {
-                              if (_fontSize > 12) {
-                                _fontSize -= 1;
-                              }
-                            });
-                          },
-                        ),
-                        Text(
-                          '${_fontSize.toInt()}',
-                          style: TextStyle(
-                            color:
-                                _isDarkMode ? Colors.white70 : Colors.grey[700],
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.text_increase,
-                            color:
-                                _isDarkMode ? Colors.white70 : Colors.grey[700],
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              if (_fontSize < 24) {
-                                _fontSize += 1;
-                              }
+                              _isDarkMode = !_isDarkMode;
                             });
                           },
                         ),
                       ],
                     ),
-                    // 黑暗模式切换
-                    IconButton(
-                      icon: Icon(
-                        _isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                        color: _isDarkMode ? Colors.white70 : Colors.grey[700],
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _isDarkMode = !_isDarkMode;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+        );
+      },
     );
   }
 
-  Widget _buildDifficultySection() {
-    final difficulty = _article!.analysis!.difficulty;
+  Widget _buildWebView(String html, Article article) {
+    // 处理词汇高亮
+    String processedHtml = _processHtmlForVocabulary(html, article);
+
+    // 创建WebView控制器
+    final controller = WebViewController();
+
+    // 配置WebView
+    controller
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(_isDarkMode ? const Color(0xFF121212) : Colors.white)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (String url) {
+            print('WebView页面加载完成');
+            // 注入监听滚动的JavaScript代码
+            controller.runJavaScript('''
+              document.addEventListener('scroll', function() {
+                var scrollY = window.scrollY;
+                if (scrollY > 50) {
+                  Scrolling.postMessage('hide');
+                } else if (scrollY < 10) {
+                  Scrolling.postMessage('show');
+                }
+              });
+            ''');
+          },
+        ),
+      )
+      ..addJavaScriptChannel(
+        'Scrolling',
+        onMessageReceived: (JavaScriptMessage message) {
+          if (message.message == 'hide' && _showHeader) {
+            setState(() {
+              _showHeader = false;
+            });
+          } else if (message.message == 'show' && !_showHeader) {
+            setState(() {
+              _showHeader = true;
+            });
+          }
+        },
+      )
+      // 添加词汇点击处理
+      ..addJavaScriptChannel(
+        'VocabularyHandler',
+        onMessageReceived: (JavaScriptMessage message) {
+          // 解析词汇数据
+          try {
+            print('接收到词汇点击: ${message.message}');
+            List<String> parts = message.message.split('|');
+            if (parts.length >= 4) {
+              _showWordPopup(
+                word: parts[0],
+                translation: parts[1],
+                context: parts[2],
+                example: parts[3],
+              );
+            }
+          } catch (e) {
+            print('处理词汇点击出错: $e');
+          }
+        },
+      )
+      ..loadHtmlString(processedHtml);
+
+    // 返回WebView组件
+    return WebViewWidget(controller: controller);
+  }
+
+  // 处理HTML内容，添加词汇高亮
+  String _processHtmlForVocabulary(String html, Article article) {
+    if (article.analysis == null || article.analysis!.vocabulary.isEmpty) {
+      return _getFormattedHtml(html);
+    }
+
+    // 为每个词汇添加高亮标记
+    String contentWithHighlights = html;
+
+    for (var vocab in article.analysis!.vocabulary) {
+      // 使用正则表达式匹配完整单词
+      final RegExp regExp = RegExp(
+        r'\b' + RegExp.escape(vocab.word) + r'\b',
+        caseSensitive: false,
+        multiLine: true,
+      );
+
+      // 替换为带有高亮标记的HTML
+      contentWithHighlights = contentWithHighlights.replaceAllMapped(regExp, (
+        match,
+      ) {
+        // 编码词汇数据以便JavaScript处理
+        String vocabData =
+            '${vocab.word}|${vocab.translation}|${vocab.context}|${vocab.example}';
+
+        return '<span class="highlight-word" '
+            'onclick="VocabularyHandler.postMessage(\'$vocabData\')">'
+            '${match.group(0)}</span>';
+      });
+    }
+
+    // 使用格式化的HTML包装内容
+    return _getFormattedHtml(contentWithHighlights);
+  }
+
+  // 格式化HTML内容，添加样式
+  String _getFormattedHtml(String html) {
+    // 确保HTML内容是合法的UTF-8编码
+    print('格式化HTML内容，长度: ${html.length}');
+
+    // 添加更多日志以调试可能的编码问题
+    if (html.length > 50) {
+      print('HTML内容开头50个字符: ${html.substring(0, 50)}');
+    }
+
+    return '''
+      <!DOCTYPE html>
+      <html lang="zh">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>文章详情</title>
+        <style>
+          body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 16px;
+            color: ${_isDarkMode ? '#e0e0e0' : '#333'};
+            background-color: ${_isDarkMode ? '#121212' : '#fff'};
+            font-size: ${_fontSize}px;
+          }
+          
+          .article-content {
+            max-width: 100%;
+          }
+          
+          h1, h2, h3, h4, h5, h6 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+            color: ${_isDarkMode ? '#fff' : '#000'};
+          }
+          
+          h1 { font-size: 2em; }
+          h2 { font-size: 1.5em; }
+          
+          p {
+            margin-top: 0;
+            margin-bottom: 16px;
+          }
+          
+          img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 16px 0;
+          }
+          
+          a {
+            color: ${_isDarkMode ? '#4da3ff' : '#0366d6'};
+            text-decoration: none;
+          }
+          
+          blockquote {
+            margin: 16px 0;
+            padding: 0 16px;
+            color: ${_isDarkMode ? '#a0a0a0' : '#6a737d'};
+            border-left: 4px solid ${_isDarkMode ? '#444' : '#dfe2e5'};
+          }
+          
+          code {
+            font-family: 'Courier New', Courier, monospace;
+            padding: 2px 4px;
+            background-color: ${_isDarkMode ? '#2a2a2a' : '#f6f8fa'};
+            border-radius: 3px;
+          }
+          
+          pre {
+            font-family: 'Courier New', Courier, monospace;
+            padding: 16px;
+            overflow: auto;
+            line-height: 1.45;
+            background-color: ${_isDarkMode ? '#2a2a2a' : '#f6f8fa'};
+            border-radius: 3px;
+          }
+          
+          table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 16px 0;
+          }
+          
+          td, th {
+            border: 1px solid ${_isDarkMode ? '#444' : '#dfe2e5'};
+            padding: 8px;
+          }
+          
+          th {
+            background-color: ${_isDarkMode ? '#2a2a2a' : '#f0f0f0'};
+          }
+          
+          /* 词汇高亮样式 */
+          .highlight-word {
+            background-color: rgba(209, 233, 252, 0.3);
+            border-bottom: 1px dashed #4a86e8;
+            cursor: pointer;
+            position: relative;
+            padding: 0 1px;
+          }
+          
+          .highlight-word:hover {
+            background-color: rgba(209, 233, 252, 0.7);
+          }
+        </style>
+      </head>
+      <body>
+        <div class="article-content">
+          $html
+        </div>
+      </body>
+      </html>
+    ''';
+  }
+
+  // 检查文章分析中的关键词和摘要部分，确保不会出现乱码
+  void _debugArticleAnalysis(Article article) {
+    if (article.analysis != null) {
+      print('调试文章分析数据:');
+      print('  - 主题: ${article.analysis!.topics.primary}');
+      print('  - 关键词: ${article.analysis!.topics.keywords.join(', ')}');
+      print('  - 摘要: ${article.analysis!.summary.short}');
+
+      // 输出词汇信息以便调试
+      if (article.analysis!.vocabulary.isNotEmpty) {
+        print('  - 词汇数量: ${article.analysis!.vocabulary.length}');
+        print(
+          '  - 第一个词汇: ${article.analysis!.vocabulary[0].word} - ${article.analysis!.vocabulary[0].translation}',
+        );
+      }
+    } else {
+      print('文章没有分析数据');
+    }
+  }
+
+  Widget _buildDifficultySection(Article article) {
+    final difficulty = article.analysis!.difficulty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -293,8 +880,8 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
     );
   }
 
-  Widget _buildTopicsSection() {
-    final topics = _article!.analysis!.topics;
+  Widget _buildTopicsSection(Article article) {
+    final topics = article.analysis!.topics;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -343,15 +930,53 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
   }
 
   Color _getDifficultyColor(String level) {
-    switch (level) {
-      case 'A1-A2':
-        return Colors.green;
-      case 'B1-B2':
-        return Colors.orange;
-      case 'C1-C2':
-        return Colors.red;
-      default:
-        return Colors.grey;
+    // 标准化级别字符串（移除空格，转为大写）
+    final normalizedLevel = level.trim().toUpperCase();
+
+    // 处理各种可能的格式
+    if (normalizedLevel.contains('A1') ||
+        normalizedLevel.contains('A2') ||
+        normalizedLevel == 'A' ||
+        normalizedLevel == 'A1-A2') {
+      return Colors.green; // 初级 - 绿色
+    } else if (normalizedLevel.contains('B1') ||
+        normalizedLevel.contains('B2') ||
+        normalizedLevel == 'B' ||
+        normalizedLevel == 'B1-B2') {
+      return Colors.orange; // 中级 - 橙色
+    } else if (normalizedLevel.contains('C1') ||
+        normalizedLevel.contains('C2') ||
+        normalizedLevel == 'C' ||
+        normalizedLevel == 'C1-C2') {
+      return Colors.red; // 高级 - 红色
+    } else {
+      return Colors.grey; // 未知 - 灰色
+    }
+  }
+
+  String _getDifficultyLevelText(String level) {
+    // 标准化级别字符串（移除空格，转为大写）
+    final normalizedLevel = level.trim().toUpperCase();
+
+    // 处理各种可能的格式
+    if (normalizedLevel.contains('A1') ||
+        normalizedLevel.contains('A2') ||
+        normalizedLevel == 'A' ||
+        normalizedLevel == 'A1-A2') {
+      return '初级';
+    } else if (normalizedLevel.contains('B1') ||
+        normalizedLevel.contains('B2') ||
+        normalizedLevel == 'B' ||
+        normalizedLevel == 'B1-B2') {
+      return '中级';
+    } else if (normalizedLevel.contains('C1') ||
+        normalizedLevel.contains('C2') ||
+        normalizedLevel == 'C' ||
+        normalizedLevel == 'C1-C2') {
+      return '高级';
+    } else {
+      // 默认返回原始级别
+      return level;
     }
   }
 }
