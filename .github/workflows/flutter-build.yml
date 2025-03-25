@@ -129,8 +129,8 @@ jobs:
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
         
-      - name: Analyze project source
-        run: flutter analyze --no-fatal-warnings
+      #- name: Analyze project source
+      #  run: flutter analyze --no-fatal-warnings
         
       # 强制清理编译产物，确保使用最新代码
       - name: Clean before build

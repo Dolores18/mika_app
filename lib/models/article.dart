@@ -1,4 +1,6 @@
 // 文章难度枚举
+import '../utils/logger.dart';
+
 enum ArticleDifficulty {
   easy, // 初级
   medium, // 中级
@@ -175,7 +177,7 @@ class Topics {
       if (json['primary'] is String) {
         primaryTopic = json['primary'];
       } else {
-        print('警告: 主题不是字符串: ${json['primary']}');
+        log.i('警告: 主题不是字符串: ${json['primary']}');
         primaryTopic = '未知主题';
       }
 
@@ -187,13 +189,13 @@ class Topics {
             if (item is String) {
               return item;
             } else {
-              print('警告: 次要主题项不是字符串: $item');
+              log.i('警告: 次要主题项不是字符串: $item');
               return '未知';
             }
           }),
         );
       } else {
-        print('警告: 次要主题不是列表: ${json['secondary']}');
+        log.i('警告: 次要主题不是列表: ${json['secondary']}');
       }
 
       // 处理keywords数组
@@ -204,13 +206,13 @@ class Topics {
             if (item is String) {
               return item;
             } else {
-              print('警告: 关键词项不是字符串: $item');
+              log.i('警告: 关键词项不是字符串: $item');
               return '未知';
             }
           }),
         );
       } else {
-        print('警告: 关键词不是列表: ${json['keywords']}');
+        log.i('警告: 关键词不是列表: ${json['keywords']}');
       }
 
       return Topics(
@@ -219,7 +221,7 @@ class Topics {
         keywords: topicKeywords,
       );
     } catch (e) {
-      print('解析Topics时出错: $e');
+      log.i('解析Topics时出错: $e');
       // 返回一个默认的Topics对象
       return Topics(primary: '未知主题', secondary: [], keywords: []);
     }
@@ -244,7 +246,7 @@ class Summary {
       if (json['short'] is String) {
         shortSummary = json['short'];
       } else {
-        print('警告: 摘要不是字符串: ${json['short']}');
+        log.i('警告: 摘要不是字符串: ${json['short']}');
         shortSummary = '无摘要';
       }
 
@@ -256,18 +258,18 @@ class Summary {
             if (item is String) {
               return item;
             } else {
-              print('警告: 关键点不是字符串: $item');
+              log.i('警告: 关键点不是字符串: $item');
               return '未知要点';
             }
           }),
         );
       } else {
-        print('警告: 关键点不是列表: ${json['key_points']}');
+        log.i('警告: 关键点不是列表: ${json['key_points']}');
       }
 
       return Summary(short: shortSummary, keyPoints: points);
     } catch (e) {
-      print('解析Summary时出错: $e');
+      log.i('解析Summary时出错: $e');
       // 返回一个默认的Summary对象
       return Summary(short: '无摘要', keyPoints: []);
     }

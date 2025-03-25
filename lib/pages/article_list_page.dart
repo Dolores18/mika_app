@@ -173,18 +173,18 @@ class _ArticleListPageState extends State<ArticleListPage> {
       });
     } catch (e) {
       log.e('加载更多文章失败: $e');
-      setState(() {
-        _hasMore = false; // 停止尝试加载更多
-        _isLoading = false;
-        // 不设置_error，只显示已加载的文章，并停止尝试加载更多
-      });
-      // 显示一个短暂的提示
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('加载更多文章失败: $e'),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      if (mounted) {
+        setState(() {
+          _hasMore = false;
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('加载更多文章失败: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
