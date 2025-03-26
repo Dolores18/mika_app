@@ -86,6 +86,7 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
   String? _contentError;
   double _fontSize = 16.0;
   bool _isDarkMode = false;
+  bool _showAudioPlayer = true; // 控制音频播放器的显示与隐藏
 
   // 添加HTML缓存机制
   final Map<String, String> _htmlCache = {};
@@ -113,6 +114,7 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
     setState(() {
       _isLoadingContent = true;
       _contentError = null;
+      _showAudioPlayer = true; // 重置音频播放器显示状态
     });
 
     try {
@@ -256,6 +258,19 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
             title: const Text(''),
             centerTitle: true,
             actions: [
+              // 如果音频被隐藏但存在音频链接时，显示恢复音频播放器按钮
+              if (!_showAudioPlayer &&
+                  _articleFuture is Future<Article> &&
+                  snapshot.hasData &&
+                  (snapshot.data!.audioUrl != null || _hasAudioLink()))
+                IconButton(
+                  icon: const Icon(Icons.headphones),
+                  onPressed: () {
+                    setState(() {
+                      _showAudioPlayer = true;
+                    });
+                  },
+                ),
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: _loadMarkdownContent,
@@ -428,6 +443,25 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
       log.i('已移除第一个一级标题: ${firstTitleMatch.group(0)}');
     }
 
+    // 提取音频链接
+    String? audioUrl;
+    final RegExp audioRegex = RegExp(r'\[收听音频\]\((https?://[^\s\)]+\.mp3)\)');
+    final Match? audioMatch = audioRegex.firstMatch(processedContent);
+
+    if (audioMatch != null) {
+      audioUrl = audioMatch.group(1);
+      // 从Markdown内容中移除音频链接文本，因为我们将单独在顶部显示音频播放器
+      processedContent = processedContent.replaceFirst(
+        audioMatch.group(0)!,
+        '',
+      );
+      log.i('提取到音频链接: $audioUrl');
+    } else if (article.audioUrl != null && article.audioUrl!.isNotEmpty) {
+      // 如果Markdown中没有找到音频链接，但是文章对象包含audioUrl，也使用它
+      audioUrl = article.audioUrl;
+      log.i('使用文章对象中的音频链接: $audioUrl');
+    }
+
     // 替换图片路径，将static_images/xxx.jpg替换为API URL
     final String issueDate = article.issueDate;
     final RegExp imgRegex = RegExp(r'!\[(.*?)\]\(static_images/(.*?)\)');
@@ -444,86 +478,116 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
       return '![$altText]($newImgUrl)';
     });
 
-    // 创建Markdown控件
-    return Markdown(
-      controller: _scrollController,
-      data: processedContent,
-      selectable: true,
-      styleSheet: MarkdownStyleSheet(
-        h1: TextStyle(
-          fontSize: _fontSize * 1.5,
-          fontWeight: FontWeight.bold,
-          color: _isDarkMode ? Colors.white : Colors.black87,
-        ),
-        h2: TextStyle(
-          fontSize: _fontSize * 1.3,
-          fontWeight: FontWeight.bold,
-          color: _isDarkMode ? Colors.white : Colors.black87,
-        ),
-        h3: TextStyle(
-          fontSize: _fontSize * 1.1,
-          fontWeight: FontWeight.bold,
-          color: _isDarkMode ? Colors.white : Colors.black87,
-        ),
-        p: TextStyle(
-          fontSize: _fontSize,
-          color: _isDarkMode ? Colors.white70 : Colors.black87,
-          height: 1.6,
-        ),
-        blockquote: TextStyle(
-          fontSize: _fontSize,
-          color: _isDarkMode ? Colors.grey[400] : Colors.grey[700],
-          fontStyle: FontStyle.italic,
-        ),
-        blockquoteDecoration: BoxDecoration(
-          border: Border(
-            left: BorderSide(
-              color: _isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
-              width: 4.0,
+    // 创建包含音频播放器（如果有）和Markdown内容的组合视图
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 如果有音频URL，显示音频播放器
+        if (audioUrl != null && _showAudioPlayer)
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: AudioPlayer(
+              url: audioUrl,
+              onClose: () {
+                setState(() {
+                  _showAudioPlayer = false;
+                });
+              },
             ),
           ),
-        ),
-        code: TextStyle(
-          fontSize: _fontSize * 0.9,
-          color: _isDarkMode ? Colors.grey[300] : Colors.black87,
-          backgroundColor: _isDarkMode ? Colors.grey[800] : Colors.grey[200],
-        ),
-        codeblockDecoration: BoxDecoration(
-          color: _isDarkMode ? Colors.grey[800] : Colors.grey[200],
-          borderRadius: BorderRadius.circular(4.0),
-        ),
-        listBullet: TextStyle(
-          fontSize: _fontSize,
-          color: _isDarkMode ? Colors.white70 : Colors.black87,
-        ),
-      ),
-      onTapLink: (text, href, title) {
-        // 处理链接点击
-        if (href != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('链接: $href')));
-        }
-      },
-      padding: const EdgeInsets.all(16.0),
-      physics: const AlwaysScrollableScrollPhysics(),
-      imageBuilder: (uri, title, alt) {
-        // 自定义图片构建
-        return Image.network(
-          uri.toString(),
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              padding: const EdgeInsets.all(8.0),
-              color: Colors.grey[300],
-              child: Text(
-                '图片加载失败: ${uri.toString()}',
-                style: TextStyle(fontSize: _fontSize * 0.8),
+
+        // Markdown内容
+        Expanded(
+          child: Markdown(
+            controller: _scrollController,
+            data: processedContent,
+            selectable: true,
+            styleSheet: MarkdownStyleSheet(
+              h1: TextStyle(
+                fontSize: _fontSize * 1.5,
+                fontWeight: FontWeight.bold,
+                color: _isDarkMode ? Colors.white : Colors.black87,
               ),
-            );
-          },
-        );
-      },
+              h2: TextStyle(
+                fontSize: _fontSize * 1.3,
+                fontWeight: FontWeight.bold,
+                color: _isDarkMode ? Colors.white : Colors.black87,
+              ),
+              h3: TextStyle(
+                fontSize: _fontSize * 1.1,
+                fontWeight: FontWeight.bold,
+                color: _isDarkMode ? Colors.white : Colors.black87,
+              ),
+              p: TextStyle(
+                fontSize: _fontSize,
+                color: _isDarkMode ? Colors.white70 : Colors.black87,
+                height: 1.6,
+              ),
+              blockquote: TextStyle(
+                fontSize: _fontSize,
+                color: _isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                fontStyle: FontStyle.italic,
+              ),
+              blockquoteDecoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: _isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+                    width: 4.0,
+                  ),
+                ),
+              ),
+              code: TextStyle(
+                fontSize: _fontSize * 0.9,
+                color: _isDarkMode ? Colors.grey[300] : Colors.black87,
+                backgroundColor:
+                    _isDarkMode ? Colors.grey[800] : Colors.grey[200],
+              ),
+              codeblockDecoration: BoxDecoration(
+                color: _isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                borderRadius: BorderRadius.circular(4.0),
+              ),
+              listBullet: TextStyle(
+                fontSize: _fontSize,
+                color: _isDarkMode ? Colors.white70 : Colors.black87,
+              ),
+            ),
+            onTapLink: (text, href, title) {
+              // 处理链接点击
+              if (href != null) {
+                // 如果是mp3链接，显示音频播放器
+                if (href.endsWith('.mp3')) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('音频播放功能即将上线')));
+                } else {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('链接: $href')));
+                }
+              }
+            },
+            padding: const EdgeInsets.all(16.0),
+            physics: const AlwaysScrollableScrollPhysics(),
+            imageBuilder: (uri, title, alt) {
+              // 自定义图片构建
+              return Image.network(
+                uri.toString(),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    padding: const EdgeInsets.all(8.0),
+                    color: Colors.grey[300],
+                    child: Text(
+                      '图片加载失败: ${uri.toString()}',
+                      style: TextStyle(fontSize: _fontSize * 0.8),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -702,5 +766,12 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
       // 默认返回原始级别
       return level;
     }
+  }
+
+  // 检查当前Markdown内容是否包含音频链接
+  bool _hasAudioLink() {
+    if (_htmlContent == null) return false;
+    final RegExp audioRegex = RegExp(r'\[收听音频\]\((https?://[^\s\)]+\.mp3)\)');
+    return audioRegex.hasMatch(_htmlContent!);
   }
 }
