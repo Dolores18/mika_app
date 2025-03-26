@@ -258,7 +258,7 @@ class ArticleDetailPage extends ConsumerWidget {
                             notifier.setFontSize(
                               (state.fontSize - 1).clamp(12.0, 24.0),
                             );
-                            notifier.clearCache();
+                            //notifier.clearCache();
                           },
                         ),
                         Text(
@@ -276,7 +276,6 @@ class ArticleDetailPage extends ConsumerWidget {
                             notifier.setFontSize(
                               (state.fontSize + 1).clamp(12.0, 24.0),
                             );
-                            notifier.clearCache();
                           },
                         ),
                       ],
@@ -311,7 +310,6 @@ class ArticleDetailPage extends ConsumerWidget {
                           ),
                           onPressed: () {
                             notifier.toggleDarkMode();
-                            notifier.clearCache();
                           },
                         ),
                       ],

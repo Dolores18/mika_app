@@ -40,7 +40,6 @@ class ArticleDetailNotifier extends StateNotifier<ArticleDetailState> {
 
   void toggleVocabulary() {
     state = state.copyWith(showVocabulary: !state.showVocabulary);
-    clearCache();
   }
 
   void clearCache() {
