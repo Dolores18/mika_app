@@ -1,12 +1,73 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // 添加这行以导入compute函数
 import '../models/article.dart';
 import '../services/article_service.dart';
 import '../widgets/audio_player.dart';
 import '../widgets/key_points_list.dart';
 import '../widgets/vocabulary_list.dart';
 import 'word_lookup_page.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:markdown/markdown.dart' as md;
 import '../utils/logger.dart';
+
+// 添加一个用于隔离计算的类 - 移到顶级
+class _ProcessHtmlParams {
+  final String html;
+  final List<Vocabulary> vocabulary;
+  final double fontSize;
+  final bool isDarkMode;
+
+  _ProcessHtmlParams({
+    required this.html,
+    required this.vocabulary,
+    required this.fontSize,
+    required this.isDarkMode,
+  });
+}
+
+// 在隔离线程中处理HTML - 移到顶级
+String _isolateProcessHtml(_ProcessHtmlParams params) {
+  String contentWithHighlights = params.html;
+
+  // 创建所有词汇的正则表达式模式
+  final List<MapEntry<RegExp, Vocabulary>> patterns = [];
+  for (var vocab in params.vocabulary) {
+    final RegExp regExp = RegExp(
+      r'\b' + RegExp.escape(vocab.word) + r'\b',
+      caseSensitive: false,
+      multiLine: true,
+    );
+    patterns.add(MapEntry(regExp, vocab));
+  }
+
+  // 分批处理词汇
+  const int batchSize = 10; // 每批处理的词汇数量
+  for (int i = 0; i < patterns.length; i += batchSize) {
+    final int end =
+        (i + batchSize < patterns.length) ? i + batchSize : patterns.length;
+    final currentBatch = patterns.sublist(i, end);
+
+    for (var entry in currentBatch) {
+      final regExp = entry.key;
+      final vocab = entry.value;
+
+      // 编码词汇数据以便JavaScript处理
+      String vocabData =
+          '${vocab.word}|${vocab.translation}|${vocab.context}|${vocab.example}';
+
+      contentWithHighlights = contentWithHighlights.replaceAllMapped(
+        regExp,
+        (match) =>
+            '<span class="highlight-word" '
+            'onclick="VocabularyHandler.postMessage(\'$vocabData\')">'
+            '${match.group(0)}</span>',
+      );
+    }
+  }
+
+  // 格式化HTML
+  return contentWithHighlights;
+}
 
 class ArticleDetailPage extends StatefulWidget {
   final String articleId;
@@ -29,68 +90,39 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
   // 添加HTML缓存机制
   final Map<String, String> _htmlCache = {};
 
-  // 用于控制摘要和标签显示的状态
-  bool _showHeader = true;
-  double _scrollOffset = 0;
-
+  // 添加滚动控制器
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _articleFuture = _articleService.getArticleById(widget.articleId);
-    _loadHtmlContent();
-
-    // 添加滚动监听
-    _scrollController.addListener(_onScroll);
-  }
-
-  // 滚动监听回调
-  void _onScroll() {
-    // 获取当前滚动位置
-    final double offset = _scrollController.offset;
-
-    // 向下滚动超过50像素时隐藏头部
-    if (offset > 50 && _showHeader && offset > _scrollOffset) {
-      setState(() {
-        _showHeader = false;
-      });
-    }
-    // 向上滚动时显示头部
-    else if ((offset < 50 || offset < _scrollOffset) && !_showHeader) {
-      setState(() {
-        _showHeader = true;
-      });
-    }
-
-    // 更新上次滚动位置
-    _scrollOffset = offset;
+    _loadMarkdownContent();
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     // 清除缓存，避免内存泄漏
     _htmlCache.clear();
     super.dispose();
   }
 
-  // 优化 _loadHtmlContent 方法，提高加载效率
-  Future<void> _loadHtmlContent() async {
+  // 优化 _loadHtmlContent 方法，改为加载Markdown内容
+  Future<void> _loadMarkdownContent() async {
     setState(() {
       _isLoadingContent = true;
       _contentError = null;
     });
 
     try {
-      // 获取原始HTML
-      final html = await _articleService.getArticleHtmlContent(
+      // 获取Markdown内容
+      final markdown = await _articleService.getArticleMarkdownContent(
         widget.articleId,
       );
 
-      // 清理HTML，移除重复标题
-      _htmlContent = _cleanupArticleHtml(html);
+      // 设置Markdown内容
+      _htmlContent = markdown;
 
       setState(() {
         _isLoadingContent = false;
@@ -102,88 +134,6 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
         _isLoadingContent = false;
       });
     }
-  }
-
-  String _cleanupArticleHtml(String html) {
-    // 提取正文内容
-    final document = RegExp(
-      r'<body>(.*?)</body>',
-      dotAll: true,
-    ).firstMatch(html);
-    if (document == null) return html;
-
-    String content = document.group(1) ?? '';
-
-    // 提取文章标题（假设它是第一个h1标签或te_article_title类）
-    final titleMatch = RegExp(
-      r'<h1.*?>(.*?)</h1>',
-      dotAll: true,
-    ).firstMatch(content);
-    final articleTitle = titleMatch?.group(1)?.trim() ?? '';
-
-    if (articleTitle.isNotEmpty) {
-      log.d('检测到文章标题: $articleTitle');
-
-      // 1. 删除开头的重复h1标题
-      RegExp firstH1Pattern = RegExp(
-        r'<h1>\s*' + RegExp.escape(articleTitle) + r'\s*</h1>',
-        caseSensitive: false,
-      );
-      content = content.replaceFirst(firstH1Pattern, '');
-
-      // 2. 提取从section_title开始的内容
-      final mainContentMatch = RegExp(
-        r'<span class="te_section_title">(.*?)</body>',
-        dotAll: true,
-      ).firstMatch(content);
-      if (mainContentMatch != null) {
-        content = mainContentMatch.group(0) ?? content;
-      }
-
-      // 3. 删除所有te_article_title类的重复标题
-      RegExp titleClassPattern = RegExp(
-        r'<h1 class="te_article_title">\s*' +
-            RegExp.escape(articleTitle) +
-            r'\s*</h1>',
-        caseSensitive: false,
-      );
-      content = content.replaceAll(titleClassPattern, '');
-
-      // 4. 删除其他可能的重复标题（谨慎使用，防止误删）
-      // 如果有更多标题出现在正文之后，可能需要保留
-      // 只删除显然重复的标题块
-      RegExp repeatTitlePattern = RegExp(
-        r'<h1[^>]*>\s*' +
-            RegExp.escape(articleTitle) +
-            r'\s*</h1>\s*(<h3[^>]*>.*?</h3>)?',
-        caseSensitive: false,
-      );
-      int titleCount = 0;
-      content = content.replaceAllMapped(repeatTitlePattern, (match) {
-        titleCount++;
-        // 保留第一个标题实例，删除其他的
-        return titleCount == 1 ? match.group(0)! : '';
-      });
-    }
-
-    // 构建简化的HTML结构
-    return '''
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <style>
-        body { padding: 16px; line-height: 1.6; }
-        img { max-width: 100%; height: auto; }
-        h2 { margin-top: 24px; }
-      </style>
-    </head>
-    <body>
-      $content
-    </body>
-    </html>
-    ''';
   }
 
   void _lookupWord(String word) {
@@ -303,19 +253,12 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
             iconTheme: IconThemeData(
               color: _isDarkMode ? Colors.white : Colors.black87,
             ),
-            title: Text(
-              article.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: _isDarkMode ? Colors.white : Colors.black87,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            title: const Text(''),
+            centerTitle: true,
             actions: [
               IconButton(
                 icon: const Icon(Icons.refresh),
-                onPressed: _loadHtmlContent,
+                onPressed: _loadMarkdownContent,
               ),
               IconButton(
                 icon: const Icon(Icons.bookmark_border),
@@ -337,215 +280,6 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
           ),
           body: Column(
             children: [
-              // 文章头部信息
-              if (_showHeader)
-                Container(
-                  padding: const EdgeInsets.all(16.0),
-                  color:
-                      _isDarkMode ? const Color(0xFF1E1E1E) : Colors.grey[50],
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 标题
-                      Text(
-                        article.title,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: _isDarkMode ? Colors.white : Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // 来源和日期
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF6b4bbd).withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              article.sectionTitle,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF6b4bbd),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            article.issueDate,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color:
-                                  _isDarkMode
-                                      ? Colors.grey[400]
-                                      : Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      // 文章信息
-                      if (article.analysis != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: Row(
-                            children: [
-                              // 阅读时间
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.timer_outlined,
-                                    size: 14,
-                                    color:
-                                        _isDarkMode
-                                            ? Colors.grey[400]
-                                            : Colors.grey[600],
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${article.analysis!.readingTime} 分钟',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color:
-                                          _isDarkMode
-                                              ? Colors.grey[400]
-                                              : Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(width: 16),
-
-                              // 难度
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _getDifficultyColor(
-                                    article.analysis!.difficulty.level,
-                                  ),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  // 转换难度级别为中文描述
-                                  _getDifficultyLevelText(
-                                    article.analysis!.difficulty.level,
-                                  ),
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                      // 摘要
-                      if (article.analysis != null &&
-                          article.analysis!.summary.short.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 16),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color:
-                                  _isDarkMode
-                                      ? Colors.grey[850]
-                                      : const Color(0xFFF5F5F5),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color:
-                                    _isDarkMode
-                                        ? Colors.grey[700]!
-                                        : Colors.grey[300]!,
-                                width: 1,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '摘要',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color:
-                                        _isDarkMode
-                                            ? Colors.grey[300]
-                                            : Colors.grey[700],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  article.analysis!.summary.short,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    height: 1.5,
-                                    color:
-                                        _isDarkMode
-                                            ? Colors.grey[300]
-                                            : Colors.grey[800],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-
-              // 主题关键词
-              if (_showHeader &&
-                  article.analysis != null &&
-                  article.analysis!.topics.keywords.isNotEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  color: _isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children:
-                        article.analysis!.topics.keywords.map((keyword) {
-                          return Chip(
-                            label: Text(
-                              keyword,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color:
-                                    _isDarkMode
-                                        ? Colors.white70
-                                        : Colors.grey[800],
-                              ),
-                            ),
-                            backgroundColor:
-                                _isDarkMode
-                                    ? Colors.grey[800]
-                                    : Colors.grey[200],
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                          );
-                        }).toList(),
-                  ),
-                ),
-
               // 文章内容区域
               Expanded(
                 child:
@@ -567,14 +301,14 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
                               ),
                               const SizedBox(height: 16),
                               ElevatedButton(
-                                onPressed: _loadHtmlContent,
+                                onPressed: _loadMarkdownContent,
                                 child: const Text('重试'),
                               ),
                             ],
                           ),
                         )
                         : _htmlContent != null
-                        ? _buildWebView(_htmlContent!, article)
+                        ? _buildMarkdownView(_htmlContent!, article)
                         : const Center(child: Text('没有内容可显示')),
               ),
             ],
@@ -675,291 +409,122 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
     );
   }
 
-  // 修改 _buildWebView 方法，优化WebView加载过程
-  Widget _buildWebView(String html, Article article) {
-    // 创建WebView控制器
-    final controller = WebViewController();
+  // 修改 _buildMarkdownView 方法，使用Markdown控件代替WebView
+  Widget _buildMarkdownView(String markdownContent, Article article) {
+    // 高亮词汇表
+    final List<Vocabulary> vocabularyList = article.analysis?.vocabulary ?? [];
 
-    // 优化1: 在加载前设置基本配置，减少首次渲染时间
-    controller
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(
-        _isDarkMode ? const Color(0xFF121212) : Colors.white,
+    // 处理Markdown内容，移除第一个一级标题
+    String processedContent = markdownContent;
+    final RegExp firstTitleRegex = RegExp(r'^\s*#\s+.*$', multiLine: true);
+    final Match? firstTitleMatch = firstTitleRegex.firstMatch(processedContent);
+
+    if (firstTitleMatch != null) {
+      // 只移除第一个匹配的一级标题
+      processedContent = processedContent.replaceFirst(
+        firstTitleMatch.group(0)!,
+        '',
       );
+      log.i('已移除第一个一级标题: ${firstTitleMatch.group(0)}');
+    }
 
-    // 优化2: 使用FutureBuilder延迟处理HTML内容，避免主线程阻塞
-    return FutureBuilder<String>(
-      // 使用Future.microtask让UI先渲染，然后再异步处理HTML
-      future: Future.microtask(() => _processHtmlForVocabulary(html, article)),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('正在处理文章内容...'),
-              ],
+    // 替换图片路径，将static_images/xxx.jpg替换为API URL
+    final String issueDate = article.issueDate;
+    final RegExp imgRegex = RegExp(r'!\[(.*?)\]\(static_images/(.*?)\)');
+
+    // 使用ArticleService的公共方法获取基础URL
+    final String baseUrl = ArticleService.getBaseUrl();
+
+    processedContent = processedContent.replaceAllMapped(imgRegex, (match) {
+      final String altText = match.group(1) ?? '';
+      final String fileName = match.group(2)!;
+      final String newImgUrl =
+          '$baseUrl/articles/image/file/$fileName?issue_date=$issueDate';
+      log.i('图片路径替换: static_images/$fileName -> $newImgUrl');
+      return '![$altText]($newImgUrl)';
+    });
+
+    // 创建Markdown控件
+    return Markdown(
+      controller: _scrollController,
+      data: processedContent,
+      selectable: true,
+      styleSheet: MarkdownStyleSheet(
+        h1: TextStyle(
+          fontSize: _fontSize * 1.5,
+          fontWeight: FontWeight.bold,
+          color: _isDarkMode ? Colors.white : Colors.black87,
+        ),
+        h2: TextStyle(
+          fontSize: _fontSize * 1.3,
+          fontWeight: FontWeight.bold,
+          color: _isDarkMode ? Colors.white : Colors.black87,
+        ),
+        h3: TextStyle(
+          fontSize: _fontSize * 1.1,
+          fontWeight: FontWeight.bold,
+          color: _isDarkMode ? Colors.white : Colors.black87,
+        ),
+        p: TextStyle(
+          fontSize: _fontSize,
+          color: _isDarkMode ? Colors.white70 : Colors.black87,
+          height: 1.6,
+        ),
+        blockquote: TextStyle(
+          fontSize: _fontSize,
+          color: _isDarkMode ? Colors.grey[400] : Colors.grey[700],
+          fontStyle: FontStyle.italic,
+        ),
+        blockquoteDecoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: _isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+              width: 4.0,
             ),
-          );
+          ),
+        ),
+        code: TextStyle(
+          fontSize: _fontSize * 0.9,
+          color: _isDarkMode ? Colors.grey[300] : Colors.black87,
+          backgroundColor: _isDarkMode ? Colors.grey[800] : Colors.grey[200],
+        ),
+        codeblockDecoration: BoxDecoration(
+          color: _isDarkMode ? Colors.grey[800] : Colors.grey[200],
+          borderRadius: BorderRadius.circular(4.0),
+        ),
+        listBullet: TextStyle(
+          fontSize: _fontSize,
+          color: _isDarkMode ? Colors.white70 : Colors.black87,
+        ),
+      ),
+      onTapLink: (text, href, title) {
+        // 处理链接点击
+        if (href != null) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('链接: $href')));
         }
-
-        if (snapshot.hasError) {
-          return Center(child: Text('处理文章内容出错: ${snapshot.error}'));
-        }
-
-        if (!snapshot.hasData) {
-          return const Center(child: Text('没有内容可显示'));
-        }
-
-        // 优化3: 仅在数据准备好时设置导航和JS通道
-        controller
-          ..setNavigationDelegate(
-            NavigationDelegate(
-              onPageFinished: (String url) {
-                log.d('WebView页面加载完成');
-                // 注入监听滚动的JavaScript代码
-                controller.runJavaScript('''
-                  document.addEventListener('scroll', function() {
-                    var scrollY = window.scrollY;
-                    if (scrollY > 50) {
-                      Scrolling.postMessage('hide');
-                    } else if (scrollY < 10) {
-                      Scrolling.postMessage('show');
-                    }
-                  });
-                ''');
-              },
-              // 优化4: 添加进度监控
-              onProgress: (int progress) {
-                log.d('WebView加载进度: $progress%');
-              },
-            ),
-          )
-          ..addJavaScriptChannel(
-            'Scrolling',
-            onMessageReceived: (JavaScriptMessage message) {
-              if (message.message == 'hide' && _showHeader) {
-                setState(() {
-                  _showHeader = false;
-                });
-              } else if (message.message == 'show' && !_showHeader) {
-                setState(() {
-                  _showHeader = true;
-                });
-              }
-            },
-          )
-          // 添加词汇点击处理
-          ..addJavaScriptChannel(
-            'VocabularyHandler',
-            onMessageReceived: (JavaScriptMessage message) {
-              // 解析词汇数据
-              try {
-                log.d('接收到词汇点击: ${message.message}');
-                List<String> parts = message.message.split('|');
-                if (parts.length >= 4) {
-                  _showWordPopup(
-                    word: parts[0],
-                    translation: parts[1],
-                    context: parts[2],
-                    example: parts[3],
-                  );
-                }
-              } catch (e) {
-                log.e('处理词汇点击出错', e);
-              }
-            },
-          )
-          // 优化5: 最后才加载HTML内容
-          ..loadHtmlString(snapshot.data!);
-
-        // 返回WebView组件
-        return WebViewWidget(controller: controller);
+      },
+      padding: const EdgeInsets.all(16.0),
+      physics: const AlwaysScrollableScrollPhysics(),
+      imageBuilder: (uri, title, alt) {
+        // 自定义图片构建
+        return Image.network(
+          uri.toString(),
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              padding: const EdgeInsets.all(8.0),
+              color: Colors.grey[300],
+              child: Text(
+                '图片加载失败: ${uri.toString()}',
+                style: TextStyle(fontSize: _fontSize * 0.8),
+              ),
+            );
+          },
+        );
       },
     );
-  }
-
-  // 修改 _processHtmlForVocabulary 方法，使用更高效的处理方式
-  String _processHtmlForVocabulary(String html, Article article) {
-    if (article.analysis == null || article.analysis!.vocabulary.isEmpty) {
-      return _getFormattedHtml(html);
-    }
-
-    // 优化1: 检查缓存，避免重复处理
-    final String cacheKey = '${article.id}_${_fontSize}_${_isDarkMode}';
-    if (_htmlCache.containsKey(cacheKey)) {
-      log.d('使用缓存的HTML内容');
-      return _htmlCache[cacheKey]!;
-    }
-
-    log.d('开始处理词汇高亮，词汇数量: ${article.analysis!.vocabulary.length}');
-    final Stopwatch stopwatch = Stopwatch()..start();
-
-    // 优化2: 使用更高效的单次处理方法
-    // 创建所有词汇的正则表达式模式
-    final List<MapEntry<RegExp, Vocabulary>> patterns = [];
-    for (var vocab in article.analysis!.vocabulary) {
-      // 使用单词边界确保匹配完整单词
-      final RegExp regExp = RegExp(
-        r'\b' + RegExp.escape(vocab.word) + r'\b',
-        caseSensitive: false,
-        multiLine: true,
-      );
-      patterns.add(MapEntry(regExp, vocab));
-    }
-
-    // 优化3: 使用一个简单的处理方式
-    // 这里使用分块处理的方法来避免处理巨大的HTML字符串
-    String contentWithHighlights = html;
-
-    // 分批处理词汇，每批处理部分词汇，避免一次性处理太多
-    const int batchSize = 5; // 每批处理的词汇数量
-    for (int i = 0; i < patterns.length; i += batchSize) {
-      final int end =
-          (i + batchSize < patterns.length) ? i + batchSize : patterns.length;
-      final currentBatch = patterns.sublist(i, end);
-
-      for (var entry in currentBatch) {
-        final regExp = entry.key;
-        final vocab = entry.value;
-
-        // 编码词汇数据以便JavaScript处理
-        String vocabData =
-            '${vocab.word}|${vocab.translation}|${vocab.context}|${vocab.example}';
-
-        contentWithHighlights = contentWithHighlights.replaceAllMapped(
-          regExp,
-          (match) =>
-              '<span class="highlight-word" '
-              'onclick="VocabularyHandler.postMessage(\'$vocabData\')">'
-              '${match.group(0)}</span>',
-        );
-      }
-    }
-
-    // 优化4: 使用格式化的HTML包装内容并缓存结果
-    final result = _getFormattedHtml(contentWithHighlights);
-    _htmlCache[cacheKey] = result;
-
-    stopwatch.stop();
-    log.d('词汇高亮处理完成，用时: ${stopwatch.elapsedMilliseconds}ms');
-
-    return result;
-  }
-
-  // 优化 _getFormattedHtml 方法，减少不必要的处理
-  String _getFormattedHtml(String html) {
-    return '''
-      <!DOCTYPE html>
-      <html lang="zh">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <title>文章详情</title>
-        <style>
-          body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 16px;
-            color: ${_isDarkMode ? '#e0e0e0' : '#333'};
-            background-color: ${_isDarkMode ? '#121212' : '#fff'};
-            font-size: ${_fontSize}px;
-          }
-          
-          .article-content {
-            max-width: 100%;
-          }
-          
-          h1, h2, h3, h4, h5, h6 {
-            margin-top: 24px;
-            margin-bottom: 16px;
-            font-weight: 600;
-            line-height: 1.25;
-            color: ${_isDarkMode ? '#fff' : '#000'};
-          }
-          
-          h1 { font-size: 2em; }
-          h2 { font-size: 1.5em; }
-          
-          p {
-            margin-top: 0;
-            margin-bottom: 16px;
-          }
-          
-          img {
-            max-width: 100%;
-            height: auto;
-            display: block;
-            margin: 16px 0;
-          }
-          
-          a {
-            color: ${_isDarkMode ? '#4da3ff' : '#0366d6'};
-            text-decoration: none;
-          }
-          
-          blockquote {
-            margin: 16px 0;
-            padding: 0 16px;
-            color: ${_isDarkMode ? '#a0a0a0' : '#6a737d'};
-            border-left: 4px solid ${_isDarkMode ? '#444' : '#dfe2e5'};
-          }
-          
-          code {
-            font-family: 'Courier New', Courier, monospace;
-            padding: 2px 4px;
-            background-color: ${_isDarkMode ? '#2a2a2a' : '#f6f8fa'};
-            border-radius: 3px;
-          }
-          
-          pre {
-            font-family: 'Courier New', Courier, monospace;
-            padding: 16px;
-            overflow: auto;
-            line-height: 1.45;
-            background-color: ${_isDarkMode ? '#2a2a2a' : '#f6f8fa'};
-            border-radius: 3px;
-          }
-          
-          table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 16px 0;
-          }
-          
-          td, th {
-            border: 1px solid ${_isDarkMode ? '#444' : '#dfe2e5'};
-            padding: 8px;
-          }
-          
-          th {
-            background-color: ${_isDarkMode ? '#2a2a2a' : '#f0f0f0'};
-          }
-          
-          /* 词汇高亮样式 */
-          .highlight-word {
-            background-color: rgba(209, 233, 252, 0.3);
-            border-bottom: 1px dashed #4a86e8;
-            cursor: pointer;
-            position: relative;
-            padding: 0 1px;
-          }
-          
-          .highlight-word:hover {
-            background-color: rgba(209, 233, 252, 0.7);
-          }
-        </style>
-      </head>
-      <body>
-        <div class="article-content">
-          $html
-        </div>
-      </body>
-      </html>
-    ''';
   }
 
   // 检查文章分析中的关键词和摘要部分，确保不会出现乱码

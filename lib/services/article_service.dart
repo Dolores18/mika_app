@@ -8,10 +8,16 @@ class ArticleService {
   // 根据运行环境选择合适的地址
   // Android模拟器中使用10.0.2.2访问宿主机的localhost
   // iOS模拟器可以直接使用localhost或127.0.0.1
-  //static const String _baseUrl = 'http://10.0.2.2:8000/api';
-  static const String _baseUrl = 'http://47.79.39.75:7000/api';
+  static const String _baseUrl = 'http://10.0.2.2:8000/api';
+  //static const String _baseUrl = 'http://127.0.0.1:8000/api';
+  //static const String _baseUrl = 'http://47.79.39.75:7000/api';
   static final Map<String, Article> _articleCache = {};
   static const Duration _requestTimeout = Duration(seconds: 10);
+
+  // 提供一个公共方法获取基础URL
+  static String getBaseUrl() {
+    return _baseUrl;
+  }
 
   // 修复编码问题的方法
   String correctEncodingIssues(String text) {
@@ -1128,6 +1134,80 @@ class ArticleService {
         </ul>
         <p>感谢您阅读这篇模拟文章，真实内容将在连接到服务器后显示。</p>
       </article>
+    ''';
+  }
+
+  // 添加获取Markdown内容的方法
+  Future<String> getArticleMarkdownContent(String id) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/articles/$id/content');
+      log.i('开始请求文章Markdown内容: $uri');
+
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              'Accept': 'application/json; charset=utf-8',
+              'Content-Type': 'application/json; charset=utf-8',
+            },
+          )
+          .timeout(_requestTimeout);
+
+      log.i('文章Markdown内容响应状态: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        // 解析JSON响应，获取message字段中的Markdown内容
+        final Map<String, dynamic> data = json.decode(
+          utf8.decode(response.bodyBytes),
+        );
+
+        if (data.containsKey('message') && data['message'] != null) {
+          log.i('成功获取Markdown内容');
+          return data['message'] as String;
+        } else {
+          log.w('响应中没有找到Markdown内容');
+          return _getMockMarkdownContent(id);
+        }
+      } else {
+        log.i(
+          '获取文章Markdown内容失败: HTTP ${response.statusCode}, 响应内容: ${response.body}',
+        );
+        throw Exception('获取文章Markdown内容失败: ${response.statusCode}');
+      }
+    } catch (e) {
+      log.i('获取文章Markdown内容出现异常: $e');
+      // 如果是连接问题，返回模拟Markdown内容
+      if (e.toString().contains('Connection refused') ||
+          e.toString().contains('timeout') ||
+          e.toString().contains('SocketException')) {
+        log.i('使用模拟Markdown内容');
+        return _getMockMarkdownContent(id);
+      }
+      throw e;
+    }
+  }
+
+  // 生成模拟Markdown内容
+  String _getMockMarkdownContent(String id) {
+    return '''
+# 模拟文章内容 #$id
+
+这是一篇模拟文章，真实内容需要在API可用时获取。
+
+## 主要内容
+
+这里是文章的主要内容部分，包含了详细的分析和论述。
+
+这篇文章分析了当前的全球经济形势、政治气候以及可能的未来发展趋势。
+
+> 经济学人杂志提供了对全球事件的深入分析和独特视角。
+
+## 核心观点
+
+- 观点一：全球合作对解决共同挑战至关重要
+- 观点二：技术创新正在改变传统行业格局
+- 观点三：气候变化需要紧急和协调的全球行动
+
+感谢您阅读这篇模拟文章，真实内容将在连接到服务器后显示。
     ''';
   }
 }
