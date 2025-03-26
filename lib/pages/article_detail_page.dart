@@ -10,6 +10,102 @@ import 'package:markdown/markdown.dart' as md;
 import '../utils/logger.dart';
 import '../providers/article/article_detail_provider.dart';
 import '../services/article_service.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+
+// 自定义文本选择控制器类
+class CustomTextSelectionControls extends TextSelectionControls {
+  final BuildContext context;
+  final TextSelectionControls platformControls;
+  final Function(BuildContext, String) onWordLookup;
+
+  CustomTextSelectionControls({
+    required this.context,
+    required this.onWordLookup,
+  }) : platformControls = MaterialTextSelectionControls();
+
+  @override
+  Widget buildToolbar(
+    BuildContext context,
+    Rect globalEditableRegion,
+    double textLineHeight,
+    Offset selectionMidpoint,
+    List<TextSelectionPoint> endpoints,
+    TextSelectionDelegate delegate,
+    ValueListenable<ClipboardStatus>? clipboardStatus,
+    Offset? lastSecondaryTapDownPosition,
+  ) {
+    // 获取原始的工具栏
+    final Widget originalToolbar = platformControls.buildToolbar(
+      context,
+      globalEditableRegion,
+      textLineHeight,
+      selectionMidpoint,
+      endpoints,
+      delegate,
+      clipboardStatus,
+      lastSecondaryTapDownPosition,
+    );
+
+    // 获取选中的文本
+    final selectedText = delegate.textEditingValue.selection.textInside(
+      delegate.textEditingValue.text,
+    );
+
+    if (selectedText.isEmpty) {
+      return originalToolbar;
+    }
+
+    // 添加自定义菜单项
+    return Material(
+      elevation: 6.0,
+      child: Container(
+        margin: const EdgeInsets.all(8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 原始工具栏中的复制按钮等
+            Flexible(child: originalToolbar),
+            // 分隔线
+            const SizedBox(width: 8),
+            const VerticalDivider(width: 1, thickness: 1),
+            const SizedBox(width: 8),
+            // 查找单词按钮
+            TextButton.icon(
+              icon: const Icon(Icons.search, size: 18),
+              label: const Text('查找单词'),
+              onPressed: () {
+                if (selectedText.isNotEmpty) {
+                  onWordLookup(context, selectedText);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget buildHandle(
+    BuildContext context,
+    TextSelectionHandleType type,
+    double textHeight, [
+    VoidCallback? onTap,
+  ]) {
+    return platformControls.buildHandle(context, type, textHeight, onTap);
+  }
+
+  @override
+  Offset getHandleAnchor(TextSelectionHandleType type, double textLineHeight) {
+    return platformControls.getHandleAnchor(type, textLineHeight);
+  }
+
+  @override
+  Size getHandleSize(double textLineHeight) {
+    return platformControls.getHandleSize(textLineHeight);
+  }
+}
 
 class ArticleDetailPage extends ConsumerWidget {
   final String articleId;
@@ -110,6 +206,22 @@ class ArticleDetailPage extends ConsumerWidget {
           ),
         ],
       ),
+      // 悬浮按钮 - 用于获取选中的文本并搜索
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          // 异步获取当前选中的文本
+          final String? selectedText = await _getSelectedText();
+          if (selectedText != null && selectedText.isNotEmpty) {
+            _navigateToWordLookup(context, selectedText);
+          } else {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('请先选择要查找的文本')));
+          }
+        },
+        child: const Icon(Icons.search),
+        tooltip: '查找选中的文本',
+      ),
       // 底部工具栏
       bottomNavigationBar:
           state.isLoadingContent
@@ -204,6 +316,23 @@ class ArticleDetailPage extends ConsumerWidget {
                 ),
               ),
     );
+  }
+
+  // 跳转到单词查找页面
+  void _navigateToWordLookup(BuildContext context, String word) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WordLookupPage(wordToLookup: word),
+      ),
+    );
+  }
+
+  // 获取当前选中的文本，返回Future
+  Future<String?> _getSelectedText() async {
+    // 使用系统剪贴板获取选中的文本
+    final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+    return clipboardData?.text;
   }
 
   // 显示单词悬浮卡片
@@ -383,124 +512,129 @@ class ArticleDetailPage extends ConsumerWidget {
 
         // Markdown内容
         Expanded(
-          child: Markdown(
-            controller: _scrollController,
-            data: processedContent,
-            selectable: true,
-            styleSheet: MarkdownStyleSheet(
-              h1: TextStyle(
-                fontSize: state.fontSize * 1.5,
-                fontWeight: FontWeight.bold,
-                color: state.isDarkMode ? Colors.white : Colors.black87,
-              ),
-              h2: TextStyle(
-                fontSize: state.fontSize * 1.3,
-                fontWeight: FontWeight.bold,
-                color: state.isDarkMode ? Colors.white : Colors.black87,
-              ),
-              h3: TextStyle(
-                fontSize: state.fontSize * 1.1,
-                fontWeight: FontWeight.bold,
-                color: state.isDarkMode ? Colors.white : Colors.black87,
-              ),
-              p: TextStyle(
-                fontSize: state.fontSize,
-                color: state.isDarkMode ? Colors.white70 : Colors.black87,
-                height: 1.6,
-              ),
-              blockquote: TextStyle(
-                fontSize: state.fontSize,
-                color: state.isDarkMode ? Colors.grey[400] : Colors.grey[700],
-                fontStyle: FontStyle.italic,
-              ),
-              blockquoteDecoration: BoxDecoration(
-                border: Border(
-                  left: BorderSide(
+          child: GestureDetector(
+            onLongPress: () {
+              // 长按时的自定义操作（可选）
+            },
+            child: SelectionArea(
+              child: Markdown(
+                data: processedContent,
+                styleSheet: MarkdownStyleSheet(
+                  h1: TextStyle(
+                    fontSize: state.fontSize * 1.5,
+                    fontWeight: FontWeight.bold,
+                    color: state.isDarkMode ? Colors.white : Colors.black87,
+                  ),
+                  h2: TextStyle(
+                    fontSize: state.fontSize * 1.3,
+                    fontWeight: FontWeight.bold,
+                    color: state.isDarkMode ? Colors.white : Colors.black87,
+                  ),
+                  h3: TextStyle(
+                    fontSize: state.fontSize * 1.1,
+                    fontWeight: FontWeight.bold,
+                    color: state.isDarkMode ? Colors.white : Colors.black87,
+                  ),
+                  p: TextStyle(
+                    fontSize: state.fontSize,
+                    color: state.isDarkMode ? Colors.white70 : Colors.black87,
+                    height: 1.6,
+                  ),
+                  blockquote: TextStyle(
+                    fontSize: state.fontSize,
                     color:
-                        state.isDarkMode
-                            ? Colors.grey[700]!
-                            : Colors.grey[300]!,
-                    width: 4.0,
+                        state.isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                    fontStyle: FontStyle.italic,
+                  ),
+                  blockquoteDecoration: BoxDecoration(
+                    border: Border(
+                      left: BorderSide(
+                        color:
+                            state.isDarkMode
+                                ? Colors.grey[700]!
+                                : Colors.grey[300]!,
+                        width: 4.0,
+                      ),
+                    ),
+                  ),
+                  code: TextStyle(
+                    fontSize: state.fontSize * 0.9,
+                    color: state.isDarkMode ? Colors.grey[300] : Colors.black87,
+                    backgroundColor:
+                        state.isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                  ),
+                  codeblockDecoration: BoxDecoration(
+                    color:
+                        state.isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                    borderRadius: BorderRadius.circular(4.0),
+                  ),
+                  listBullet: TextStyle(
+                    fontSize: state.fontSize,
+                    color: state.isDarkMode ? Colors.white70 : Colors.black87,
+                  ),
+                  a: TextStyle(
+                    color: Colors.blue,
+                    decoration: TextDecoration.underline,
                   ),
                 ),
-              ),
-              code: TextStyle(
-                fontSize: state.fontSize * 0.9,
-                color: state.isDarkMode ? Colors.grey[300] : Colors.black87,
-                backgroundColor:
-                    state.isDarkMode ? Colors.grey[800] : Colors.grey[200],
-              ),
-              codeblockDecoration: BoxDecoration(
-                color: state.isDarkMode ? Colors.grey[800] : Colors.grey[200],
-                borderRadius: BorderRadius.circular(4.0),
-              ),
-              listBullet: TextStyle(
-                fontSize: state.fontSize,
-                color: state.isDarkMode ? Colors.white70 : Colors.black87,
-              ),
-              a: TextStyle(
-                color: Colors.blue,
-                decoration: TextDecoration.underline,
-              ),
-            ),
-            onTapLink: (text, href, title) {
-              // 处理重点词汇点击
-              if (href != null && href.startsWith('vocab:')) {
-                final word = href.substring(6); // 去掉'vocab:'前缀
-                final vocabulary = article.analysis?.vocabulary.firstWhere(
-                  (v) => v.word.toLowerCase() == word.toLowerCase(),
-                  orElse:
-                      () => Vocabulary(
-                        word: word,
-                        translation: '未知翻译',
-                        context: '未找到上下文',
-                        example: '未找到例句',
-                      ),
-                );
+                onTapLink: (text, href, title) {
+                  // 处理重点词汇点击
+                  if (href != null && href.startsWith('vocab:')) {
+                    final word = href.substring(6); // 去掉'vocab:'前缀
+                    final vocabulary = article.analysis?.vocabulary.firstWhere(
+                      (v) => v.word.toLowerCase() == word.toLowerCase(),
+                      orElse:
+                          () => Vocabulary(
+                            word: word,
+                            translation: '未知翻译',
+                            context: '未找到上下文',
+                            example: '未找到例句',
+                          ),
+                    );
 
-                if (vocabulary != null) {
-                  _showWordPopup(
-                    context,
-                    word: vocabulary.word,
-                    translation: vocabulary.translation,
-                    wordContext: vocabulary.context,
-                    example: vocabulary.example,
-                  );
-                }
-              }
-              // 处理其他链接点击
-              else if (href != null) {
-                // 如果是mp3链接，显示音频播放器
-                if (href.endsWith('.mp3')) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('音频播放功能即将上线')));
-                } else {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('链接: $href')));
-                }
-              }
-            },
-            padding: const EdgeInsets.all(16.0),
-            physics: const AlwaysScrollableScrollPhysics(),
-            imageBuilder: (uri, title, alt) {
-              // 自定义图片构建
-              return Image.network(
-                uri.toString(),
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    padding: const EdgeInsets.all(8.0),
-                    color: Colors.grey[300],
-                    child: Text(
-                      '图片加载失败: ${uri.toString()}',
-                      style: TextStyle(fontSize: state.fontSize * 0.8),
-                    ),
+                    if (vocabulary != null) {
+                      _showWordPopup(
+                        context,
+                        word: vocabulary.word,
+                        translation: vocabulary.translation,
+                        wordContext: vocabulary.context,
+                        example: vocabulary.example,
+                      );
+                    }
+                  }
+                  // 处理其他链接点击
+                  else if (href != null) {
+                    // 如果是mp3链接，显示音频播放器
+                    if (href.endsWith('.mp3')) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('音频播放功能即将上线')),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('链接: $href')));
+                    }
+                  }
+                },
+                imageBuilder: (uri, title, alt) {
+                  // 自定义图片构建
+                  return Image.network(
+                    uri.toString(),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        padding: const EdgeInsets.all(8.0),
+                        color: Colors.grey[300],
+                        child: Text(
+                          '图片加载失败: ${uri.toString()}',
+                          style: TextStyle(fontSize: state.fontSize * 0.8),
+                        ),
+                      );
+                    },
                   );
                 },
-              );
-            },
+              ),
+            ),
           ),
         ),
       ],
