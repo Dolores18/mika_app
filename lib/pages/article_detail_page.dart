@@ -12,6 +12,9 @@ import '../providers/article/article_detail_provider.dart';
 import '../services/article_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import '../providers/word_lookup/word_lookup_provider.dart';
+import '../providers/word_lookup/word_lookup_state.dart';
+import '../models/dictionary_result.dart';
 
 // 自定义文本选择控制器类
 class CustomTextSelectionControls extends TextSelectionControls {
@@ -212,7 +215,8 @@ class ArticleDetailPage extends ConsumerWidget {
           // 异步获取当前选中的文本
           final String? selectedText = await _getSelectedText();
           if (selectedText != null && selectedText.isNotEmpty) {
-            _navigateToWordLookup(context, selectedText);
+            // 直接在当前页面显示单词解释卡片
+            _showWordExplanationCard(context, selectedText, ref);
           } else {
             ScaffoldMessenger.of(
               context,
@@ -335,14 +339,62 @@ class ArticleDetailPage extends ConsumerWidget {
     return clipboardData?.text;
   }
 
-  // 显示单词悬浮卡片
-  void _showWordPopup(
-    BuildContext context, {
-    required String word,
-    required String translation,
-    required String wordContext,
-    required String example,
-  }) {
+  // 显示单词解释卡片
+  void _showWordExplanationCard(
+    BuildContext context,
+    String word,
+    WidgetRef ref,
+  ) async {
+    // 显示加载对话框
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // 获取单词查询Provider
+      final notifier = ref.read(wordLookupProvider.notifier);
+
+      // 发起查询请求
+      await notifier.searchWord(word);
+
+      // 关闭加载对话框
+      Navigator.pop(context);
+
+      // 获取查询结果
+      final state = ref.read(wordLookupProvider);
+
+      // 显示结果卡片
+      if (state.dictResult != null || state.explanation.isNotEmpty) {
+        _showWordResultCard(context, word, state, ref);
+      } else {
+        // 未找到结果
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('未找到"$word"的解释')));
+      }
+    } catch (e) {
+      // 关闭加载对话框
+      Navigator.pop(context);
+      // 显示错误信息
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('查询失败: $e')));
+    }
+  }
+
+  // 显示单词结果卡片
+  void _showWordResultCard(
+    BuildContext context,
+    String word,
+    WordLookupState state,
+    WidgetRef ref,
+  ) {
+    final isAiMode = state.isAiMode;
+    final dictResult = state.dictResult;
+    final explanation = state.explanation;
+
     showDialog(
       context: context,
       builder:
@@ -351,54 +403,105 @@ class ArticleDetailPage extends ConsumerWidget {
               borderRadius: BorderRadius.circular(16),
             ),
             child: Container(
+              width: double.infinity,
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.7,
+                maxWidth: MediaQuery.of(context).size.width * 0.9,
+              ),
               padding: const EdgeInsets.all(16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 单词标题和模式切换
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        word,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            word,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (dictResult?.phonetic != null &&
+                              dictResult!.phonetic!.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              "[${dictResult.phonetic}]",
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          // AI模式切换
+                          IconButton(
+                            icon: Icon(
+                              Icons.auto_awesome,
+                              color:
+                                  isAiMode
+                                      ? const Color(0xFF6b4bbd)
+                                      : Colors.grey,
+                              size: 20,
+                            ),
+                            tooltip: isAiMode ? '切换为普通模式' : '切换为AI模式',
+                            onPressed: () {
+                              // 关闭当前对话框
+                              Navigator.pop(context);
+                              // 切换模式并重新显示
+                              ref
+                                  .read(wordLookupProvider.notifier)
+                                  .toggleAiMode();
+                              _showWordResultCard(
+                                context,
+                                word,
+                                ref.read(wordLookupProvider),
+                                ref,
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          // 全屏按钮
+                          IconButton(
+                            icon: const Icon(Icons.open_in_new, size: 20),
+                            tooltip: '打开完整词典页面',
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _navigateToWordLookup(context, word);
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),
                   const Divider(),
-                  Text(
-                    translation,
-                    style: TextStyle(fontSize: 18, color: Colors.blue[800]),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    "上下文: $wordContext",
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontStyle: FontStyle.italic,
+
+                  // 内容区域
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child:
+                          isAiMode
+                              ? _buildAIExplanation(explanation)
+                              : _buildDictionaryResult(dictResult),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text("例句: $example", style: const TextStyle(fontSize: 14)),
-                  const SizedBox(height: 16),
+
+                  // 底部按钮
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
-                        child: const Text("添加到生词本"),
-                        onPressed: () {
-                          // 添加生词本功能
-                          Navigator.pop(context);
-                        },
-                      ),
-                      TextButton(
-                        child: const Text("关闭"),
                         onPressed: () {
                           Navigator.pop(context);
                         },
+                        child: const Text('关闭'),
                       ),
                     ],
                   ),
@@ -406,6 +509,145 @@ class ArticleDetailPage extends ConsumerWidget {
               ),
             ),
           ),
+    );
+  }
+
+  // 构建AI解释内容
+  Widget _buildAIExplanation(String explanation) {
+    if (explanation.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text('AI正在思考中...', style: TextStyle(color: Colors.grey)),
+        ),
+      );
+    }
+
+    return Markdown(
+      data: explanation,
+      selectable: true,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      styleSheet: MarkdownStyleSheet(
+        h1: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
+        h2: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
+        h3: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
+        p: const TextStyle(fontSize: 14, height: 1.5, color: Colors.black87),
+        code: TextStyle(
+          fontSize: 12,
+          backgroundColor: Colors.grey[200],
+          fontFamily: 'monospace',
+        ),
+        codeblockDecoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(4),
+        ),
+        blockquote: const TextStyle(
+          fontSize: 14,
+          height: 1.5,
+          color: Colors.black54,
+          fontStyle: FontStyle.italic,
+        ),
+      ),
+    );
+  }
+
+  // 构建字典结果内容
+  Widget _buildDictionaryResult(DictionaryResult? result) {
+    if (result == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text('没有找到该单词的释义', style: TextStyle(color: Colors.grey)),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (result.translation != null && result.translation!.isNotEmpty) ...[
+          Text(
+            "中文释义：${result.translation}",
+            style: const TextStyle(fontSize: 16, color: Colors.blue),
+          ),
+          const SizedBox(height: 8),
+        ],
+
+        if (result.definition != null && result.definition!.isNotEmpty) ...[
+          Text(
+            "英文释义：${result.definition}",
+            style: const TextStyle(fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+        ],
+
+        if (result.tag != null && result.tag!.isNotEmpty) ...[
+          Text(
+            "词汇分类：${result.tag}",
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 4),
+        ],
+
+        if (result.exchange != null && result.exchange!.isNotEmpty) ...[
+          Text(
+            "变形：${result.exchange}",
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 4),
+        ],
+
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            if (result.collins != null &&
+                result.collins!.isNotEmpty &&
+                result.collins != '0') ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.blue[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  "柯林斯星级：${result.collins}",
+                  style: TextStyle(fontSize: 12, color: Colors.blue[800]),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+
+            if (result.oxford != null &&
+                result.oxford!.isNotEmpty &&
+                result.oxford != '0') ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.red[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  "牛津核心：${result.oxford}",
+                  style: TextStyle(fontSize: 12, color: Colors.red[800]),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
     );
   }
 
@@ -646,5 +888,79 @@ class ArticleDetailPage extends ConsumerWidget {
     if (content == null) return false;
     final RegExp audioRegex = RegExp(r'\[收听音频\]\((https?://[^\s\)]+\.mp3)\)');
     return audioRegex.hasMatch(content);
+  }
+
+  // 显示单词悬浮卡片
+  void _showWordPopup(
+    BuildContext context, {
+    required String word,
+    required String translation,
+    required String wordContext,
+    required String example,
+  }) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        word,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  Text(
+                    translation,
+                    style: TextStyle(fontSize: 18, color: Colors.blue[800]),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "上下文: $wordContext",
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text("例句: $example", style: const TextStyle(fontSize: 14)),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        child: const Text("添加到生词本"),
+                        onPressed: () {
+                          // 添加生词本功能
+                          Navigator.pop(context);
+                        },
+                      ),
+                      TextButton(
+                        child: const Text("关闭"),
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
   }
 }
