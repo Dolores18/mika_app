@@ -61,74 +61,87 @@ class _ArticleListPageState extends State<ArticleListPage> {
       });
 
       if (_selectedTopic != null) {
+        log.i('开始加载主题 ${_selectedTopic} 的文章列表');
         final articlesList = await _articleService.getArticlesByTopic(
           _selectedTopic!,
-          // 移除分页参数
-          // page: _currentPage,
         );
+        
+        log.i('API返回文章数量: ${articlesList.length}');
+        
+        // 记录原始顺序
+        log.i('API返回的原始文章顺序:');
+        for (var article in articlesList) {
+          log.i('标题: ${article['title']}, 日期: ${article['issue_date']}');
+        }
 
-        // 将简单的文章数据转换为Article对象
-        final List<Article> articles =
-            articlesList.map((articleData) {
-              // 确保从API返回的标题等文本正确解码
-              final String safeTitle =
-                  articleData['title'] is String
-                      ? articleData['title'] as String
-                      : '未知标题';
+        final List<Article> articles = articlesList.map((articleData) {
+          final String safeTitle = articleData['title'] is String
+              ? articleData['title'] as String
+              : '未知标题';
+          final String safeDate = articleData['issue_date'] is String
+              ? articleData['issue_date'] as String
+              : '未知日期';
 
-              final String safeSection =
-                  articleData['section'] is String
-                      ? articleData['section'] as String
-                      : '未知栏目';
+          log.d('解析文章: $safeTitle, 日期: $safeDate');
+          
+          return Article(
+            id: articleData['id'] as int,
+            title: safeTitle,
+            sectionId: 0,
+            sectionTitle: '',
+            issueId: 0,
+            issueDate: safeDate,
+            issueTitle: '',
+            order: 0,
+            path: articleData['path'] as String? ?? '',
+            hasImages: false,
+            audioUrl: null,
+            // 创建一个基本的analysis对象，用于显示
+            analysis: ArticleAnalysis(
+              id: 0,
+              articleId: articleData['id'] as int,
+              readingTime: articleData['reading_time'] as int? ?? 8,
+              difficulty: Difficulty(
+                level: 'B2-C1',
+                description: '中高级',
+                features: ['经济学人文章'],
+              ),
+              topics: Topics(
+                primary: _selectedTopic!,
+                secondary: [],
+                keywords: _selectedTopic!.isEmpty ? [] : [_selectedTopic!],
+              ),
+              summary: Summary(short: '', keyPoints: []),
+              vocabulary: [],
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+          );
+        }).toList();
 
-              final String safeDate =
-                  articleData['issue_date'] is String
-                      ? articleData['issue_date'] as String
-                      : '未知日期';
+        // 添加排序前的日志
+        log.i('排序前的文章顺序:');
+        for (var article in articles) {
+          log.i('标题: ${article.title}, 日期: ${article.issueDate}');
+        }
 
-              log.d('准备解析文章标题: $safeTitle');
+        // 排序
+        articles.sort((a, b) => b.issueDate.compareTo(a.issueDate));
 
-              return Article(
-                id: articleData['id'] as int,
-                title: safeTitle,
-                sectionId: 0,
-                sectionTitle: safeSection,
-                issueId: 0,
-                issueDate: safeDate,
-                issueTitle: '',
-                order: 0,
-                path: articleData['path'] as String? ?? '',
-                hasImages: false,
-                audioUrl: null,
-                // 创建一个基本的analysis对象，用于显示
-                analysis: ArticleAnalysis(
-                  id: 0,
-                  articleId: articleData['id'] as int,
-                  readingTime: articleData['reading_time'] as int? ?? 8,
-                  difficulty: Difficulty(
-                    level: 'B2-C1',
-                    description: '中高级',
-                    features: ['经济学人文章'],
-                  ),
-                  topics: Topics(
-                    primary: _selectedTopic!,
-                    secondary: [],
-                    keywords: _selectedTopic!.isEmpty ? [] : [_selectedTopic!],
-                  ),
-                  summary: Summary(short: '', keyPoints: []),
-                  vocabulary: [],
-                  createdAt: DateTime.now(),
-                  updatedAt: DateTime.now(),
-                ),
-              );
-            }).toList();
+        // 添加排序后的日志
+        log.i('排序后的文章顺序（按日期降序）:');
+        for (var article in articles) {
+          log.i('标题: ${article.title}, 日期: ${article.issueDate}');
+        }
 
         setState(() {
           _articles = articles;
           _isLoading = false;
-          // 不再设置_hasMore和_currentPage
         });
+        
+        log.i('文章列表加载完成，共 ${articles.length} 篇文章');
       } else {
+        log.i('未选择主题');
         setState(() {
           _error = '请选择一个主题';
           _isLoading = false;
