@@ -65,59 +65,62 @@ class _ArticleListPageState extends State<ArticleListPage> {
         final articlesList = await _articleService.getArticlesByTopic(
           _selectedTopic!,
         );
-        
+
         log.i('API返回文章数量: ${articlesList.length}');
-        
+
         // 记录原始顺序
         log.i('API返回的原始文章顺序:');
         for (var article in articlesList) {
           log.i('标题: ${article['title']}, 日期: ${article['issue_date']}');
         }
 
-        final List<Article> articles = articlesList.map((articleData) {
-          final String safeTitle = articleData['title'] is String
-              ? articleData['title'] as String
-              : '未知标题';
-          final String safeDate = articleData['issue_date'] is String
-              ? articleData['issue_date'] as String
-              : '未知日期';
+        final List<Article> articles =
+            articlesList.map((articleData) {
+              final String safeTitle =
+                  articleData['title'] is String
+                      ? articleData['title'] as String
+                      : '未知标题';
+              final String safeDate =
+                  articleData['issue_date'] is String
+                      ? articleData['issue_date'] as String
+                      : '未知日期';
 
-          log.d('解析文章: $safeTitle, 日期: $safeDate');
-          
-          return Article(
-            id: articleData['id'] as int,
-            title: safeTitle,
-            sectionId: 0,
-            sectionTitle: '',
-            issueId: 0,
-            issueDate: safeDate,
-            issueTitle: '',
-            order: 0,
-            path: articleData['path'] as String? ?? '',
-            hasImages: false,
-            audioUrl: null,
-            // 创建一个基本的analysis对象，用于显示
-            analysis: ArticleAnalysis(
-              id: 0,
-              articleId: articleData['id'] as int,
-              readingTime: articleData['reading_time'] as int? ?? 8,
-              difficulty: Difficulty(
-                level: 'B2-C1',
-                description: '中高级',
-                features: ['经济学人文章'],
-              ),
-              topics: Topics(
-                primary: _selectedTopic!,
-                secondary: [],
-                keywords: _selectedTopic!.isEmpty ? [] : [_selectedTopic!],
-              ),
-              summary: Summary(short: '', keyPoints: []),
-              vocabulary: [],
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            ),
-          );
-        }).toList();
+              log.d('解析文章: $safeTitle, 日期: $safeDate');
+
+              return Article(
+                id: articleData['id'] as int,
+                title: safeTitle,
+                sectionId: 0,
+                sectionTitle: '',
+                issueId: 0,
+                issueDate: safeDate,
+                issueTitle: '',
+                order: 0,
+                path: articleData['path'] as String? ?? '',
+                hasImages: false,
+                audioUrl: null,
+                // 创建一个基本的analysis对象，用于显示
+                analysis: ArticleAnalysis(
+                  id: 0,
+                  articleId: articleData['id'] as int,
+                  readingTime: articleData['reading_time'] as int? ?? 8,
+                  difficulty: Difficulty(
+                    level: 'B2-C1',
+                    description: '中高级',
+                    features: ['经济学人文章'],
+                  ),
+                  topics: Topics(
+                    primary: _selectedTopic!,
+                    secondary: [],
+                    keywords: _selectedTopic!.isEmpty ? [] : [_selectedTopic!],
+                  ),
+                  summary: Summary(short: '', keyPoints: []),
+                  vocabulary: [],
+                  createdAt: DateTime.now(),
+                  updatedAt: DateTime.now(),
+                ),
+              );
+            }).toList();
 
         // 添加排序前的日志
         log.i('排序前的文章顺序:');
@@ -138,7 +141,7 @@ class _ArticleListPageState extends State<ArticleListPage> {
           _articles = articles;
           _isLoading = false;
         });
-        
+
         log.i('文章列表加载完成，共 ${articles.length} 篇文章');
       } else {
         log.i('未选择主题');

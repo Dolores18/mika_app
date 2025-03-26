@@ -55,9 +55,16 @@ class _MainScreenState extends State<MainScreen> {
   ];
 
   void toggleSearchState(bool isActive) {
-    setState(() {
-      _isSearchActive = isActive;
-    });
+    // 防止在构建过程中被调用导致错误
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _isSearchActive != isActive) {
+          setState(() {
+            _isSearchActive = isActive;
+          });
+        }
+      });
+    }
   }
 
   @override
