@@ -8,9 +8,9 @@ class ArticleService {
   // 根据运行环境选择合适的地址
   // Android模拟器中使用10.0.2.2访问宿主机的localhost
   // iOS模拟器可以直接使用localhost或127.0.0.1
-  static const String _baseUrl = 'http://10.0.2.2:8000/api';
+  //static const String _baseUrl = 'http://10.0.2.2:8000/api';
   //static const String _baseUrl = 'http://127.0.0.1:8000/api';
-  //static const String _baseUrl = 'http://47.79.39.75:7000/api';
+  static const String _baseUrl = 'http://47.79.39.75:7000/api';
   static final Map<String, Article> _articleCache = {};
   static const Duration _requestTimeout = Duration(seconds: 10);
 
