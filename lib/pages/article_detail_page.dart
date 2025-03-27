@@ -16,103 +16,11 @@ import '../providers/word_lookup/word_lookup_provider.dart';
 import '../providers/word_lookup/word_lookup_state.dart';
 import '../models/dictionary_result.dart';
 
-// 自定义文本选择控制器类
-class CustomTextSelectionControls extends TextSelectionControls {
-  final BuildContext context;
-  final TextSelectionControls platformControls;
-  final Function(BuildContext, String) onWordLookup;
-
-  CustomTextSelectionControls({
-    required this.context,
-    required this.onWordLookup,
-  }) : platformControls = MaterialTextSelectionControls();
-
-  @override
-  Widget buildToolbar(
-    BuildContext context,
-    Rect globalEditableRegion,
-    double textLineHeight,
-    Offset selectionMidpoint,
-    List<TextSelectionPoint> endpoints,
-    TextSelectionDelegate delegate,
-    ValueListenable<ClipboardStatus>? clipboardStatus,
-    Offset? lastSecondaryTapDownPosition,
-  ) {
-    // 获取原始的工具栏
-    final Widget originalToolbar = platformControls.buildToolbar(
-      context,
-      globalEditableRegion,
-      textLineHeight,
-      selectionMidpoint,
-      endpoints,
-      delegate,
-      clipboardStatus,
-      lastSecondaryTapDownPosition,
-    );
-
-    // 获取选中的文本
-    final selectedText = delegate.textEditingValue.selection.textInside(
-      delegate.textEditingValue.text,
-    );
-
-    if (selectedText.isEmpty) {
-      return originalToolbar;
-    }
-
-    // 添加自定义菜单项
-    return Material(
-      elevation: 6.0,
-      child: Container(
-        margin: const EdgeInsets.all(8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 原始工具栏中的复制按钮等
-            Flexible(child: originalToolbar),
-            // 分隔线
-            const SizedBox(width: 8),
-            const VerticalDivider(width: 1, thickness: 1),
-            const SizedBox(width: 8),
-            // 查找单词按钮
-            TextButton.icon(
-              icon: const Icon(Icons.search, size: 18),
-              label: const Text('查找单词'),
-              onPressed: () {
-                if (selectedText.isNotEmpty) {
-                  onWordLookup(context, selectedText);
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget buildHandle(
-    BuildContext context,
-    TextSelectionHandleType type,
-    double textHeight, [
-    VoidCallback? onTap,
-  ]) {
-    return platformControls.buildHandle(context, type, textHeight, onTap);
-  }
-
-  @override
-  Offset getHandleAnchor(TextSelectionHandleType type, double textLineHeight) {
-    return platformControls.getHandleAnchor(type, textLineHeight);
-  }
-
-  @override
-  Size getHandleSize(double textLineHeight) {
-    return platformControls.getHandleSize(textLineHeight);
-  }
-}
-
 class ArticleDetailPage extends ConsumerWidget {
   final String articleId;
   final ScrollController _scrollController = ScrollController();
+  // 添加一个GlobalKey以获取稳定的context
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   ArticleDetailPage({super.key, required this.articleId});
 
@@ -128,6 +36,7 @@ class ArticleDetailPage extends ConsumerWidget {
     final article = state.article!;
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor:
           state.isDarkMode ? const Color(0xFF121212) : Colors.white,
       appBar: AppBar(
@@ -212,14 +121,28 @@ class ArticleDetailPage extends ConsumerWidget {
       // 悬浮按钮 - 用于获取选中的文本并搜索
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
+          log.i('悬浮按钮: 点击了查找单词按钮');
+
+          // 获取稳定的context
+          final BuildContext? stableContext = _scaffoldKey.currentContext;
+          if (stableContext == null) {
+            log.e('悬浮按钮: 无法获取稳定的context');
+            return;
+          }
+
           // 异步获取当前选中的文本
+          log.i('悬浮按钮: 尝试获取选中的文本');
           final String? selectedText = await _getSelectedText();
+
           if (selectedText != null && selectedText.isNotEmpty) {
+            log.i('悬浮按钮: 成功获取文本: "$selectedText"');
             // 直接在当前页面显示单词解释卡片
-            _showWordExplanationCard(context, selectedText, ref);
+            log.i('悬浮按钮: 开始查询单词解释');
+            _showWordExplanationCard(stableContext, selectedText, ref);
           } else {
+            log.w('悬浮按钮: 未能获取选中的文本');
             ScaffoldMessenger.of(
-              context,
+              stableContext,
             ).showSnackBar(const SnackBar(content: Text('请先选择要查找的文本')));
           }
         },
@@ -332,8 +255,16 @@ class ArticleDetailPage extends ConsumerWidget {
 
   // 获取当前选中的文本，返回Future
   Future<String?> _getSelectedText() async {
+    log.i('_getSelectedText: 开始从剪贴板获取文本');
     // 使用系统剪贴板获取选中的文本
     final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+
+    if (clipboardData?.text != null) {
+      log.i('_getSelectedText: 成功从剪贴板获取文本: "${clipboardData!.text}"');
+    } else {
+      log.w('_getSelectedText: 剪贴板中没有文本数据');
+    }
+
     return clipboardData?.text;
   }
 
@@ -343,42 +274,75 @@ class ArticleDetailPage extends ConsumerWidget {
     String word,
     WidgetRef ref,
   ) async {
-    // 显示加载对话框
+    log.i('_showWordExplanationCard: 开始查询单词 "$word"');
+
+    // 显示加载对话框，确保context仍然有效
+    if (!context.mounted) {
+      log.w('_showWordExplanationCard: context已失效，无法显示加载对话框');
+      return;
+    }
+
+    log.i('_showWordExplanationCard: 显示加载对话框');
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
+      builder:
+          (dialogContext) => const Center(child: CircularProgressIndicator()),
     );
 
     try {
       // 获取单词查询Provider
+      log.i('_showWordExplanationCard: 获取单词查询Provider');
       final notifier = ref.read(wordLookupProvider.notifier);
 
       // 发起查询请求
+      log.i('_showWordExplanationCard: 发起API查询请求');
       await notifier.searchWord(word);
+      log.i('_showWordExplanationCard: API查询请求完成');
 
-      // 关闭加载对话框
-      Navigator.pop(context);
+      // 关闭加载对话框，确保context仍然有效
+      if (!context.mounted) {
+        log.w('_showWordExplanationCard: context已失效，无法关闭加载对话框');
+        return;
+      }
+
+      log.i('_showWordExplanationCard: 关闭加载对话框');
+      Navigator.of(context, rootNavigator: true).pop();
 
       // 获取查询结果
+      log.i('_showWordExplanationCard: 获取查询结果');
       final state = ref.read(wordLookupProvider);
+
+      // 显示结果卡片，确保context仍然有效
+      if (!context.mounted) {
+        log.w('_showWordExplanationCard: context已失效，无法显示结果');
+        return;
+      }
 
       // 显示结果卡片
       if (state.dictResult != null || state.explanation.isNotEmpty) {
+        log.i('_showWordExplanationCard: 找到结果，显示结果卡片');
         _showWordResultCard(context, word, state, ref);
       } else {
         // 未找到结果
+        log.w('_showWordExplanationCard: 未找到 "$word" 的解释');
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('未找到"$word"的解释')));
       }
     } catch (e) {
-      // 关闭加载对话框
-      Navigator.pop(context);
-      // 显示错误信息
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('查询失败: $e')));
+      // 关闭加载对话框，确保context仍然有效
+      if (context.mounted) {
+        log.e('_showWordExplanationCard: 查询过程中发生错误', e);
+        Navigator.of(context, rootNavigator: true).pop();
+
+        // 显示错误信息
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('查询失败: $e')));
+      } else {
+        log.e('_showWordExplanationCard: 查询过程中发生错误，但context已失效', e);
+      }
     }
   }
 
@@ -757,6 +721,83 @@ class ArticleDetailPage extends ConsumerWidget {
               // 长按时的自定义操作（可选）
             },
             child: SelectionArea(
+              contextMenuBuilder: (context, selectableRegionState) {
+                return AdaptiveTextSelectionToolbar.buttonItems(
+                  anchors: selectableRegionState.contextMenuAnchors,
+                  buttonItems: [
+                    ContextMenuButtonItem(
+                      label: '复制',
+                      onPressed: () {
+                        selectableRegionState.copySelection(
+                          SelectionChangedCause.toolbar,
+                        );
+                      },
+                    ),
+                    ContextMenuButtonItem(
+                      label: '查找单词',
+                      onPressed: () async {
+                        log.i('文本选择菜单: 点击了查找单词按钮');
+
+                        // 获取稳定的context，确保在菜单关闭后仍能使用
+                        final BuildContext? stableContext =
+                            _scaffoldKey.currentContext;
+                        if (stableContext == null) {
+                          log.e('文本选择菜单: 无法获取稳定的context');
+                          return;
+                        }
+
+                        // 先执行复制操作
+                        log.i('文本选择菜单: 开始执行复制操作');
+                        selectableRegionState.copySelection(
+                          SelectionChangedCause.toolbar,
+                        );
+                        log.i('文本选择菜单: 复制操作执行完毕');
+
+                        // 获取选中的文本并存储，避免菜单关闭后剪贴板内容变化
+                        log.i('文本选择菜单: 立即从剪贴板获取选中的文本');
+                        final clipboardData = await Clipboard.getData(
+                          Clipboard.kTextPlain,
+                        );
+                        final String? selectedText = clipboardData?.text;
+
+                        if (selectedText == null || selectedText.isEmpty) {
+                          log.w('文本选择菜单: 剪贴板中没有文本或文本为空');
+                          if (stableContext.mounted) {
+                            ScaffoldMessenger.of(stableContext).showSnackBar(
+                              const SnackBar(content: Text('未能获取选中的文本')),
+                            );
+                          }
+                          return;
+                        }
+
+                        log.i(
+                          '文本选择菜单: 成功获取文本: "$selectedText"，长度: ${selectedText.length}',
+                        );
+
+                        // 隐藏工具栏
+                        log.i('文本选择菜单: 隐藏选择工具栏');
+                        selectableRegionState.hideToolbar();
+
+                        // 使用延迟确保UI更新并避免冲突
+                        log.i('文本选择菜单: 使用延迟确保UI更新');
+                        Future.microtask(() {
+                          // 确保context仍然有效
+                          if (stableContext.mounted) {
+                            log.i('文本选择菜单: 开始查询单词解释');
+                            _showWordExplanationCard(
+                              stableContext,
+                              selectedText,
+                              ref,
+                            );
+                          } else {
+                            log.e('文本选择菜单: UI更新后context已失效');
+                          }
+                        });
+                      },
+                    ),
+                  ],
+                );
+              },
               child: Markdown(
                 data: processedContent,
                 styleSheet: MarkdownStyleSheet(
