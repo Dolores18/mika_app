@@ -1,5 +1,7 @@
 // 文章难度枚举
 import '../utils/logger.dart';
+import 'vocabulary.dart';
+import 'dart:math'; // 引入math库
 
 enum ArticleDifficulty {
   easy, // 初级
@@ -8,29 +10,29 @@ enum ArticleDifficulty {
 }
 
 class Article {
-  final int id; // 文章ID
+  final int? id; // 文章ID，可能为null
   final String title; // 标题
-  final int sectionId; // 章节ID
-  final String sectionTitle; // 章节标题
-  final int issueId; // 期号ID
-  final String issueDate; // 发布日期
-  final String issueTitle; // 期号标题
-  final int order; // 排序
-  final String path; // 文件路径
+  final int? sectionId; // 章节ID，可能为null
+  final String? sectionTitle; // 章节标题
+  final int? issueId; // 期号ID，可能为null
+  final String? issueDate; // 发布日期
+  final String? issueTitle; // 期号标题
+  final int? order; // 排序，可能为null
+  final String? path; // 文件路径
   final bool hasImages; // 是否有图片
   final String? audioUrl; // 音频URL
-  ArticleAnalysis? analysis;
+  final ArticleAnalysis? analysis;
 
   Article({
-    required this.id,
+    this.id,
     required this.title,
-    required this.sectionId,
-    required this.sectionTitle,
-    required this.issueId,
-    required this.issueDate,
-    required this.issueTitle,
-    required this.order,
-    required this.path,
+    this.sectionId,
+    this.sectionTitle,
+    this.issueId,
+    this.issueDate,
+    this.issueTitle,
+    this.order,
+    this.path,
     required this.hasImages,
     this.audioUrl,
     this.analysis,
@@ -38,23 +40,39 @@ class Article {
 
   // 从JSON创建Article对象
   factory Article.fromJson(Map<String, dynamic> json) {
-    return Article(
-      id: json['id'],
-      title: json['title'],
-      sectionId: json['section_id'],
-      sectionTitle: json['section_title'],
-      issueId: json['issue_id'],
-      issueDate: json['issue_date'],
-      issueTitle: json['issue_title'],
-      order: json['order'],
-      path: json['path'],
-      hasImages: json['has_images'],
-      audioUrl: json['audio_url'],
-      analysis:
-          json['analysis'] != null
-              ? ArticleAnalysis.fromJson(json['analysis'])
-              : null,
-    );
+    try {
+      log.i('正在解析文章JSON数据');
+
+      // 确保标题字段存在
+      if (json['title'] == null) {
+        throw FormatException('文章缺少标题字段');
+      }
+
+      return Article(
+        id: json['id'] != null ? json['id'] as int : null,
+        title: json['title'] as String,
+        sectionId:
+            json['section_id'] != null ? json['section_id'] as int : null,
+        sectionTitle: json['section'] as String?, // 允许为null
+        issueId: json['issue_id'] != null ? json['issue_id'] as int : null,
+        issueDate: json['issue_date'] as String?, // 允许为null
+        issueTitle: json['issue_title'] as String?, // 允许为null
+        order: json['order'] != null ? json['order'] as int : null,
+        path: json['path'] as String?, // 允许为null
+        hasImages: json['has_images'] != null
+            ? json['has_images'] as bool
+            : false, // 默认为false
+        audioUrl: json['audio_url'] as String?,
+        analysis: json['analysis'] != null
+            ? ArticleAnalysis.fromJson(json['analysis'] as Map<String, dynamic>)
+            : null,
+      );
+    } catch (e) {
+      log.e('解析文章JSON数据失败: $e');
+      log.e(
+          '问题JSON: ${json.toString().substring(0, min(200, json.toString().length))}...');
+      rethrow;
+    }
   }
 
   // 将Article对象转换为JSON
@@ -63,7 +81,7 @@ class Article {
       'id': id,
       'title': title,
       'section_id': sectionId,
-      'section_title': sectionTitle,
+      'section': sectionTitle,
       'issue_id': issueId,
       'issue_date': issueDate,
       'issue_title': issueTitle,
@@ -101,20 +119,26 @@ class ArticleAnalysis {
   });
 
   factory ArticleAnalysis.fromJson(Map<String, dynamic> json) {
-    return ArticleAnalysis(
-      id: json['id'],
-      articleId: json['article_id'],
-      readingTime: json['reading_time'],
-      difficulty: Difficulty.fromJson(json['difficulty']),
-      topics: Topics.fromJson(json['topics']),
-      summary: Summary.fromJson(json['summary']),
-      vocabulary:
-          (json['vocabulary'] as List<dynamic>)
-              .map((v) => Vocabulary.fromJson(v))
-              .toList(),
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
-    );
+    try {
+      return ArticleAnalysis(
+        id: json['id'] as int,
+        articleId: json['article_id'] as int,
+        readingTime: json['reading_time'] as int,
+        difficulty:
+            Difficulty.fromJson(json['difficulty'] as Map<String, dynamic>),
+        topics: Topics.fromJson(json['topics'] as Map<String, dynamic>),
+        summary: Summary.fromJson(json['summary'] as Map<String, dynamic>),
+        vocabulary: (json['vocabulary'] as List<dynamic>)
+            .map((e) => Vocabulary.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        createdAt: DateTime.parse(json['created_at'] as String),
+        updatedAt: DateTime.parse(json['updated_at'] as String),
+      );
+    } catch (e) {
+      log.e('解析文章分析数据失败: $e');
+      log.e('问题JSON: $json');
+      rethrow;
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -125,7 +149,7 @@ class ArticleAnalysis {
       'difficulty': difficulty.toJson(),
       'topics': topics.toJson(),
       'summary': summary.toJson(),
-      'vocabulary': vocabulary.map((v) => v.toJson()).toList(),
+      'vocabulary': vocabulary.map((e) => e.toJson()).toList(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -146,14 +170,19 @@ class Difficulty {
 
   factory Difficulty.fromJson(Map<String, dynamic> json) {
     return Difficulty(
-      level: json['level'],
-      description: json['description'],
-      features: List<String>.from(json['features']),
+      level: json['level'] as String,
+      description: json['description'] as String,
+      features:
+          (json['features'] as List<dynamic>).map((e) => e as String).toList(),
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'level': level, 'description': description, 'features': features};
+    return {
+      'level': level,
+      'description': description,
+      'features': features,
+    };
   }
 }
 
@@ -170,65 +199,21 @@ class Topics {
   });
 
   factory Topics.fromJson(Map<String, dynamic> json) {
-    // 确保能正确处理UTF-8字符
-    try {
-      // 检查primary是否为字符串
-      String primaryTopic = '';
-      if (json['primary'] is String) {
-        primaryTopic = json['primary'];
-      } else {
-        log.i('警告: 主题不是字符串: ${json['primary']}');
-        primaryTopic = '未知主题';
-      }
-
-      // 处理secondary数组
-      List<String> secondaryTopics = [];
-      if (json['secondary'] is List) {
-        secondaryTopics = List<String>.from(
-          (json['secondary'] as List).map((item) {
-            if (item is String) {
-              return item;
-            } else {
-              log.i('警告: 次要主题项不是字符串: $item');
-              return '未知';
-            }
-          }),
-        );
-      } else {
-        log.i('警告: 次要主题不是列表: ${json['secondary']}');
-      }
-
-      // 处理keywords数组
-      List<String> topicKeywords = [];
-      if (json['keywords'] is List) {
-        topicKeywords = List<String>.from(
-          (json['keywords'] as List).map((item) {
-            if (item is String) {
-              return item;
-            } else {
-              log.i('警告: 关键词项不是字符串: $item');
-              return '未知';
-            }
-          }),
-        );
-      } else {
-        log.i('警告: 关键词不是列表: ${json['keywords']}');
-      }
-
-      return Topics(
-        primary: primaryTopic,
-        secondary: secondaryTopics,
-        keywords: topicKeywords,
-      );
-    } catch (e) {
-      log.i('解析Topics时出错: $e');
-      // 返回一个默认的Topics对象
-      return Topics(primary: '未知主题', secondary: [], keywords: []);
-    }
+    return Topics(
+      primary: json['primary'] as String,
+      secondary:
+          (json['secondary'] as List<dynamic>).map((e) => e as String).toList(),
+      keywords:
+          (json['keywords'] as List<dynamic>).map((e) => e as String).toList(),
+    );
   }
 
   Map<String, dynamic> toJson() {
-    return {'primary': primary, 'secondary': secondary, 'keywords': keywords};
+    return {
+      'primary': primary,
+      'secondary': secondary,
+      'keywords': keywords,
+    };
   }
 }
 
@@ -237,78 +222,24 @@ class Summary {
   final String short;
   final List<String> keyPoints;
 
-  Summary({required this.short, required this.keyPoints});
-
-  factory Summary.fromJson(Map<String, dynamic> json) {
-    try {
-      // 检查short是否为字符串
-      String shortSummary = '';
-      if (json['short'] is String) {
-        shortSummary = json['short'];
-      } else {
-        log.i('警告: 摘要不是字符串: ${json['short']}');
-        shortSummary = '无摘要';
-      }
-
-      // 处理keyPoints数组
-      List<String> points = [];
-      if (json['key_points'] is List) {
-        points = List<String>.from(
-          (json['key_points'] as List).map((item) {
-            if (item is String) {
-              return item;
-            } else {
-              log.i('警告: 关键点不是字符串: $item');
-              return '未知要点';
-            }
-          }),
-        );
-      } else {
-        log.i('警告: 关键点不是列表: ${json['key_points']}');
-      }
-
-      return Summary(short: shortSummary, keyPoints: points);
-    } catch (e) {
-      log.i('解析Summary时出错: $e');
-      // 返回一个默认的Summary对象
-      return Summary(short: '无摘要', keyPoints: []);
-    }
-  }
-
-  Map<String, dynamic> toJson() {
-    return {'short': short, 'key_points': keyPoints};
-  }
-}
-
-// 词汇模型
-class Vocabulary {
-  final String word;
-  final String translation;
-  final String context;
-  final String example;
-
-  Vocabulary({
-    required this.word,
-    required this.translation,
-    required this.context,
-    required this.example,
+  Summary({
+    required this.short,
+    required this.keyPoints,
   });
 
-  factory Vocabulary.fromJson(Map<String, dynamic> json) {
-    return Vocabulary(
-      word: json['word'],
-      translation: json['translation'],
-      context: json['context'],
-      example: json['example'],
+  factory Summary.fromJson(Map<String, dynamic> json) {
+    return Summary(
+      short: json['short'] as String,
+      keyPoints: (json['key_points'] as List<dynamic>)
+          .map((e) => e as String)
+          .toList(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'word': word,
-      'translation': translation,
-      'context': context,
-      'example': example,
+      'short': short,
+      'key_points': keyPoints,
     };
   }
 }

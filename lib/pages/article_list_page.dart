@@ -74,53 +74,50 @@ class _ArticleListPageState extends State<ArticleListPage> {
           log.i('标题: ${article['title']}, 日期: ${article['issue_date']}');
         }
 
-        final List<Article> articles =
-            articlesList.map((articleData) {
-              final String safeTitle =
-                  articleData['title'] is String
-                      ? articleData['title'] as String
-                      : '未知标题';
-              final String safeDate =
-                  articleData['issue_date'] is String
-                      ? articleData['issue_date'] as String
-                      : '未知日期';
+        final List<Article> articles = articlesList.map((articleData) {
+          final String safeTitle = articleData['title'] is String
+              ? articleData['title'] as String
+              : '未知标题';
+          final String safeDate = articleData['issue_date'] is String
+              ? articleData['issue_date'] as String
+              : '未知日期';
 
-              log.d('解析文章: $safeTitle, 日期: $safeDate');
+          log.d('解析文章: $safeTitle, 日期: $safeDate');
 
-              return Article(
-                id: articleData['id'] as int,
-                title: safeTitle,
-                sectionId: 0,
-                sectionTitle: '',
-                issueId: 0,
-                issueDate: safeDate,
-                issueTitle: '',
-                order: 0,
-                path: articleData['path'] as String? ?? '',
-                hasImages: false,
-                audioUrl: null,
-                // 创建一个基本的analysis对象，用于显示
-                analysis: ArticleAnalysis(
-                  id: 0,
-                  articleId: articleData['id'] as int,
-                  readingTime: articleData['reading_time'] as int? ?? 8,
-                  difficulty: Difficulty(
-                    level: 'B2-C1',
-                    description: '中高级',
-                    features: ['经济学人文章'],
-                  ),
-                  topics: Topics(
-                    primary: _selectedTopic!,
-                    secondary: [],
-                    keywords: _selectedTopic!.isEmpty ? [] : [_selectedTopic!],
-                  ),
-                  summary: Summary(short: '', keyPoints: []),
-                  vocabulary: [],
-                  createdAt: DateTime.now(),
-                  updatedAt: DateTime.now(),
-                ),
-              );
-            }).toList();
+          return Article(
+            id: articleData['id'] as int,
+            title: safeTitle,
+            sectionId: 0,
+            sectionTitle: '',
+            issueId: 0,
+            issueDate: safeDate,
+            issueTitle: '',
+            order: 0,
+            path: articleData['path'] as String? ?? '',
+            hasImages: false,
+            audioUrl: null,
+            // 创建一个基本的analysis对象，用于显示
+            analysis: ArticleAnalysis(
+              id: 0,
+              articleId: articleData['id'] as int,
+              readingTime: articleData['reading_time'] as int? ?? 8,
+              difficulty: Difficulty(
+                level: 'B2-C1',
+                description: '中高级',
+                features: ['经济学人文章'],
+              ),
+              topics: Topics(
+                primary: _selectedTopic!,
+                secondary: [],
+                keywords: _selectedTopic!.isEmpty ? [] : [_selectedTopic!],
+              ),
+              summary: Summary(short: '', keyPoints: []),
+              vocabulary: [],
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+          );
+        }).toList();
 
         // 添加排序前的日志
         log.i('排序前的文章顺序:');
@@ -128,8 +125,23 @@ class _ArticleListPageState extends State<ArticleListPage> {
           log.i('标题: ${article.title}, 日期: ${article.issueDate}');
         }
 
-        // 排序
-        articles.sort((a, b) => b.issueDate.compareTo(a.issueDate));
+        // 按发布日期排序（降序），处理null值
+        articles.sort((a, b) {
+          // 如果两个日期都不为null，正常比较
+          if (a.issueDate != null && b.issueDate != null) {
+            return b.issueDate!.compareTo(a.issueDate!);
+          }
+          // 如果a的日期为null，将a排在后面
+          else if (a.issueDate == null) {
+            return 1;
+          }
+          // 如果b的日期为null，将b排在后面
+          else if (b.issueDate == null) {
+            return -1;
+          }
+          // 如果两个都为null，认为它们相等
+          return 0;
+        });
 
         // 添加排序后的日志
         log.i('排序后的文章顺序（按日期降序）:');
@@ -192,21 +204,20 @@ class _ArticleListPageState extends State<ArticleListPage> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadArticles),
         ],
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
               ? Center(child: Text(_error!))
               : _articles.isEmpty
-              ? const Center(child: Text('没有找到相关文章'))
-              : ListView.builder(
-                // 不再需要滚动控制器
-                // controller: _scrollController,
-                itemCount: _articles.length,
-                itemBuilder: (context, index) {
-                  return _buildArticleCard(_articles[index]);
-                },
-              ),
+                  ? const Center(child: Text('没有找到相关文章'))
+                  : ListView.builder(
+                      // 不再需要滚动控制器
+                      // controller: _scrollController,
+                      itemCount: _articles.length,
+                      itemBuilder: (context, index) {
+                        return _buildArticleCard(_articles[index]);
+                      },
+                    ),
     );
   }
 
@@ -220,9 +231,8 @@ class _ArticleListPageState extends State<ArticleListPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder:
-                  (context) =>
-                      ArticleDetailPage(articleId: article.id.toString()),
+              builder: (context) =>
+                  ArticleDetailPage(articleId: article.id.toString()),
             ),
           );
         },
@@ -259,7 +269,7 @@ class _ArticleListPageState extends State<ArticleListPage> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            article.sectionTitle,
+                            article.sectionTitle ?? '未分类',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -271,7 +281,7 @@ class _ArticleListPageState extends State<ArticleListPage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            article.issueDate,
+                            article.issueDate ?? '未知日期',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <title>MIKA文章阅读器</title>
+    <!-- 使用相对路径引用CSS -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- 添加内联样式作为备份 -->
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 16px;
+            line-height: 1.6;
+        }
+        #content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+        h1 { font-size: 1.8em; }
+        p { margin-bottom: 1em; }
+        
+        /* 调试面板样式 */
+        #debug-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 8px;
+            font-size: 12px;
+            max-height: 30vh;
+            overflow-y: auto;
+            z-index: 9999;
+            display: none;
+        }
+        .debug-message {
+            margin: 4px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 4px;
+        }
+        #debug-toggle {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            z-index: 10000;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <article id="content">
+            <p>正在加载文章内容...</p>
+        </article>
+    </div>
+    
+    <!-- 调试面板 -->
+    <div id="debug-panel"></div>
+    <button id="debug-toggle" title="显示/隐藏调试信息">🐞</button>
+    
+    <script>
+        // 添加调试日志功能
+        let debugMessages = [];
+        const MAX_DEBUG_MESSAGES = 100;
+        
+        function logToFlutter(message) {
+            console.log(`[MIKA_LOG] ${message}`);
+            addDebugMessage(`[FLUTTER] ${message}`);
+            try {
+                if (window.flutter_inappwebview) {
+                    window.flutter_inappwebview.callHandler('logMessage', message);
+                }
+            } catch (e) {
+                console.error('Error calling Flutter handler:', e);
+                addDebugMessage(`[ERROR] 调用Flutter处理器失败: ${e.message}`);
+            }
+        }
+        
+        function addDebugMessage(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            debugMessages.push(`[${timestamp}] ${message}`);
+            if (debugMessages.length > MAX_DEBUG_MESSAGES) {
+                debugMessages.shift();
+            }
+            updateDebugPanel();
+        }
+        
+        function updateDebugPanel() {
+            const panel = document.getElementById('debug-panel');
+            if (panel) {
+                panel.innerHTML = debugMessages
+                    .map(msg => `<div class="debug-message">${msg}</div>`)
+                    .join('');
+                panel.scrollTop = panel.scrollHeight;
+            }
+        }
+        
+        // 初始化调试面板
+        document.getElementById('debug-toggle').addEventListener('click', function() {
+            const panel = document.getElementById('debug-panel');
+            if (panel.style.display === 'block') {
+                panel.style.display = 'none';
+            } else {
+                panel.style.display = 'block';
+                updateDebugPanel();
+            }
+        });
+        
+        // 显示一些初始信息
+        addDebugMessage('HTML页面已加载');
+        addDebugMessage(`用户代理: ${navigator.userAgent}`);
+        addDebugMessage(`URL: ${window.location.href}`);
+        
+        // 获取文章ID
+        let articleId;
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            articleId = urlParams.get('id');
+            addDebugMessage(`文章ID: ${articleId || '未获取到ID'}`);
+            logToFlutter(`页面加载，获取到文章ID: ${articleId || '未获取到ID'}`);
+        } catch (e) {
+            addDebugMessage(`获取文章ID失败: ${e.message}`);
+        }
+        
+        // 设置全局函数供Flutter调用
+        window.setDarkMode = function(isDark) {
+            addDebugMessage(`设置暗模式: ${isDark}`);
+            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+        };
+        
+        window.setFontSize = function(size) {
+            addDebugMessage(`设置字体大小: ${size}`);
+            document.documentElement.setAttribute('data-font-size', size);
+            document.documentElement.style.setProperty('--font-size', `${size}px`);
+        };
+        
+        window.highlightVocabulary = function(show) {
+            addDebugMessage(`显示词汇: ${show}`);
+            document.documentElement.setAttribute('data-show-vocabulary', show);
+        };
+        
+        // 测试资源加载
+        const testScript = document.createElement('script');
+        testScript.onerror = () => addDebugMessage('❌ 无法加载renderer.js脚本');
+        testScript.onload = () => {
+            addDebugMessage('✅ renderer.js脚本加载成功');
+            // 初始化渲染器
+            window.renderer = new ArticleRenderer();
+            // 加载文章
+            if (articleId) {
+                window.renderer.loadArticle(articleId);
+            }
+        };
+        testScript.src = 'renderer.js';
+        document.head.appendChild(testScript);
+        
+        const testCss = document.createElement('link');
+        testCss.rel = 'stylesheet';
+        testCss.onerror = () => addDebugMessage('❌ 无法加载styles.css样式');
+        testCss.onload = () => addDebugMessage('✅ styles.css样式加载成功');
+        testCss.href = 'styles.css';
+        document.head.appendChild(testCss);
+    </script>
+    
+    <!-- 使用相对路径引用JS -->
+    <script src="renderer.js"></script>
+</body>
+</html> 

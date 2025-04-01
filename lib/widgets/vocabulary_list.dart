@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/article.dart';
+import '../models/vocabulary.dart';
 
 class VocabularyList extends StatelessWidget {
   final List<Vocabulary> vocabulary;

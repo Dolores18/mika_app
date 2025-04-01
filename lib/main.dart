@@ -1,12 +1,26 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'server/local_server.dart';
+import 'utils/logger.dart';
 
 import 'pages/word_lookup_page.dart';
 import 'pages/reading_page.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   HttpOverrides.global = MyHttpOverrides();
+
+  // 应用启动时就初始化本地服务器
+  try {
+    log.i('应用启动，初始化本地服务器');
+    final serverUrl = await LocalServer.start();
+    log.i('本地服务器已启动: $serverUrl');
+  } catch (e) {
+    log.e('启动本地服务器失败: $e');
+  }
+
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -70,10 +84,9 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body:
-          _currentIndex == 2
-              ? WordLookupPage(onSearchStateChanged: toggleSearchState)
-              : _pages[_currentIndex],
+      body: _currentIndex == 2
+          ? WordLookupPage(onSearchStateChanged: toggleSearchState)
+          : _pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,

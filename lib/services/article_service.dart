@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:math';
 import '../models/article.dart';
+import '../models/vocabulary.dart';
 import '../utils/logger.dart';
 
 class ArticleService {
@@ -16,7 +17,17 @@ class ArticleService {
 
   // 提供一个公共方法获取基础URL
   static String getBaseUrl() {
+    log.i('获取API基础URL: $_baseUrl');
     return _baseUrl;
+  }
+
+  // 获取文章HTML URL
+  static String getArticleHtmlUrl(String articleId) {
+    // 直接使用与getArticleHtmlContent相同的URL格式
+    final int idNum = int.tryParse(articleId) ?? 1;
+    String url = '$_baseUrl/articles/$idNum/html';
+    log.i('获取文章HTML URL: $url');
+    return url;
   }
 
   // 修复编码问题的方法
@@ -64,15 +75,13 @@ class ArticleService {
       log.i('开始请求主题数据: $_baseUrl/analysis/topics/list');
 
       // 添加正确的请求头，指定UTF-8编码
-      final response = await http
-          .get(
-            Uri.parse('$_baseUrl/analysis/topics/list'),
-            headers: {
-              'Accept': 'application/json; charset=utf-8',
-              'Content-Type': 'application/json; charset=utf-8',
-            },
-          )
-          .timeout(_requestTimeout);
+      final response = await http.get(
+        Uri.parse('$_baseUrl/analysis/topics/list'),
+        headers: {
+          'Accept': 'application/json; charset=utf-8',
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      ).timeout(_requestTimeout);
 
       log.i('主题数据响应状态: ${response.statusCode}');
       if (response.statusCode == 200) {
@@ -205,15 +214,13 @@ class ArticleService {
       log.i('请求主题文章: $uri');
       log.i('使用主题ID: $topicId');
 
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Accept': 'application/json; charset=utf-8',
-              'Content-Type': 'application/json; charset=utf-8',
-            },
-          )
-          .timeout(_requestTimeout);
+      final response = await http.get(
+        uri,
+        headers: {
+          'Accept': 'application/json; charset=utf-8',
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      ).timeout(_requestTimeout);
 
       log.i('主题文章响应状态: ${response.statusCode}');
       if (response.statusCode == 200) {
@@ -419,525 +426,96 @@ class ArticleService {
   Future<Article> getArticleById(String id) async {
     // 检查缓存
     if (_articleCache.containsKey(id)) {
+      log.i('从缓存获取文章ID: $id');
       return _articleCache[id]!;
     }
 
     try {
-      final uri = Uri.parse('$_baseUrl/articles/$id/with_analysis');
-      log.i('开始请求文章详情: $uri');
+      log.i('从API请求文章ID: $id，URL: ${getBaseUrl()}/articles/$id');
+      final response =
+          await http.get(Uri.parse('${getBaseUrl()}/articles/$id'));
+      log.i('文章请求响应码: ${response.statusCode}, 长度: ${response.body.length}');
 
-      // 打印完整的请求头信息
-      log.d(
-        '请求头: {Accept: application/json; charset=utf-8, Content-Type: application/json; charset=utf-8}',
-      );
-
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Accept': 'application/json; charset=utf-8',
-              'Content-Type': 'application/json; charset=utf-8',
-            },
-          )
-          .timeout(_requestTimeout);
-
-      log.d('文章详情响应状态: ${response.statusCode}');
-
-      // 打印详细的响应头信息
-      log.d('响应头:');
-      response.headers.forEach((key, value) {
-        log.d('  $key: $value');
-      });
-
-      // 打印原始字节内容的十六进制表示
-      log.v('响应正文原始字节 (前100字节, 十六进制): ');
-      final bytes = response.bodyBytes;
-      final hexList =
-          bytes
-              .take(100)
-              .map((b) => b.toRadixString(16).padLeft(2, '0'))
-              .toList();
-      for (int i = 0; i < hexList.length; i += 16) {
-        log.v('  ${hexList.skip(i).take(16).join(' ')}');
-      }
-
-      // 打印原始响应内容
-      log.v('文章详情响应原始内容: ${response.body}');
-
-      // 使用UTF-8解码并打印
-      final String decodedBody = utf8.decode(response.bodyBytes);
-      log.d('文章详情UTF-8解码后内容: $decodedBody');
-
-      // 安全解析JSON
-      if (decodedBody.isEmpty) {
-        log.w('文章详情响应内容为空，使用模拟数据');
-        return _getMockArticleById(id);
-      }
-
-      // 使用解码后的内容进行JSON解析
-      final data = jsonDecode(decodedBody);
-
-      // 检查响应格式 - 处理第一项作为article
-      if (data == null) {
-        log.w('文章详情响应解析为null，使用模拟数据');
-        return _getMockArticleById(id);
-      }
-
-      // 处理API返回的数组格式（如果是数组）
-      Map<String, dynamic> articleData;
-      Map<String, dynamic>? analysisData;
-
-      if (data is List && data.isNotEmpty) {
-        log.d('API返回了数组格式的文章数据');
-        articleData = Map<String, dynamic>.from(data[0]);
-
-        // 检查是否有分析数据
-        if (data.length > 1 && data[1] is Map) {
-          analysisData = Map<String, dynamic>.from(data[1]);
-          log.d('找到分析数据: ${analysisData.keys.join(', ')}');
-        }
-      } else if (data is Map && data.containsKey('article')) {
-        // 如果返回了嵌套格式 {article: {...}, analysis: {...}}
-        articleData = Map<String, dynamic>.from(data['article']);
-        if (data.containsKey('analysis') && data['analysis'] != null) {
-          analysisData = Map<String, dynamic>.from(data['analysis']);
-        }
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        log.i('文章解析成功，ID: $id, 标题: ${data['title']}');
+        final article = Article.fromJson(data);
+        _articleCache[id] = article; // 缓存文章
+        return article;
       } else {
-        // 假设整个对象就是文章
-        articleData = Map<String, dynamic>.from(data);
+        log.e('文章请求失败: ${response.statusCode}, 内容: ${response.body}');
+        throw Exception('Failed to load article: ${response.statusCode}');
       }
-
-      // 创建Article对象
-      final article = Article(
-        id:
-            articleData['id'] is int
-                ? articleData['id']
-                : int.parse(articleData['id'].toString()),
-        title: articleData['title'] ?? '未知标题',
-        sectionId: articleData['section_id'] ?? 0,
-        sectionTitle: articleData['section'] ?? '未知栏目',
-        issueId: articleData['issue_id'] ?? 0,
-        issueDate: articleData['issue_date'] ?? '未知日期',
-        issueTitle: articleData['issue_title'] ?? '',
-        order: articleData['order'] ?? 0,
-        path: articleData['path'] ?? '',
-        hasImages: articleData['has_images'] ?? false,
-        audioUrl: articleData['audio_url'],
-        analysis: null, // 稍后处理
-      );
-
-      log.i('加载文章详情: ID=${article.id}, 标题=${article.title}');
-
-      // 处理analysis字段
-      if (analysisData != null) {
-        log.d('开始处理文章分析数据');
-        try {
-          // 先使用原始数据格式辅助调试
-          final rawTopics = analysisData['topics'];
-          final rawSummary = analysisData['summary'];
-
-          if (rawTopics != null) {
-            log.d('调试文章分析数据:');
-            if (rawTopics is Map) {
-              log.d('  - 主题: ${rawTopics['primary']}');
-              if (rawTopics['keywords'] is List) {
-                log.d('  - 关键词: ${(rawTopics['keywords'] as List).join(', ')}');
-              }
-            }
-            if (rawSummary is Map && rawSummary['short'] != null) {
-              log.d('  - 摘要: ${rawSummary['short']}');
-            }
-          }
-
-          // 对分析数据进行UTF-8修正
-          Map<String, dynamic> fixedAnalysis = {};
-
-          // 手动处理topics字段
-          if (rawTopics is Map) {
-            Map<String, dynamic> fixedTopics = {};
-
-            // 修正primary主题
-            if (rawTopics['primary'] != null) {
-              fixedTopics['primary'] = correctEncodingIssues(
-                rawTopics['primary'].toString(),
-              );
-            } else {
-              fixedTopics['primary'] = '政治'; // 默认主题
-            }
-
-            // 修正secondary主题列表
-            if (rawTopics['secondary'] is List) {
-              fixedTopics['secondary'] =
-                  (rawTopics['secondary'] as List)
-                      .map((topic) => correctEncodingIssues(topic.toString()))
-                      .toList();
-            } else {
-              fixedTopics['secondary'] = [];
-            }
-
-            // 修正keywords关键词列表
-            if (rawTopics['keywords'] is List) {
-              fixedTopics['keywords'] =
-                  (rawTopics['keywords'] as List)
-                      .map(
-                        (keyword) => correctEncodingIssues(keyword.toString()),
-                      )
-                      .toList();
-            } else {
-              fixedTopics['keywords'] = [];
-            }
-
-            fixedAnalysis['topics'] = fixedTopics;
-          } else {
-            // 创建默认topics
-            fixedAnalysis['topics'] = {
-              'primary': '政治',
-              'secondary': [],
-              'keywords': [],
-            };
-          }
-
-          // 手动处理summary字段
-          if (rawSummary is Map) {
-            Map<String, dynamic> fixedSummary = {};
-
-            // 修正short摘要
-            if (rawSummary['short'] != null) {
-              fixedSummary['short'] = correctEncodingIssues(
-                rawSummary['short'].toString(),
-              );
-            } else {
-              fixedSummary['short'] =
-                  '这是一篇关于${fixedAnalysis['topics']['primary']}的文章...';
-            }
-
-            // 修正keyPoints关键点列表
-            if (rawSummary['key_points'] is List) {
-              fixedSummary['key_points'] =
-                  (rawSummary['key_points'] as List)
-                      .map((point) => correctEncodingIssues(point.toString()))
-                      .toList();
-            } else {
-              fixedSummary['key_points'] = [];
-            }
-
-            fixedAnalysis['summary'] = fixedSummary;
-          } else {
-            // 创建默认summary
-            fixedAnalysis['summary'] = {
-              'short': '这是一篇关于${fixedAnalysis['topics']['primary']}的文章...',
-              'key_points': [],
-            };
-          }
-
-          // 设置其他分析字段
-          fixedAnalysis['id'] = analysisData['id'] ?? article.id;
-          fixedAnalysis['article_id'] =
-              analysisData['article_id'] ?? article.id;
-          fixedAnalysis['reading_time'] = analysisData['reading_time'] ?? 5;
-
-          // 处理difficulty
-          if (analysisData['difficulty'] is Map) {
-            Map<String, dynamic> difficultyData = Map<String, dynamic>.from(
-              analysisData['difficulty'],
-            );
-            fixedAnalysis['difficulty'] = {
-              'level': correctEncodingIssues(
-                difficultyData['level'] ?? 'B1-B2',
-              ),
-              'description': correctEncodingIssues(
-                difficultyData['description'] ?? '适合中级英语学习者',
-              ),
-              'features':
-                  difficultyData['features'] is List
-                      ? (difficultyData['features'] as List)
-                          .map(
-                            (feature) =>
-                                correctEncodingIssues(feature.toString()),
-                          )
-                          .toList()
-                      : ['政经术语', '中等句式复杂度'],
-            };
-          } else {
-            // 创建默认difficulty
-            fixedAnalysis['difficulty'] = {
-              'level': 'B1-B2',
-              'description': '适合中级英语学习者',
-              'features': ['政经术语', '中等句式复杂度'],
-            };
-          }
-
-          // 处理vocabulary
-          if (analysisData['vocabulary'] is List) {
-            List<Map<String, dynamic>> fixedVocabulary = [];
-            for (var vocab in analysisData['vocabulary']) {
-              if (vocab is Map) {
-                fixedVocabulary.add({
-                  'word': correctEncodingIssues(vocab['word'] ?? ''),
-                  'translation': correctEncodingIssues(
-                    vocab['translation'] ?? '',
-                  ),
-                  'context': correctEncodingIssues(vocab['context'] ?? ''),
-                  'example': correctEncodingIssues(vocab['example'] ?? ''),
-                });
-              }
-            }
-            fixedAnalysis['vocabulary'] = fixedVocabulary;
-          } else {
-            fixedAnalysis['vocabulary'] = [];
-          }
-
-          // 设置时间戳
-          fixedAnalysis['created_at'] =
-              analysisData['created_at'] ?? DateTime.now().toIso8601String();
-          fixedAnalysis['updated_at'] =
-              analysisData['updated_at'] ?? DateTime.now().toIso8601String();
-
-          // 输出修正后的数据
-          log.i('修正后的topics.primary: ${fixedAnalysis['topics']['primary']}');
-          if (fixedAnalysis['topics']['keywords'] is List &&
-              (fixedAnalysis['topics']['keywords'] as List).isNotEmpty) {
-            log.i(
-              '修正后的keywords: ${(fixedAnalysis['topics']['keywords'] as List).join(', ')}',
-            );
-          }
-          log.i('修正后的summary.short: ${fixedAnalysis['summary']['short']}');
-
-          // 创建ArticleAnalysis对象
-          try {
-            article.analysis = ArticleAnalysis(
-              id: fixedAnalysis['id'],
-              articleId: fixedAnalysis['article_id'],
-              readingTime: fixedAnalysis['reading_time'],
-              difficulty: Difficulty(
-                level: fixedAnalysis['difficulty']['level'],
-                description: fixedAnalysis['difficulty']['description'],
-                features: List<String>.from(
-                  fixedAnalysis['difficulty']['features'],
-                ),
-              ),
-              topics: Topics(
-                primary: fixedAnalysis['topics']['primary'],
-                secondary: List<String>.from(
-                  fixedAnalysis['topics']['secondary'],
-                ),
-                keywords: List<String>.from(
-                  fixedAnalysis['topics']['keywords'],
-                ),
-              ),
-              summary: Summary(
-                short: fixedAnalysis['summary']['short'],
-                keyPoints: List<String>.from(
-                  fixedAnalysis['summary']['key_points'],
-                ),
-              ),
-              vocabulary:
-                  (fixedAnalysis['vocabulary'] as List)
-                      .map(
-                        (v) => Vocabulary(
-                          word: v['word'],
-                          translation: v['translation'],
-                          context: v['context'],
-                          example: v['example'],
-                        ),
-                      )
-                      .toList(),
-              createdAt: DateTime.parse(fixedAnalysis['created_at']),
-              updatedAt: DateTime.parse(fixedAnalysis['updated_at']),
-            );
-          } catch (e) {
-            log.i('创建ArticleAnalysis对象失败: $e');
-            article.analysis = _createMockAnalysis(article.id);
-          }
-        } catch (e) {
-          log.i('解析analysis字段出错: $e，使用模拟分析数据');
-          article.analysis = _createMockAnalysis(article.id);
-        }
-      } else {
-        log.i('API返回的analysis为null，使用模拟分析数据');
-        article.analysis = _createMockAnalysis(article.id);
-      }
-
-      // 缓存文章
-      _articleCache[id] = article;
-      return article;
     } catch (e) {
-      log.i('获取文章详情出现异常: $e');
-      // 返回模拟文章数据
-      return _getMockArticleById(id);
+      log.e('获取文章失败: $e');
+      rethrow;
     }
   }
 
-  // 创建模拟分析数据
-  ArticleAnalysis _createMockAnalysis(int articleId) {
-    return ArticleAnalysis(
-      id: articleId,
-      articleId: articleId,
-      readingTime: 7,
-      difficulty: Difficulty(
-        level: 'B2-C1',
-        description: '适合中高级英语学习者阅读',
-        features: ['政经术语', '复杂句结构', '专业主题'],
-      ),
-      topics: Topics(
-        primary: '时事',
-        secondary: ['国际关系', '政治分析'],
-        keywords: ['新闻', '时事', '国际'],
-      ),
-      summary: Summary(
-        short: '这是一篇来自API的文章，但没有提供分析内容。这里是自动生成的摘要...',
-        keyPoints: ['关键点1', '关键点2', '关键点3'],
-      ),
-      vocabulary: [
-        Vocabulary(
-          word: 'guarantee',
-          translation: '保证，担保',
-          context: 'security guarantee',
-          example: 'The treaty provides security guarantees for the region.',
-        ),
-      ],
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+  // 获取文章HTML内容
+  Future<String> getArticleHtmlContent(String id) async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/articles/$id/html'));
+      if (response.statusCode == 200) {
+        return response.body;
+      } else {
+        throw Exception(
+            'Failed to load article content: ${response.statusCode}');
+      }
+    } catch (e) {
+      log.e('获取文章HTML内容失败: $e');
+      rethrow;
+    }
   }
 
-  // 获取模拟文章详情
-  Article _getMockArticleById(String id) {
-    final int articleId = int.tryParse(id) ?? 1;
-    log.i('使用模拟文章详情数据，ID: $articleId');
+  // 获取文章Markdown内容
+  Future<String> getArticleMarkdownContent(String id) async {
+    try {
+      final response =
+          await http.get(Uri.parse('$_baseUrl/articles/$id/markdown'));
+      if (response.statusCode == 200) {
+        return response.body;
+      } else {
+        throw Exception(
+            'Failed to load article content: ${response.statusCode}');
+      }
+    } catch (e) {
+      log.e('获取文章Markdown内容失败: $e');
+      rethrow;
+    }
+  }
 
-    // 根据不同ID返回不同的模拟文章
-    switch (articleId) {
-      case 1:
-        return Article(
-          id: 1,
-          title: '全球芯片竞争加剧，台湾面临压力',
-          sectionId: 1,
-          sectionTitle: '科技专栏',
-          issueId: 1,
-          issueDate: '2024-03-20',
-          issueTitle: '2024年第12期',
-          order: 1,
-          path: '/articles/1',
-          hasImages: false,
-          audioUrl: 'https://example.com/audio/1.mp3',
-          analysis: ArticleAnalysis(
-            id: 1,
-            articleId: 1,
-            readingTime: 8,
-            difficulty: Difficulty(
-              level: 'B1-B2',
-              description: '适合中级英语学习者阅读',
-              features: ['包含常见词汇', '句子结构适中', '主题贴近生活'],
-            ),
-            topics: Topics(
-              primary: '科技',
-              secondary: ['半导体', '全球竞争'],
-              keywords: ['芯片', '台湾', '科技竞争'],
-            ),
-            summary: Summary(
-              short: '随着全球芯片需求增长，台湾半导体产业面临来自多方的竞争压力...',
-              keyPoints: ['全球芯片需求增长', '台湾半导体产业面临竞争', '多方压力增加'],
-            ),
-            vocabulary: [
-              Vocabulary(
-                word: 'semiconductor',
-                translation: '半导体',
-                context: 'semiconductor industry',
-                example: 'The semiconductor industry is facing challenges.',
-              ),
-            ],
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          ),
-        );
-      case 2:
-        return Article(
-          id: 2,
-          title: '中央银行如何应对通胀？',
-          sectionId: 2,
-          sectionTitle: '经济专栏',
-          issueId: 2,
-          issueDate: '2024-03-19',
-          issueTitle: '2024年第11期',
-          order: 1,
-          path: '/articles/2',
-          hasImages: false,
-          audioUrl: 'https://example.com/audio/2.mp3',
-          analysis: ArticleAnalysis(
-            id: 2,
-            articleId: 2,
-            readingTime: 10,
-            difficulty: Difficulty(
-              level: 'C1-C2',
-              description: '适合高级英语学习者阅读',
-              features: ['专业术语较多', '复杂的经济概念', '深入的分析'],
-            ),
-            topics: Topics(
-              primary: '经济',
-              secondary: ['货币政策', '通货膨胀'],
-              keywords: ['央行', '通胀', '货币政策'],
-            ),
-            summary: Summary(
-              short: '面对持续上升的通胀压力，各国央行采取了不同的货币政策...',
-              keyPoints: ['通胀压力上升', '各国央行政策差异', '货币政策调整'],
-            ),
-            vocabulary: [
-              Vocabulary(
-                word: 'inflation',
-                translation: '通货膨胀',
-                context: 'rising inflation',
-                example:
-                    'The central bank is concerned about rising inflation.',
-              ),
-            ],
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          ),
-        );
-      default:
-        return Article(
-          id: articleId,
-          title: '模拟文章 #$articleId',
-          sectionId: 1,
-          sectionTitle: '模拟专栏',
-          issueId: 1,
-          issueDate: '2024-03-20',
-          issueTitle: '2024年第12期',
-          order: 1,
-          path: '/articles/$articleId',
-          hasImages: false,
-          audioUrl: null,
-          analysis: ArticleAnalysis(
-            id: articleId,
-            articleId: articleId,
-            readingTime: 5,
-            difficulty: Difficulty(
-              level: 'B1-B2',
-              description: '适合中级英语学习者阅读',
-              features: ['常见词汇', '简单句式', '通用话题'],
-            ),
-            topics: Topics(
-              primary: '综合',
-              secondary: ['模拟主题'],
-              keywords: ['模拟', '测试'],
-            ),
-            summary: Summary(
-              short: '这是一篇模拟文章，用于测试应用功能...',
-              keyPoints: ['模拟数据', '测试功能', '离线使用'],
-            ),
-            vocabulary: [
-              Vocabulary(
-                word: 'sample',
-                translation: '样本',
-                context: 'sample article',
-                example: 'This is a sample article for testing.',
-              ),
-            ],
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          ),
-        );
+  // 获取文章词汇列表
+  Future<List<Vocabulary>> getArticleVocabulary(String id) async {
+    try {
+      final response =
+          await http.get(Uri.parse('$_baseUrl/articles/$id/vocabulary'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((json) => Vocabulary.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to load vocabulary: ${response.statusCode}');
+      }
+    } catch (e) {
+      log.e('获取文章词汇列表失败: $e');
+      rethrow;
+    }
+  }
+
+  // 获取文章音频URL
+  Future<String> getArticleAudioUrl(String id) async {
+    try {
+      final response =
+          await http.get(Uri.parse('$_baseUrl/articles/$id/audio'));
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        return data['url'] as String;
+      } else {
+        throw Exception('Failed to load audio URL: ${response.statusCode}');
+      }
+    } catch (e) {
+      log.e('获取文章音频URL失败: $e');
+      rethrow;
     }
   }
 
@@ -951,15 +529,13 @@ class ArticleService {
     try {
       // 使用主题API替代分类API
       log.i('开始请求分类数据: $_baseUrl/analysis/topics/list');
-      final response = await http
-          .get(
-            Uri.parse('$_baseUrl/analysis/topics/list'),
-            headers: {
-              'Accept': 'application/json; charset=utf-8',
-              'Content-Type': 'application/json; charset=utf-8',
-            },
-          )
-          .timeout(_requestTimeout);
+      final response = await http.get(
+        Uri.parse('$_baseUrl/analysis/topics/list'),
+        headers: {
+          'Accept': 'application/json; charset=utf-8',
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      ).timeout(_requestTimeout);
 
       log.i('分类数据响应状态: ${response.statusCode}');
       if (response.statusCode == 200) {
@@ -1075,45 +651,6 @@ class ArticleService {
     }
   }
 
-  // 获取文章HTML内容
-  Future<String> getArticleHtmlContent(String id) async {
-    try {
-      final uri = Uri.parse('$_baseUrl/articles/$id/html');
-      log.i('开始请求文章HTML内容: $uri');
-
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Accept': 'text/html; charset=utf-8',
-              'Content-Type': 'application/json; charset=utf-8',
-            },
-          )
-          .timeout(_requestTimeout);
-
-      log.i('文章HTML内容响应状态: ${response.statusCode}');
-      if (response.statusCode == 200) {
-        // 使用UTF-8解码确保中文字符正确处理
-        return utf8.decode(response.bodyBytes);
-      } else {
-        log.i(
-          '获取文章HTML内容失败: HTTP ${response.statusCode}, 响应内容: ${response.body}',
-        );
-        throw Exception('获取文章HTML内容失败: ${response.statusCode}');
-      }
-    } catch (e) {
-      log.i('获取文章HTML内容出现异常: $e');
-      // 如果是连接问题，返回模拟HTML内容
-      if (e.toString().contains('Connection refused') ||
-          e.toString().contains('timeout') ||
-          e.toString().contains('SocketException')) {
-        log.i('使用模拟HTML内容');
-        return _getMockHtmlContent(id);
-      }
-      throw e;
-    }
-  }
-
   // 生成模拟HTML内容
   String _getMockHtmlContent(String id) {
     return '''
@@ -1135,55 +672,6 @@ class ArticleService {
         <p>感谢您阅读这篇模拟文章，真实内容将在连接到服务器后显示。</p>
       </article>
     ''';
-  }
-
-  // 添加获取Markdown内容的方法
-  Future<String> getArticleMarkdownContent(String id) async {
-    try {
-      final uri = Uri.parse('$_baseUrl/articles/$id/content');
-      log.i('开始请求文章Markdown内容: $uri');
-
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Accept': 'application/json; charset=utf-8',
-              'Content-Type': 'application/json; charset=utf-8',
-            },
-          )
-          .timeout(_requestTimeout);
-
-      log.i('文章Markdown内容响应状态: ${response.statusCode}');
-      if (response.statusCode == 200) {
-        // 解析JSON响应，获取message字段中的Markdown内容
-        final Map<String, dynamic> data = json.decode(
-          utf8.decode(response.bodyBytes),
-        );
-
-        if (data.containsKey('message') && data['message'] != null) {
-          log.i('成功获取Markdown内容');
-          return data['message'] as String;
-        } else {
-          log.w('响应中没有找到Markdown内容');
-          return _getMockMarkdownContent(id);
-        }
-      } else {
-        log.i(
-          '获取文章Markdown内容失败: HTTP ${response.statusCode}, 响应内容: ${response.body}',
-        );
-        throw Exception('获取文章Markdown内容失败: ${response.statusCode}');
-      }
-    } catch (e) {
-      log.i('获取文章Markdown内容出现异常: $e');
-      // 如果是连接问题，返回模拟Markdown内容
-      if (e.toString().contains('Connection refused') ||
-          e.toString().contains('timeout') ||
-          e.toString().contains('SocketException')) {
-        log.i('使用模拟Markdown内容');
-        return _getMockMarkdownContent(id);
-      }
-      throw e;
-    }
   }
 
   // 生成模拟Markdown内容

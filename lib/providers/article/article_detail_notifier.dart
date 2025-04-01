@@ -8,15 +8,22 @@ class ArticleDetailNotifier extends StateNotifier<ArticleDetailState> {
   final String articleId;
 
   ArticleDetailNotifier(this._articleService, this.articleId)
-    : super(const ArticleDetailState()) {
+      : super(const ArticleDetailState()) {
     _loadArticle();
+  }
+
+  Future<void> loadArticle() async {
+    await _loadArticle();
   }
 
   Future<void> _loadArticle() async {
     try {
       final article = await _articleService.getArticleById(articleId);
-      state = state.copyWith(article: article);
-      loadMarkdownContent();
+      state = state.copyWith(
+        article: article,
+        isLoadingContent: false,
+        showAudioPlayer: true,
+      );
     } catch (e) {
       log.e('加载文章失败', e);
       state = state.copyWith(
@@ -27,6 +34,12 @@ class ArticleDetailNotifier extends StateNotifier<ArticleDetailState> {
   }
 
   void setFontSize(double fontSize) {
+    if (fontSize == state.fontSize) {
+      log.d('字体大小未变化，忽略更新: $fontSize');
+      return;
+    }
+
+    log.i('设置新字体大小: $fontSize');
     state = state.copyWith(fontSize: fontSize);
   }
 
@@ -44,27 +57,5 @@ class ArticleDetailNotifier extends StateNotifier<ArticleDetailState> {
 
   void clearCache() {
     state = state.copyWith(htmlContent: null);
-    loadMarkdownContent();
-  }
-
-  Future<void> loadMarkdownContent() async {
-    state = state.copyWith(
-      isLoadingContent: true,
-      contentError: null,
-      showAudioPlayer: true,
-    );
-
-    try {
-      final markdown = await _articleService.getArticleMarkdownContent(
-        articleId,
-      );
-      state = state.copyWith(htmlContent: markdown, isLoadingContent: false);
-    } catch (e) {
-      log.e('获取文章内容失败', e);
-      state = state.copyWith(
-        contentError: '获取文章内容失败: $e',
-        isLoadingContent: false,
-      );
-    }
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/article.dart';
+import '../models/vocabulary.dart';
 import 'article_list_page.dart';
 import 'article_detail_page.dart';
 import '../services/article_service.dart';
@@ -225,195 +226,193 @@ class _ReadingPageState extends State<ReadingPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFFCE4EC),
       body: SafeArea(
-        child:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
                 ? Center(child: Text(_error!))
                 : CustomScrollView(
-                  slivers: [
-                    // 顶部标题
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 30, 20, 20),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              '英语阅读',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.search),
-                              onPressed: () {
-                                // TODO: 实现搜索功能
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // 来源筛选条
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
+                    slivers: [
+                      // 顶部标题
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 30, 20, 20),
                           child: Row(
-                            children:
-                                _sources.map((source) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 10),
-                                    child: ChoiceChip(
-                                      label: Text(source),
-                                      selected: _selectedSource == source,
-                                      onSelected: (selected) {
-                                        if (selected) {
-                                          setState(() {
-                                            _selectedSource = source;
-                                          });
-                                        }
-                                      },
-                                      backgroundColor: Colors.white.withOpacity(
-                                        0.7,
-                                      ),
-                                      selectedColor: const Color(
-                                        0xFF6b4bbd,
-                                      ).withOpacity(0.2),
-                                    ),
-                                  );
-                                }).toList(),
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                '英语阅读',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.search),
+                                onPressed: () {
+                                  // TODO: 实现搜索功能
+                                },
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ),
 
-                    // 主题分类网格
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '主题分类',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 15),
-                            GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 3,
-                                    childAspectRatio: 1.2,
-                                    crossAxisSpacing: 10,
-                                    mainAxisSpacing: 10,
-                                  ),
-                              itemCount: _topics.length,
-                              itemBuilder: (context, index) {
-                                final topic = _topics[index];
-                                return GestureDetector(
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => ArticleListPage(
-                                              initialTopic:
-                                                  topic['id'].toString(),
-                                            ),
-                                      ),
-                                    );
-                                  },
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.8),
-                                      borderRadius: BorderRadius.circular(12),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.05),
-                                          blurRadius: 5,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
+                      // 来源筛选条
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: _sources.map((source) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 10),
+                                  child: ChoiceChip(
+                                    label: Text(source),
+                                    selected: _selectedSource == source,
+                                    onSelected: (selected) {
+                                      if (selected) {
+                                        setState(() {
+                                          _selectedSource = source;
+                                        });
+                                      }
+                                    },
+                                    backgroundColor: Colors.white.withOpacity(
+                                      0.7,
                                     ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          _getTopicIcon(topic['topic']),
-                                          size: 32,
-                                          color: const Color(0xFF6b4bbd),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          topic['topic'],
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          '${topic['count']} 篇',
-                                          style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                    selectedColor: const Color(
+                                      0xFF6b4bbd,
+                                    ).withOpacity(0.2),
                                   ),
                                 );
-                              },
+                              }).toList(),
                             ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
 
-                    // 最新文章
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '最新文章',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                      // 主题分类网格
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '主题分类',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 15),
-                            SizedBox(
-                              height: 220,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: _latestArticles.length,
+                              const SizedBox(height: 15),
+                              GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  childAspectRatio: 1.2,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+                                ),
+                                itemCount: _topics.length,
                                 itemBuilder: (context, index) {
-                                  final article = _latestArticles[index];
-                                  return _buildArticleCard(article);
+                                  final topic = _topics[index];
+                                  return GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ArticleListPage(
+                                            initialTopic:
+                                                topic['id'].toString(),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.8),
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color:
+                                                Colors.black.withOpacity(0.05),
+                                            blurRadius: 5,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            _getTopicIcon(topic['topic']),
+                                            size: 32,
+                                            color: const Color(0xFF6b4bbd),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            topic['topic'],
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          Text(
+                                            '${topic['count']} 篇',
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
                                 },
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
 
-                    // 底部空间
-                    const SliverToBoxAdapter(child: SizedBox(height: 30)),
-                  ],
-                ),
+                      // 最新文章
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '最新文章',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 15),
+                              SizedBox(
+                                height: 220,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _latestArticles.length,
+                                  itemBuilder: (context, index) {
+                                    final article = _latestArticles[index];
+                                    return _buildArticleCard(article);
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // 底部空间
+                      const SliverToBoxAdapter(child: SizedBox(height: 30)),
+                    ],
+                  ),
       ),
     );
   }
@@ -426,9 +425,8 @@ class _ReadingPageState extends State<ReadingPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder:
-                  (context) =>
-                      ArticleDetailPage(articleId: article.id.toString()),
+              builder: (context) =>
+                  ArticleDetailPage(articleId: article.id.toString()),
             ),
           );
         },
@@ -469,7 +467,7 @@ class _ReadingPageState extends State<ReadingPage> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      article.sectionTitle,
+                      article.sectionTitle ?? '未分类',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF6b4bbd),
@@ -479,7 +477,7 @@ class _ReadingPageState extends State<ReadingPage> {
                   const SizedBox(width: 8),
                   // 日期
                   Text(
-                    article.issueDate,
+                    article.issueDate ?? '未知日期',
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                   const SizedBox(width: 8),

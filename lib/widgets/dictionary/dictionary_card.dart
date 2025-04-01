@@ -1,6 +1,7 @@
 // lib/widgets/dictionary/dictionary_card.dart
 import 'package:flutter/material.dart';
 import '../../models/article.dart';
+import '../../models/vocabulary.dart';
 
 class DictionaryCard extends StatelessWidget {
   final String word;
