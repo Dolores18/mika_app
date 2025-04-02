@@ -274,7 +274,7 @@ class _HtmlRendererState extends State<HtmlRenderer> {
       log.i('应用新字体大小: ${widget.fontSize}');
 
       // 基于16px作为标准大小计算缩放比例
-      final int zoomFactor = (widget.fontSize / 16 * 100).round();
+      // final int zoomFactor = (widget.fontSize / 16 * 100).round(); // 移除
 
       // 首先通过JavaScript更新字体大小
       _webViewController!.evaluateJavascript(source: """
@@ -283,9 +283,10 @@ class _HtmlRendererState extends State<HtmlRenderer> {
           document.documentElement.style.setProperty('--font-size-base', '${widget.fontSize}px');
           document.documentElement.setAttribute('data-font-size', '${widget.fontSize}');
           
-          // 更新动态样式
+          // 更新动态样式 (确保CSS中使用了 --font-size-base)
           var dynamicStyle = document.getElementById('dynamic-styles');
           if(dynamicStyle) {
+            // 确认是否真的需要更新整个style块，或者CSS是否已依赖 --font-size-base
             dynamicStyle.textContent = `
               :root { 
                 --font-size-base: ${widget.fontSize}px;
@@ -301,13 +302,13 @@ class _HtmlRendererState extends State<HtmlRenderer> {
         }
       """);
 
-      // 然后设置textZoom作为备份方法
-      _webViewController!.setSettings(
-          settings: InAppWebViewSettings(
-        textZoom: zoomFactor,
-      ));
+      // 然后设置textZoom作为备份方法 (移除)
+      // _webViewController!.setSettings(
+      //     settings: InAppWebViewSettings(
+      //   textZoom: zoomFactor,
+      // ));
 
-      log.i('应用 textZoom: $zoomFactor%');
+      // log.i('应用 textZoom: $zoomFactor%'); // 移除
     }
   }
 
@@ -345,6 +346,8 @@ class _HtmlRendererState extends State<HtmlRenderer> {
             child: Text('请提供文章ID'),
           ));
     }
+
+    log.i('构建 InAppWebView (HtmlRenderer._buildWebView)，可能触发初始加载或重建。'); // 添加日志
 
     // 创建WebView
     return Stack(
@@ -652,7 +655,9 @@ class _HtmlRendererState extends State<HtmlRenderer> {
             """);
           },
           onLoadStart: (controller, url) {
-            log.i('WebView开始加载: $url');
+            log.i('【网络请求】WebView开始加载: $url');
+            log.i('【网络请求】时间戳: ${DateTime.now().millisecondsSinceEpoch}');
+            log.i('【网络请求】当前字体大小: ${widget.fontSize}');
             setState(() {
               _isLoading = true;
             });
@@ -668,7 +673,9 @@ class _HtmlRendererState extends State<HtmlRenderer> {
             """);
           },
           onLoadStop: (controller, url) {
-            log.i('WebView加载完成: $url');
+            log.i('【网络请求完成】WebView加载完成: $url');
+            log.i('【网络请求完成】时间戳: ${DateTime.now().millisecondsSinceEpoch}');
+            log.i('【网络请求完成】当前字体大小: ${widget.fontSize}');
 
             // 获取API服务基础URL（用于图片路径修复）
             final apiBaseUrl =
@@ -1468,9 +1475,11 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                       _isLoading = true;
                       _errorMessage = null;
                     });
-                    final String webviewUrl =
-                        ArticleService.getArticleHtmlUrl(widget.articleId!);
+                    final String webviewUrl = ArticleService.getArticleHtmlUrl(
+                        widget.articleId!); // URL construction
+                    log.i('准备重新加载 WebView URL: $webviewUrl'); // 添加日志
                     _webViewController?.loadUrl(
+                      // Actual request trigger
                       urlRequest: URLRequest(url: WebUri(webviewUrl)),
                     );
                   },
@@ -1534,21 +1543,44 @@ class _HtmlRendererState extends State<HtmlRenderer> {
     Future.delayed(const Duration(milliseconds: 500), () {
       log.i('延迟500ms后开始处理翻译请求，时间: ${DateTime.now().toString()}');
 
-      // 显示加载对话框
-      log.i('准备显示加载对话框');
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => Container(
-          color: Colors.white,
-          width: double.infinity,
-          height: double.infinity,
-          child: const Center(
-            child: CircularProgressIndicator(),
+      // 显示更小的加载指示器，不使用全屏背景
+      log.i('准备显示加载指示器');
+      final OverlayEntry loadingOverlay = OverlayEntry(
+        builder: (context) => Positioned(
+          bottom: 50,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: Card(
+              elevation: 4.0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              color: Colors.black54,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.0,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        )),
+                    SizedBox(width: 12),
+                    Text('翻译中...', style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       );
-      log.i('加载对话框显示完成');
+
+      Overlay.of(context).insert(loadingOverlay);
+      log.i('加载指示器显示完成');
 
       // 使用DictionaryService查询单词或短语
       final DictionaryService dictionaryService = DictionaryService();
@@ -1559,9 +1591,9 @@ class _HtmlRendererState extends State<HtmlRenderer> {
       final startTime = DateTime.now();
       log.i('API调用开始时间: $startTime');
 
-      // 为了防止API调用过快导致界面未响应，再次延迟500毫秒
-      Future.delayed(const Duration(milliseconds: 500), () {
-        log.i('再次延迟500ms后开始API调用，时间: ${DateTime.now().toString()}');
+      // 为了防止API调用过快导致界面未响应，再次延迟短暂时间
+      Future.delayed(const Duration(milliseconds: 100), () {
+        log.i('再次短暂延迟后开始API调用，时间: ${DateTime.now().toString()}');
 
         dictionaryService.lookupWord(cleanText).then((result) {
           // 计算API调用耗时
@@ -1570,98 +1602,92 @@ class _HtmlRendererState extends State<HtmlRenderer> {
           log.i('API调用结束时间: $endTime');
           log.i('API调用耗时: ${duration.inMilliseconds}毫秒');
 
-          // 为了确保用户能看到加载过程，至少显示加载对话框1秒钟
-          Future.delayed(const Duration(milliseconds: 1000), () {
-            log.i('延迟1秒后关闭加载对话框，确保用户看到加载过程');
+          // 移除加载指示器
+          loadingOverlay.remove();
+          log.i('加载指示器已移除');
 
-            // 关闭加载对话框
-            log.i('准备关闭加载对话框');
-            Navigator.of(context).pop();
-            log.i('加载对话框已关闭');
+          if (result != null) {
+            log.i('API查询成功: ${result.word}, 翻译: ${result.translation}');
+            log.i('DictionaryResult详情: $result');
 
-            if (result != null) {
-              log.i('API查询成功: ${result.word}, 翻译: ${result.translation}');
-              log.i('DictionaryResult详情: $result');
+            // 显示词典卡片对话框
+            log.i('准备显示翻译结果对话框');
 
-              // 显示词典卡片对话框
-              log.i('准备显示翻译结果对话框');
+            // 设置对话框打开标志
+            if (_webViewController != null) {
+              _webViewController!.evaluateJavascript(source: """
+                window.mikaDialogOpen = true;
+                console.log('[MIKA] 已设置对话框打开标志');
+              """);
+            }
 
-              // 设置对话框打开标志
+            // 使用最高z-index的Dialog显示DictionaryCard
+            showDialog(
+              context: context,
+              useSafeArea: true,
+              barrierDismissible: true,
+              barrierColor: Colors.black.withOpacity(0.6),
+              builder: (context) => Theme(
+                data: Theme.of(context).copyWith(
+                  dialogTheme: DialogTheme(
+                    elevation: 24,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                child: Dialog(
+                  insetPadding: const EdgeInsets.symmetric(
+                      horizontal: 20.0, vertical: 24.0),
+                  child: DictionaryCard.fromDictionaryResult(
+                    result: result,
+                    onClose: () {
+                      log.i('用户关闭了翻译结果对话框');
+                      Navigator.of(context).pop();
+
+                      // 设置对话框关闭标志
+                      if (_webViewController != null) {
+                        _webViewController!.evaluateJavascript(source: """
+                          window.mikaDialogOpen = false;
+                          console.log('[MIKA] 已设置对话框关闭标志');
+                        """);
+                      }
+                    },
+                    isCompact: true,
+                    onLookupMore: () {
+                      // 可以在这里添加更详细的查询逻辑
+                      log.i('用户点击了"查看详情"按钮');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('更多详情功能即将上线')),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ).then((_) {
+              // 确保在对话框关闭后重置标志
               if (_webViewController != null) {
                 _webViewController!.evaluateJavascript(source: """
-                  window.mikaDialogOpen = true;
-                  console.log('[MIKA] 已设置对话框打开标志');
+                  window.mikaDialogOpen = false;
+                  console.log('[MIKA] 对话框关闭后重置标志');
                 """);
               }
+            });
 
-              // 使用最高z-index的Dialog显示DictionaryCard
-              showDialog(
-                context: context,
-                useSafeArea: true,
-                barrierDismissible: true,
-                barrierColor: Colors.black.withOpacity(0.6),
-                builder: (context) => Theme(
-                  data: Theme.of(context).copyWith(
-                    dialogTheme: DialogTheme(
-                      elevation: 24,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  child: Dialog(
-                    insetPadding: const EdgeInsets.symmetric(
-                        horizontal: 20.0, vertical: 24.0),
-                    child: DictionaryCard.fromDictionaryResult(
-                      result: result,
-                      onClose: () {
-                        log.i('用户关闭了翻译结果对话框');
-                        Navigator.of(context).pop();
-
-                        // 设置对话框关闭标志
-                        if (_webViewController != null) {
-                          _webViewController!.evaluateJavascript(source: """
-                            window.mikaDialogOpen = false;
-                            console.log('[MIKA] 已设置对话框关闭标志');
-                          """);
-                        }
-                      },
-                      isCompact: true,
-                      onLookupMore: () {
-                        // 可以在这里添加更详细的查询逻辑
-                        log.i('用户点击了"查看详情"按钮');
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('更多详情功能即将上线')),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ).then((_) {
-                // 确保在对话框关闭后重置标志
-                if (_webViewController != null) {
-                  _webViewController!.evaluateJavascript(source: """
-                    window.mikaDialogOpen = false;
-                    console.log('[MIKA] 对话框关闭后重置标志');
-                  """);
-                }
-              });
-
-              log.i('翻译结果对话框已显示');
-              log.i('==== 翻译流程完成（成功）====');
-            } else {
-              log.w('API查询无结果');
-              // 查询失败，显示错误提示
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('未能找到该单词或短语的翻译'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-              log.i('错误提示已显示');
-              log.i('==== 翻译流程完成（无结果）====');
-            }
-          });
+            log.i('翻译结果对话框已显示');
+            log.i('==== 翻译流程完成（成功）====');
+          } else {
+            log.w('API查询无结果');
+            // 查询失败，显示错误提示
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('未能找到该单词或短语的翻译'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+            log.i('错误提示已显示');
+            log.i('==== 翻译流程完成（无结果）====');
+          }
         }).catchError((error) {
           // 计算API调用耗时（错误情况）
           final endTime = DateTime.now();
@@ -1669,27 +1695,23 @@ class _HtmlRendererState extends State<HtmlRenderer> {
           log.i('API调用结束时间（出错）: $endTime');
           log.i('API调用耗时: ${duration.inMilliseconds}毫秒');
 
-          // 延迟一段时间后关闭加载对话框
-          Future.delayed(const Duration(milliseconds: 1000), () {
-            // 关闭加载对话框
-            log.i('准备关闭加载对话框（出错）');
-            Navigator.of(context, rootNavigator: true).pop();
-            log.i('加载对话框已关闭（出错）');
+          // 移除加载指示器
+          loadingOverlay.remove();
+          log.i('加载指示器已移除（出错情况）');
 
-            log.e('翻译查询出错', error);
-            log.e('错误详情: ${error.toString()}');
-            log.e('错误栈: ${StackTrace.current}');
+          log.e('翻译查询出错', error);
+          log.e('错误详情: ${error.toString()}');
+          log.e('错误栈: ${StackTrace.current}');
 
-            // 显示错误提示
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('翻译查询出错: ${error.toString()}'),
-                duration: const Duration(seconds: 2),
-              ),
-            );
-            log.i('错误提示已显示');
-            log.i('==== 翻译流程完成（出错）====');
-          });
+          // 显示错误提示
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('翻译查询出错: ${error.toString()}'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          log.i('错误提示已显示');
+          log.i('==== 翻译流程完成（出错）====');
         });
       });
     });
