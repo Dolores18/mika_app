@@ -91,11 +91,13 @@ class LocalServer {
           // 检查特定的文件请求
           if (request.url.path == 'renderer.js' ||
               request.url.path == 'styles.css' ||
+              request.url.path == 'economist.css' ||
               request.url.path == 'index.html' ||
               request.url.path == '' ||
               request.url.path == '/' ||
               request.url.path == '/renderer.js' ||
               request.url.path == '/styles.css' ||
+              request.url.path == '/economist.css' ||
               request.url.path == '/index.html') {
             String fileName;
             if (request.url.path == 'renderer.js' ||
@@ -104,6 +106,9 @@ class LocalServer {
             } else if (request.url.path == 'styles.css' ||
                 request.url.path == '/styles.css') {
               fileName = 'styles.css';
+            } else if (request.url.path == 'economist.css' ||
+                request.url.path == '/economist.css') {
+              fileName = 'economist.css';
             } else {
               fileName = 'index.html'; // 默认为index.html
             }
@@ -174,6 +179,9 @@ class LocalServer {
 
       // 复制styles.css
       await _copyAssetFile('assets/renderer/styles.css', 'styles.css');
+
+      // 复制economist.css
+      await _copyAssetFile('assets/renderer/economist.css', 'economist.css');
 
       log.i('renderer资产文件复制完成');
     } catch (e) {

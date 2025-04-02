@@ -144,11 +144,12 @@ class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
         ],
       ),
       body: HtmlRenderer(
-        key: ValueKey(widget.articleId),
+        key: ValueKey('article_${widget.articleId}_fixed'),
         articleId: widget.articleId,
         isDarkMode: state.isDarkMode,
         fontSize: state.fontSize,
         showVocabulary: state.showVocabulary,
+        htmlContent: state.htmlContent,
         onWordSelected: (word) {
           _showWordExplanationCard(context, word, ref);
         },
@@ -178,7 +179,11 @@ class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
                   onPressed: () {
                     final newSize = (state.fontSize - 1).clamp(12.0, 24.0);
                     if (newSize != state.fontSize) {
-                      notifier.setFontSize(newSize);
+                      Future.delayed(const Duration(milliseconds: 100), () {
+                        if (mounted) {
+                          notifier.setFontSize(newSize);
+                        }
+                      });
                     }
                   },
                 ),
@@ -193,7 +198,11 @@ class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
                   onPressed: () {
                     final newSize = (state.fontSize + 1).clamp(12.0, 24.0);
                     if (newSize != state.fontSize) {
-                      notifier.setFontSize(newSize);
+                      Future.delayed(const Duration(milliseconds: 100), () {
+                        if (mounted) {
+                          notifier.setFontSize(newSize);
+                        }
+                      });
                     }
                   },
                 ),

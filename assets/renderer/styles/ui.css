@@ -1,0 +1,148 @@
+/* UI组件样式 */
+
+/* 文本选择菜单 */
+#text-selection-menu {
+  position: fixed !important;
+  z-index: 99999 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+  padding: 8px !important;
+  display: none;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+/* 文本选择菜单深色模式 */
+:root[data-theme="dark"] #text-selection-menu {
+  background-color: #1e1e1e !important;
+  border: 1px solid #333333 !important;
+}
+
+/* 文本选择菜单浅色模式 */
+:root:not([data-theme="dark"]) #text-selection-menu {
+  background-color: #ffffff !important;
+  border: 1px solid #e0e0e0 !important;
+}
+
+/* 菜单按钮基础样式 */
+#text-selection-menu button {
+  border: none !important;
+  border-radius: 4px !important;
+  padding: 8px 12px !important;
+  margin-right: 8px !important;
+  font-size: 14px !important;
+  font-weight: bold !important;
+  cursor: pointer !important;
+}
+
+/* 菜单按钮深色模式 */
+:root[data-theme="dark"] #text-selection-menu button {
+  background-color: #333333 !important;
+  color: #ffffff !important;
+}
+
+/* 菜单按钮浅色模式 */
+:root:not([data-theme="dark"]) #text-selection-menu button {
+  background-color: #f5f5f5 !important;
+  color: #000000 !important;
+}
+
+/* 菜单按钮悬停效果 */
+#text-selection-menu button:hover {
+  opacity: 0.9 !important;
+}
+
+/* 词汇高亮样式 */
+.vocabulary-word {
+  border-radius: 2px !important;
+  cursor: pointer !important;
+  padding: 0 2px !important;
+  margin: 0 -2px !important;
+  transition: all 0.2s ease !important;
+  display: inline-block !important;
+}
+
+/* 词汇高亮显示时的样式 */
+:root[data-show-vocabulary="true"] .vocabulary-word {
+  background-color: #fff59d !important;
+  color: #000 !important;
+}
+
+/* 词汇高亮隐藏时的样式 */
+:root[data-show-vocabulary="false"] .vocabulary-word {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+/* 词汇高亮悬停效果 */
+.vocabulary-word:hover {
+  background-color: #ffd54f !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
+}
+
+/* 加载指示器 */
+.loading-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+/* 加载指示器深色模式 */
+:root[data-theme="dark"] .loading-indicator {
+  background-color: rgba(18, 18, 18, 0.8);
+}
+
+/* 调试面板 */
+#debug-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  padding: 8px;
+  font-size: 12px;
+  max-height: 30vh;
+  overflow-y: auto;
+  z-index: 9999;
+  display: none;
+}
+
+.debug-message {
+  margin: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+  padding-bottom: 4px;
+}
+
+#debug-toggle {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  z-index: 10000;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* 淡入动画 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease;
+} 

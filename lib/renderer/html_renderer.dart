@@ -5,6 +5,7 @@ import '../services/article_service.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
 import '../server/local_server.dart'; // 添加本地服务器导入
 
@@ -15,6 +16,11 @@ class HtmlRenderer extends StatefulWidget {
   final bool showVocabulary;
   final Function(String)? onWordSelected;
   final Function(double)? onFontSizeChanged;
+  final String? htmlContent; // 添加接收预先加载的HTML内容
+  // 使用静态Map存储每个文章ID对应的WebView控制器
+  static final Map<String, InAppWebViewController?> _controllerCache = {};
+  // 使用静态Map存储每个文章ID对应的加载状态
+  static final Map<String, bool> _contentLoadedCache = {};
 
   const HtmlRenderer({
     Key? key,
@@ -24,6 +30,7 @@ class HtmlRenderer extends StatefulWidget {
     this.showVocabulary = true,
     this.onWordSelected,
     this.onFontSizeChanged,
+    this.htmlContent, // 添加对应的构造参数
   }) : super(key: key);
 
   @override
@@ -38,10 +45,44 @@ class _HtmlRendererState extends State<HtmlRenderer> {
   List<dynamic>? _preloadedVocabulary;
   bool _webViewLoaded = false;
 
+  // 存储CSS文件内容
+  String _baseCSS = '';
+  String _typographyCSS = '';
+  String _uiCSS = '';
+  String _economistCSS = '';
+
   @override
   void initState() {
     super.initState();
-    _initializeWebViewAndLoadData();
+    _loadCSSFiles();
+
+    // 检查是否有缓存的控制器
+    if (widget.articleId != null &&
+        HtmlRenderer._controllerCache.containsKey(widget.articleId)) {
+      log.i('使用缓存的WebView控制器');
+      _webViewController = HtmlRenderer._controllerCache[widget.articleId];
+      _hasLoadedContent =
+          HtmlRenderer._contentLoadedCache[widget.articleId] ?? false;
+
+      // 如果内容已加载，立即应用属性更新
+      if (_hasLoadedContent && _webViewController != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _updateTheme();
+          _updateFontSize();
+          _updateVocabulary();
+        });
+      } else {
+        _initializeWebViewAndLoadData();
+      }
+    } else {
+      _initializeWebViewAndLoadData();
+    }
+  }
+
+  @override
+  void dispose() {
+    // 不要在dispose中释放控制器，让它保持在缓存中
+    super.dispose();
   }
 
   void _initializeWebViewAndLoadData() async {
@@ -139,14 +180,6 @@ class _HtmlRendererState extends State<HtmlRenderer> {
         log.i('字体大小已更改: ${oldWidget.fontSize} -> ${widget.fontSize}');
         // 移除延迟，立即更新字体大小
         _updateFontSize();
-
-        // 为确保字体更新有效，500毫秒后再次尝试更新
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (_webViewController != null && mounted) {
-            log.i('再次尝试更新字体大小: ${widget.fontSize}');
-            _updateFontSize();
-          }
-        });
       }
 
       if (oldWidget.showVocabulary != widget.showVocabulary) {
@@ -170,14 +203,42 @@ class _HtmlRendererState extends State<HtmlRenderer> {
   void _updateFontSize() {
     if (_webViewController != null) {
       log.i('应用新字体大小: ${widget.fontSize}');
+
+      // 基于16px作为标准大小计算缩放比例
+      final int zoomFactor = (widget.fontSize / 16 * 100).round();
+
+      // 首先通过JavaScript更新字体大小
       _webViewController!.evaluateJavascript(source: """
-            if (window.setFontSize) {
-              // 强制更新WebView字体大小
-              window.updateFontSizeForced(${widget.fontSize});
-            } else {
-              console.log('setFontSize函数不存在');
-            }
-          """);
+        try {
+          // 更新CSS变量
+          document.documentElement.style.setProperty('--font-size-base', '${widget.fontSize}px');
+          document.documentElement.setAttribute('data-font-size', '${widget.fontSize}');
+          
+          // 更新动态样式
+          var dynamicStyle = document.getElementById('dynamic-styles');
+          if(dynamicStyle) {
+            dynamicStyle.textContent = `
+              :root { 
+                --font-size-base: ${widget.fontSize}px;
+              }
+            `;
+          } else {
+            console.log('未找到dynamic-styles元素');
+          }
+          
+          console.log('通过JavaScript更新了字体大小: ${widget.fontSize}px');
+        } catch(e) {
+          console.error('更新字体大小时出错', e);
+        }
+      """);
+
+      // 然后设置textZoom作为备份方法
+      _webViewController!.setSettings(
+          settings: InAppWebViewSettings(
+        textZoom: zoomFactor,
+      ));
+
+      log.i('应用 textZoom: $zoomFactor%');
     }
   }
 
@@ -208,17 +269,21 @@ class _HtmlRendererState extends State<HtmlRenderer> {
       );
     }
 
-    // 直接使用远程URL
-    final String webviewUrl =
-        ArticleService.getArticleHtmlUrl(widget.articleId!);
-    log.i('加载远程文章URL: $webviewUrl, 文章ID: ${widget.articleId}');
-
+    // 创建WebView
     return Stack(
       children: [
         InAppWebView(
-          initialUrlRequest: URLRequest(
-            url: WebUri(webviewUrl),
-          ),
+          // 如果有预加载的HTML内容，则使用本地数据加载
+          initialData: widget.htmlContent != null
+              ? InAppWebViewInitialData(data: widget.htmlContent!)
+              : null,
+          // 如果没有预加载的HTML内容，则使用远程URL
+          initialUrlRequest: widget.htmlContent == null
+              ? URLRequest(
+                  url: WebUri(
+                      ArticleService.getArticleHtmlUrl(widget.articleId!)),
+                )
+              : null,
           onReceivedServerTrustAuthRequest: (controller, challenge) async {
             // 信任所有证书
             log.i('收到服务器信任认证请求');
@@ -243,10 +308,10 @@ class _HtmlRendererState extends State<HtmlRenderer> {
             horizontalScrollBarEnabled: false,
             transparentBackground: true,
             disableContextMenu: false,
-            cacheMode: CacheMode.LOAD_DEFAULT,
+            cacheMode: CacheMode.LOAD_CACHE_ELSE_NETWORK,
             userAgent: 'Flutter InAppWebView - MIKA Reader',
             safeBrowsingEnabled: false,
-            clearCache: true,
+            clearCache: false,
             domStorageEnabled: true,
             useOnLoadResource: true,
             textZoom: 100,
@@ -259,8 +324,17 @@ class _HtmlRendererState extends State<HtmlRenderer> {
             supportMultipleWindows: false,
           ),
           onWebViewCreated: (controller) {
-            log.i('WebView已创建，准备载入URL: $webviewUrl');
+            final String webviewUrl = widget.htmlContent != null
+                ? "关联文章ID: ${widget.articleId}"
+                : ArticleService.getArticleHtmlUrl(widget.articleId!);
+            log.i(
+                'WebView已创建，${widget.htmlContent != null ? "使用本地HTML内容" : "准备载入URL"}: $webviewUrl');
             _webViewController = controller;
+
+            // 缓存控制器，以便在属性变化时重用
+            if (widget.articleId != null) {
+              HtmlRenderer._controllerCache[widget.articleId!] = controller;
+            }
 
             // 首先添加CSS使内容初始不可见
             controller.evaluateJavascript(source: """
@@ -311,22 +385,6 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                 if (args.isNotEmpty) {
                   final int count = int.tryParse(args[0].toString()) ?? 0;
                   log.i('词汇加载完成: $count 个词汇');
-                }
-              },
-            );
-
-            // 添加字体大小变化处理器 - 当WebView内部缩放改变时通知Flutter
-            controller.addJavaScriptHandler(
-              handlerName: 'onFontSizeChanged',
-              callback: (args) {
-                if (args.isNotEmpty && widget.onFontSizeChanged != null) {
-                  try {
-                    final newSize = double.parse(args[0].toString());
-                    log.i('WebView通知字体大小变化: $newSize');
-                    widget.onFontSizeChanged!(newSize);
-                  } catch (e) {
-                    log.e('解析字体大小失败: ${args[0]}, 错误: $e');
-                  }
                 }
               },
             );
@@ -418,7 +476,7 @@ class _HtmlRendererState extends State<HtmlRenderer> {
           onLoadStop: (controller, url) {
             log.i('WebView加载完成: $url');
 
-            // 样式应用和内容显示的完整流程
+            // 注入CSS并处理文档配置
             controller.evaluateJavascript(source: """
               // 确保内容在样式应用前不可见
               if (!document.getElementById('init-invisible-style')) {
@@ -428,166 +486,65 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                 document.head.appendChild(style);
               }
               
-              // 立即应用禁用系统文本选择菜单的CSS
-              var disableSystemMenuCSS = document.createElement('style');
-              disableSystemMenuCSS.id = 'disable-system-menu-style';
-              disableSystemMenuCSS.innerHTML = `
-                /* 移除所有禁用系统菜单的CSS */
-                body {
-                  -webkit-user-select: text !important;
-                  user-select: text !important;
-                  -webkit-touch-callout: none !important; /* 禁用系统菜单但允许选择 */
-                }
+              // 添加CSS样式
+              var baseStyles = document.getElementById('base-styles');
+              if (!baseStyles) {
+                // 添加基础样式
+                var baseStyle = document.createElement('style');
+                baseStyle.id = 'base-style';
+                baseStyle.textContent = `${_baseCSS}`;
+                document.head.appendChild(baseStyle);
                 
-                /* 自定义文本选择高亮样式 */
-                ::selection {
-                  background: ${widget.isDarkMode ? 'rgba(74, 74, 74, 0.99)' : 'rgba(179, 212, 252, 0.99)'} !important;
-                  color: ${widget.isDarkMode ? '#fff' : '#000'} !important;
-                }
-              `;
-              document.head.appendChild(disableSystemMenuCSS);
+                // 添加排版样式
+                var typographyStyle = document.createElement('style');
+                typographyStyle.id = 'typography-style';
+                typographyStyle.textContent = `${_typographyCSS}`;
+                document.head.appendChild(typographyStyle);
+                
+                // 添加UI样式
+                var uiStyle = document.createElement('style');
+                uiStyle.id = 'ui-style';
+                uiStyle.textContent = `${_uiCSS}`;
+                document.head.appendChild(uiStyle);
+                
+                // 添加经济学人样式
+                var economistStyle = document.createElement('style');
+                economistStyle.id = 'economist-style';
+                economistStyle.textContent = `${_economistCSS}`;
+                document.head.appendChild(economistStyle);
+                
+                // 添加动态配置样式
+                const cssContent = document.createElement('style');
+                cssContent.id = 'dynamic-styles';
+                cssContent.textContent = `
+                  :root { 
+                    --font-size-base: ${widget.fontSize}px;
+                  }
+                `;
+                document.head.appendChild(cssContent);
+              }
               
-              // 添加重点词汇处理函数
-              window.processVocabulary = function(articleId) {
-                if (!articleId) {
-                  console.error('处理词汇时未找到文章ID');
-                  return;
-                }
-                
-                // 使用正确的API端点 - 获取带分析的文章数据
-                fetch('/api/articles/' + articleId + '/with_analysis')
-                  .then(function(response) {
-                    if (!response.ok) {
-                      throw new Error('获取文章数据失败: HTTP ' + response.status);
-                    }
-                    return response.json();
-                  })
-                  .then(function(data) {
-                    // 从返回数据中提取vocabulary部分
-                    if (!data.analysis || !data.analysis.vocabulary || !Array.isArray(data.analysis.vocabulary)) {
-                      throw new Error('返回数据中未找到有效的词汇列表');
-                    }
-                    
-                    const vocabulary = data.analysis.vocabulary;
-                    console.log('成功获取词汇列表，数量: ' + vocabulary.length);
-                    
-                    if (vocabulary && vocabulary.length > 0) {
-                      const content = document.body;
-                      let html = content.innerHTML;
-                      let highlightCount = 0;
-                      
-                      vocabulary.forEach(function(item) {
-                        if (!item.word) return;
-                        
-                        // 创建一个安全的查找函数，避免正则表达式问题
-                        function findAndReplace(text, word) {
-                          let result = '';
-                          let lastIndex = 0;
-                          let wordLen = word.length;
-                          let i = text.indexOf(word);
-                          
-                          while (i !== -1) {
-                            // 检查是否是单词边界
-                            const prevChar = i > 0 ? text.charAt(i - 1) : ' ';
-                            const nextChar = i + wordLen < text.length ? text.charAt(i + wordLen) : ' ';
-                            const isWordBoundaryStart = /\\s|[^a-zA-Z0-9]/.test(prevChar);
-                            const isWordBoundaryEnd = /\\s|[^a-zA-Z0-9]/.test(nextChar);
-                            
-                            if (isWordBoundaryStart && isWordBoundaryEnd) {
-                              // 替换单词，添加内联样式确保高亮效果
-                              result += text.substring(lastIndex, i);
-                              result += '<span class="vocabulary-word" data-word="' + item.word + 
-                                       '" data-translation="' + (item.translation || '') + 
-                                       '" style="background-color: #fff59d !important; color: #000 !important; border-radius: 2px !important; cursor: pointer !important; padding: 0 2px !important; margin: 0 -2px !important; transition: all 0.2s ease !important; display: inline-block !important;">' + 
-                                       text.substring(i, i + wordLen) + '</span>';
-                              highlightCount++;
-                            } else {
-                              // 直接添加不替换
-                              result += text.substring(lastIndex, i + wordLen);
-                            }
-                            
-                            lastIndex = i + wordLen;
-                            i = text.indexOf(word, lastIndex);
-                          }
-                          
-                          result += text.substring(lastIndex);
-                          return result;
-                        }
-                        
-                        html = findAndReplace(html, item.word);
-                      });
-                      
-                      content.innerHTML = html;
-                      console.log('成功高亮 ' + highlightCount + ' 个词汇实例');
-                      
-                      // 添加点击事件处理程序
-                      const vocabularyWords = document.querySelectorAll('.vocabulary-word');
-                      vocabularyWords.forEach(function(word) {
-                        word.addEventListener('click', function() {
-                          const selectedWord = this.getAttribute('data-word');
-                          console.log('用户点击词汇: ' + selectedWord);
-                          
-                          try {
-                            if (window.flutter_inappwebview) {
-                              window.flutter_inappwebview.callHandler('onWordSelected', selectedWord);
-                            }
-                          } catch (e) {
-                            console.error('无法发送词汇选择到Flutter: ' + e.message);
-                          }
-                        });
-                      });
-                      
-                      // 通知Flutter词汇加载完成
-                      if (window.flutter_inappwebview) {
-                        window.flutter_inappwebview.callHandler('onVocabularyLoaded', highlightCount.toString());
-                      }
-                    }
-                  })
-                  .catch(function(error) {
-                    console.error('处理词汇时出错: ' + error.message);
-                  });
+              // 修改文档属性来控制主题和词汇显示
+              document.documentElement.setAttribute('data-theme', '${widget.isDarkMode ? 'dark' : 'light'}');
+              document.documentElement.setAttribute('data-show-vocabulary', '${widget.showVocabulary}');
+              document.documentElement.setAttribute('data-font-size', '${widget.fontSize}');
+              document.documentElement.style.setProperty('--font-size-base', '${widget.fontSize}px');
+              
+              // 注入JS函数来更新主题
+              window.setDarkMode = function(isDark) {
+                document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
               };
               
-              // 立即应用防回弹CSS
-              var noBounceCss = document.createElement('style');
-              noBounceCss.id = 'no-bounce-style';
-              noBounceCss.innerHTML = `
-                html, body {
-                  position: fixed;
-                  width: 100%;
-                  height: 100%;
-                  overflow: hidden;
+              // 注入JS函数来更新词汇显示
+              window.highlightVocabulary = function(show) {
+                document.documentElement.setAttribute('data-show-vocabulary', show);
+                // 更新现有的词汇元素
+                var vocabWords = document.querySelectorAll('.vocabulary-word');
+                for (var i = 0; i < vocabWords.length; i++) {
+                  vocabWords[i].style.backgroundColor = show ? '#fff59d' : 'transparent';
+                  vocabWords[i].style.color = show ? '#000' : 'inherit';
                 }
-                #scrollable-content {
-                  overflow-y: scroll;
-                  overflow-x: hidden;
-                  height: 100%;
-                  width: 100%;
-                  position: absolute;
-                  top: 0;
-                  left: 0;
-                  right: 0;
-                  bottom: 0;
-                  -webkit-overflow-scrolling: touch;
-                  overscroll-behavior: none;
-                }
-                ::-webkit-scrollbar {
-                  display: none;
-                  width: 0px;
-                  height: 0px;
-                }
-              `;
-              document.head.appendChild(noBounceCss);
-              
-              // 创建滚动容器并包裹所有内容
-              var scrollableDiv = document.createElement('div');
-              scrollableDiv.id = 'scrollable-content';
-              
-              // 将body内容移动到滚动容器中
-              while (document.body.firstChild) {
-                scrollableDiv.appendChild(document.body.firstChild);
-              }
-              document.body.appendChild(scrollableDiv);
+              };
               
               // 添加viewport元标签确保适当缩放
               var viewportMeta = document.createElement('meta');
@@ -597,509 +554,15 @@ class _HtmlRendererState extends State<HtmlRenderer> {
               
               // 移除所有已有的样式表
               Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).forEach(sheet => {
-                if (!sheet.hasAttribute('data-mika-custom') && sheet.id !== 'init-invisible-style') {
+                if (!sheet.hasAttribute('data-mika-custom') && 
+                    sheet.id !== 'init-invisible-style' && 
+                    sheet.id !== 'base-style' && 
+                    sheet.id !== 'typography-style' && 
+                    sheet.id !== 'ui-style' && 
+                    sheet.id !== 'economist-style' && 
+                    sheet.id !== 'dynamic-styles') {
                   sheet.disabled = true;
                   sheet.remove();
-                }
-              });
-              
-              // 添加基本的样式和主题控制
-              var style = document.createElement('style');
-              style.setAttribute('data-mika-custom', 'true');
-              style.textContent = `
-                html {
-                  font-size: 100%;
-                  -webkit-text-size-adjust: 100%;
-                  text-size-adjust: 100%;
-                  overflow-x: hidden;
-                  overscroll-behavior: none;
-                  -webkit-touch-callout: none;
-                }
-                
-                body {
-                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-                  font-size: ${widget.fontSize >= 16 ? widget.fontSize : 16}px !important;
-                  line-height: 1.8;
-                  color: ${widget.isDarkMode ? '#fff' : '#000'};
-                  background-color: ${widget.isDarkMode ? '#121212' : '#fff'};
-                  padding: 16px;
-                  margin: 0 auto;
-                  max-width: 100%;
-                  overflow-wrap: break-word;
-                  word-wrap: break-word;
-                  box-sizing: border-box;
-                  overscroll-behavior-y: none;
-                  overflow-x: hidden;
-                  -webkit-overflow-scrolling: auto;
-                  -webkit-user-select: text;
-                  user-select: text;
-                }
-                
-                /* 隐藏滚动条但保留滚动功能 */
-                ::-webkit-scrollbar {
-                  width: 0px;
-                  background: transparent;
-                  display: none;
-                }
-                
-                * {
-                  max-width: 100%;
-                  box-sizing: border-box;
-                }
-                
-                article, section, div {
-                  width: 100%;
-                  max-width: 100%;
-                  margin-left: 0;
-                  margin-right: 0;
-                  box-sizing: border-box;
-                }
-                
-                p {
-                  font-size: ${widget.fontSize >= 16 ? widget.fontSize : 16}px !important;
-                  margin-bottom: 1.2em;
-                  line-height: 1.6;
-                  overflow-wrap: break-word;
-                  word-wrap: break-word;
-                }
-                
-                h1 { 
-                  font-size: ${(widget.fontSize + 8) >= 20 ? (widget.fontSize + 8) : 20}px !important;
-                  color: ${widget.isDarkMode ? '#e0e0e0' : '#222'}; 
-                  font-weight: bold;
-                  line-height: 1.3;
-                  margin: 1em 0 0.5em;
-                }
-                
-                h2 { 
-                  font-size: ${(widget.fontSize + 4) >= 18 ? (widget.fontSize + 4) : 18}px !important;
-                  color: ${widget.isDarkMode ? '#e0e0e0' : '#222'}; 
-                  font-weight: bold;
-                  line-height: 1.3;
-                  margin: 1em 0 0.5em;
-                }
-                
-                h3 { 
-                  font-size: ${(widget.fontSize + 2) >= 17 ? (widget.fontSize + 2) : 17}px !important;
-                  color: ${widget.isDarkMode ? '#e0e0e0' : '#222'}; 
-                  font-weight: bold;
-                  line-height: 1.3;
-                  margin: 1em 0 0.5em;
-                }
-                
-                a {
-                  color: ${widget.isDarkMode ? '#90caf9' : '#1976d2'};
-                  text-decoration: none;
-                }
-                
-                blockquote {
-                  border-left: 4px solid ${widget.isDarkMode ? '#424242' : '#e0e0e0'};
-                  margin-left: 0;
-                  padding-left: 16px;
-                  color: ${widget.isDarkMode ? '#bdbdbd' : '#616161'};
-                }
-                
-                code {
-                  background-color: ${widget.isDarkMode ? '#333' : '#f5f5f5'};
-                  padding: 2px 4px;
-                  border-radius: 4px;
-                  font-family: 'Courier New', Courier, monospace;
-                  font-size: 90%;
-                }
-                
-                img {
-                  max-width: 100% !important;
-                  height: auto !important;
-                  display: block;
-                  margin: 1em auto;
-                  border-radius: 4px;
-                }
-                
-                table {
-                  border-collapse: collapse;
-                  width: 100%;
-                  max-width: 100%;
-                  overflow-x: auto;
-                  display: block;
-                  margin: 1em 0;
-                }
-                
-                table, th, td {
-                  border: 1px solid ${widget.isDarkMode ? '#444' : '#ddd'};
-                }
-                
-                th, td {
-                  padding: 8px;
-                  text-align: left;
-                }
-                
-                th {
-                  background-color: ${widget.isDarkMode ? '#333' : '#f5f5f5'};
-                }
-                
-                ul, ol {
-                  padding-left: 20px;
-                }
-                
-                li {
-                  margin-bottom: 0.5em;
-                }
-                
-                figure {
-                  margin: 1em 0;
-                  max-width: 100%;
-                }
-                
-                figcaption {
-                  font-size: 0.9em;
-                  color: ${widget.isDarkMode ? '#bdbdbd' : '#616161'};
-                  text-align: center;
-                }
-                
-                hr {
-                  border: none;
-                  border-top: 1px solid ${widget.isDarkMode ? '#444' : '#eee'};
-                  margin: 2em 0;
-                }
-                
-                /* 自定义文本选择样式 */
-                ::selection {
-                  background: ${widget.isDarkMode ? '#4a4a4a' : '#b3d4fc'};
-                  color: ${widget.isDarkMode ? '#fff' : '#000'};
-                }
-                
-                /* 媒体查询以适应不同屏幕 */
-                @media (max-width: 600px) {
-                  body {
-                    padding: 12px;
-                  }
-                  
-                  h1 {
-                    font-size: ${(widget.fontSize + 6) >= 19 ? (widget.fontSize + 6) : 19}px !important;
-                  }
-                  
-                  h2 {
-                    font-size: ${(widget.fontSize + 3) >= 18 ? (widget.fontSize + 3) : 18}px !important;
-                  }
-                }
-                
-                /* 阻止系统触发的长按选择菜单 */
-                p, span, div, h1, h2, h3, h4, h5, h6, li, a {
-                  -webkit-touch-callout: none;
-                }
-              `;
-              document.head.appendChild(style);
-              
-              // 移除所有可能的固定宽度
-              document.querySelectorAll('[style*="width"]').forEach(el => {
-                if (el.style.width.includes('px') && parseInt(el.style.width) > 100) {
-                  el.style.width = '100%';
-                }
-              });
-              
-              // 检测并更正表格溢出
-              document.querySelectorAll('table').forEach(table => {
-                const wrapper = document.createElement('div');
-                wrapper.style.cssText = 'width: 100%; overflow-x: auto; margin-bottom: 1em;';
-                table.parentNode.insertBefore(wrapper, table);
-                wrapper.appendChild(table);
-              });
-              
-              // 设置主题切换函数 - 使用更全面的选择器
-              window.setDarkMode = function(isDark) {
-                // 设置文档主题
-                document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-                
-                // 更新body样式
-                document.body.style.color = isDark ? '#fff' : '#000';
-                document.body.style.backgroundColor = isDark ? '#121212' : '#fff';
-                
-                // 更新标题颜色
-                document.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(function(heading) {
-                  heading.style.color = isDark ? '#e0e0e0' : '#222';
-                });
-                
-                // 更新链接颜色
-                document.querySelectorAll('a').forEach(function(link) {
-                  link.style.color = isDark ? '#90caf9' : '#1976d2';
-                });
-                
-                // 更新引用块颜色
-                document.querySelectorAll('blockquote').forEach(function(quote) {
-                  quote.style.borderLeftColor = isDark ? '#424242' : '#e0e0e0';
-                  quote.style.color = isDark ? '#bdbdbd' : '#616161';
-                });
-                
-                // 更新代码块颜色
-                document.querySelectorAll('code, pre').forEach(function(code) {
-                  code.style.backgroundColor = isDark ? '#333' : '#f5f5f5';
-                });
-                
-                // 更新表格样式
-                document.querySelectorAll('table, th, td').forEach(function(el) {
-                  el.style.borderColor = isDark ? '#444' : '#ddd';
-                });
-                
-                document.querySelectorAll('th').forEach(function(th) {
-                  th.style.backgroundColor = isDark ? '#333' : '#f5f5f5';
-                });
-              };
-              
-              // 设置字体大小函数 - 添加双向同步
-              window.setFontSize = function(size) {
-                var fontSize = size;
-                // 确保最小字体大小为16像素
-                if (fontSize < 16) {
-                  fontSize = 16;
-                }
-                
-                // 获取当前字体大小，避免重复设置相同的大小
-                var currentFontSize = 16;
-                try {
-                  const p = document.querySelector('p');
-                  if (p) {
-                    const style = window.getComputedStyle(p);
-                    currentFontSize = parseFloat(style.fontSize) || 16;
-                  }
-                } catch (e) {
-                  console.error('获取当前字体大小失败:', e);
-                }
-                
-                // 如果大小相同，不进行更改（允许0.5px的误差）
-                if (Math.abs(currentFontSize - fontSize) < 0.5) {
-                  console.log('字体大小未变化，跳过更新: ' + fontSize + 'px');
-                  return;
-                }
-                
-                console.log('设置字体大小: ' + fontSize + 'px');
-                
-                // 设置基础字体大小
-                document.body.style.fontSize = fontSize + 'px';
-                
-                // 应用到段落
-                var paragraphs = document.querySelectorAll('p');
-                for (var i = 0; i < paragraphs.length; i++) {
-                  paragraphs[i].style.fontSize = fontSize + 'px';
-                }
-                
-                // 应用到列表项
-                var listItems = document.querySelectorAll('li');
-                for (var i = 0; i < listItems.length; i++) {
-                  listItems[i].style.fontSize = fontSize + 'px';
-                }
-                
-                // 应用到表格单元格
-                var cells = document.querySelectorAll('td, th');
-                for (var i = 0; i < cells.length; i++) {
-                  cells[i].style.fontSize = fontSize + 'px';
-                }
-                
-                // 应用到标题，使用不同的大小
-                var h1s = document.querySelectorAll('h1');
-                for (var i = 0; i < h1s.length; i++) {
-                  var h1Size = fontSize + 4;
-                  if (h1Size < 20) h1Size = 20;
-                  h1s[i].style.fontSize = h1Size + 'px';
-                }
-                
-                var h2s = document.querySelectorAll('h2');
-                for (var i = 0; i < h2s.length; i++) {
-                  var h2Size = fontSize + 2;
-                  if (h2Size < 18) h2Size = 18;
-                  h2s[i].style.fontSize = h2Size + 'px';
-                }
-                
-                var h3s = document.querySelectorAll('h3');
-                for (var i = 0; i < h3s.length; i++) {
-                  var h3Size = fontSize + 1;
-                  if (h3Size < 17) h3Size = 17;
-                  h3s[i].style.fontSize = h3Size + 'px';
-                }
-                
-                // 应用到其他文本元素
-                var others = document.querySelectorAll('span, div:not(#text-selection-menu), figcaption');
-                for (var i = 0; i < others.length; i++) {
-                  // 排除标题元素
-                  var tagName = others[i].tagName.toLowerCase();
-                  if (tagName !== 'h1' && tagName !== 'h2' && tagName !== 'h3' && 
-                      tagName !== 'h4' && tagName !== 'h5' && tagName !== 'h6') {
-                    others[i].style.fontSize = fontSize + 'px';
-                  }
-                }
-                
-                // 通知Flutter字体大小已改变
-                if (window.flutter_inappwebview) {
-                  window.flutter_inappwebview.callHandler('onFontSizeChanged', fontSize.toString());
-                }
-              };
-              
-              // 添加强制更新字体大小的函数，不检查当前大小
-              window.updateFontSizeForced = function(size) {
-                var fontSize = size;
-                // 确保最小字体大小为16像素
-                if (fontSize < 16) {
-                  fontSize = 16;
-                }
-                
-                console.log('强制设置字体大小: ' + fontSize + 'px');
-                
-                // 设置基础字体大小
-                document.body.style.fontSize = fontSize + 'px';
-                
-                // 应用到段落
-                var paragraphs = document.querySelectorAll('p');
-                for (var i = 0; i < paragraphs.length; i++) {
-                  paragraphs[i].style.fontSize = fontSize + 'px';
-                }
-                
-                // 应用到列表项
-                var listItems = document.querySelectorAll('li');
-                for (var i = 0; i < listItems.length; i++) {
-                  listItems[i].style.fontSize = fontSize + 'px';
-                }
-                
-                // 应用到表格单元格
-                var cells = document.querySelectorAll('td, th');
-                for (var i = 0; i < cells.length; i++) {
-                  cells[i].style.fontSize = fontSize + 'px';
-                }
-                
-                // 应用到标题，使用不同的大小
-                var h1s = document.querySelectorAll('h1');
-                for (var i = 0; i < h1s.length; i++) {
-                  var h1Size = fontSize + 4;
-                  if (h1Size < 20) h1Size = 20;
-                  h1s[i].style.fontSize = h1Size + 'px';
-                }
-                
-                var h2s = document.querySelectorAll('h2');
-                for (var i = 0; i < h2s.length; i++) {
-                  var h2Size = fontSize + 2;
-                  if (h2Size < 18) h2Size = 18;
-                  h2s[i].style.fontSize = h2Size + 'px';
-                }
-                
-                var h3s = document.querySelectorAll('h3');
-                for (var i = 0; i < h3s.length; i++) {
-                  var h3Size = fontSize + 1;
-                  if (h3Size < 17) h3Size = 17;
-                  h3s[i].style.fontSize = h3Size + 'px';
-                }
-                
-                // 应用到其他文本元素
-                var others = document.querySelectorAll('span, div:not(#text-selection-menu), figcaption');
-                for (var i = 0; i < others.length; i++) {
-                  // 排除标题元素
-                  var tagName = others[i].tagName.toLowerCase();
-                  if (tagName !== 'h1' && tagName !== 'h2' && tagName !== 'h3' && 
-                      tagName !== 'h4' && tagName !== 'h5' && tagName !== 'h6') {
-                    others[i].style.fontSize = fontSize + 'px';
-                  }
-                }
-                
-                // 不触发回调，避免循环更新
-                console.log('字体大小强制更新完成: ' + fontSize + 'px');
-              };
-              
-              // 监听缩放手势
-              document.addEventListener('gestureend', function(e) {
-                // 在缩放手势结束后，尝试获取当前的字体大小并通知Flutter
-                setTimeout(function() {
-                  try {
-                    // 获取段落的计算字体大小作为参考
-                    var p = document.querySelector('p');
-                    if (p) {
-                      var computedStyle = window.getComputedStyle(p);
-                      var computedFontSize = parseFloat(computedStyle.fontSize);
-                      console.log('检测到缩放变化，当前字体大小: ' + computedFontSize + 'px');
-                      
-                      // 通知Flutter字体大小已变化
-                      if (window.flutter_inappwebview) {
-                        window.flutter_inappwebview.callHandler('onFontSizeChanged', computedFontSize.toString());
-                      }
-                    }
-                  } catch (e) {
-                    console.error('获取缩放后字体大小失败:', e);
-                  }
-                }, 300); // 延迟一点以确保计算样式已更新
-              });
-              
-              // 设置词汇高亮函数
-              window.highlightVocabulary = function(show) {
-                // 更新词汇样式
-                var style = document.getElementById('vocabulary-style');
-                if (style) {
-                  style.innerHTML = `
-                    .vocabulary-word {
-                      background-color: \${show ? '#fff59d' : 'transparent'} !important;
-                      color: \${show ? '#000' : 'inherit'} !important;
-                      border-radius: 2px !important;
-                      cursor: pointer !important;
-                      padding: 0 2px !important;
-                      margin: 0 -2px !important;
-                      transition: all 0.2s ease !important;
-                      display: inline-block !important;
-                    }
-                    
-                    .vocabulary-word:hover {
-                      background-color: #ffd54f !important;
-                      box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
-                    }
-                  `;
-                }
-                
-                // 更新现有的词汇元素
-                var vocabWords = document.querySelectorAll('.vocabulary-word');
-                for (var i = 0; i < vocabWords.length; i++) {
-                  vocabWords[i].style.backgroundColor = show ? '#fff59d' : 'transparent';
-                  vocabWords[i].style.color = show ? '#000' : 'inherit';
-                }
-                
-                console.log('词汇高亮状态已更新: ' + (show ? '显示' : '隐藏'));
-              };
-              
-              // 启用文本选择，但禁用系统菜单
-              document.body.style.webkitUserSelect = 'text';
-              document.body.style.userSelect = 'text';
-              document.body.style.webkitTouchCallout = 'none'; // 禁用系统菜单但允许选择
-              console.log('文本选择已启用，系统菜单已禁用');
-
-              // 阻止默认的上下文菜单
-              document.addEventListener('contextmenu', function(e) {
-                e.preventDefault();
-                return false;
-              }, { passive: false });
-              
-              // 监听选择变化事件，显示自定义菜单
-              document.addEventListener('selectionchange', function() {
-                const selection = window.getSelection();
-                if (selection.isCollapsed) {
-                  // 没有选择，隐藏菜单
-                  textSelectionMenu.hide();
-                } else {
-                  // 有文本被选中，但延迟显示菜单，确保选择已完成
-                  setTimeout(function() {
-                    const selection = window.getSelection();
-                    if (selection && !selection.isCollapsed) {
-                      const selectedText = selection.toString().trim();
-                      if (selectedText && selectedText.length > 0) {
-                        try {
-                          const range = selection.getRangeAt(0);
-                          const rect = range.getBoundingClientRect();
-                          
-                          // 计算选中区域的中间位置
-                          const x = rect.left + (rect.width / 2);
-                          const y = rect.top + (rect.height / 2);
-                          
-                          textSelectionMenu.show(x, y);
-                        } catch (e) {
-                          console.error('显示菜单时出错:', e);
-                        }
-                      }
-                    } else {
-                      textSelectionMenu.hide();
-                    }
-                  }, 150);
                 }
               });
               
@@ -1225,6 +688,71 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                 };
               };
               
+              // 创建滚动容器并包裹所有内容
+              var scrollableDiv = document.getElementById('scrollable-content');
+              if (!scrollableDiv) {
+                scrollableDiv = document.createElement('div');
+                scrollableDiv.id = 'scrollable-content';
+                
+                // 将body内容移动到滚动容器中
+                while (document.body.firstChild) {
+                  scrollableDiv.appendChild(document.body.firstChild);
+                }
+                document.body.appendChild(scrollableDiv);
+              }
+              
+              // 为文章内容添加容器以提供适当的边距
+              var articleContent = document.querySelector('article, .content, section, main');
+              if (articleContent) {
+                // 如果已经有内容容器，确保它有正确的类名
+                if (!articleContent.classList.contains('article-content')) {
+                  articleContent.classList.add('article-content');
+                }
+              } else {
+                // 如果没有找到文章容器，创建一个包裹所有内容
+                var contentDiv = document.createElement('div');
+                contentDiv.className = 'article-content';
+                
+                // 将滚动容器内的内容移至文章容器
+                while (scrollableDiv.firstChild) {
+                  contentDiv.appendChild(scrollableDiv.firstChild);
+                }
+                scrollableDiv.appendChild(contentDiv);
+              }
+              
+              // 添加监听选择变化事件，显示自定义菜单
+              document.addEventListener('selectionchange', function() {
+                const selection = window.getSelection();
+                if (selection.isCollapsed) {
+                  // 没有选择，隐藏菜单
+                  textSelectionMenu.hide();
+                } else {
+                  // 有文本被选中，但延迟显示菜单，确保选择已完成
+                  setTimeout(function() {
+                    const selection = window.getSelection();
+                    if (selection && !selection.isCollapsed) {
+                      const selectedText = selection.toString().trim();
+                      if (selectedText && selectedText.length > 0) {
+                        try {
+                          const range = selection.getRangeAt(0);
+                          const rect = range.getBoundingClientRect();
+                          
+                          // 计算选中区域的中间位置
+                          const x = rect.left + (rect.width / 2);
+                          const y = rect.top + (rect.height / 2);
+                          
+                          textSelectionMenu.show(x, y);
+                        } catch (e) {
+                          console.error('显示菜单时出错:', e);
+                        }
+                      }
+                    } else {
+                      textSelectionMenu.hide();
+                    }
+                  }, 150);
+                }
+              });
+              
               // 添加点击处理，支持单词点击查询功能
               document.addEventListener('dblclick', function(e) {
                 const selection = window.getSelection();
@@ -1245,30 +773,7 @@ class _HtmlRendererState extends State<HtmlRenderer> {
               
               // 应用初始设置
               setDarkMode(${widget.isDarkMode});
-              setFontSize(${widget.fontSize});
               highlightVocabulary(${widget.showVocabulary});
-              
-              // 禁用回弹效果
-              document.addEventListener('DOMContentLoaded', function() {
-                // 防止文档滚动回弹
-                document.body.addEventListener('touchmove', function(e) {
-                  const currentScroll = window.scrollY || window.pageYOffset;
-                  const maxScroll = document.body.scrollHeight - window.innerHeight;
-                  
-                  // 检测是否到达顶部或底部边界且尝试继续滚动
-                  if ((currentScroll <= 0 && e.touches[0].clientY > 0) || 
-                      (currentScroll >= maxScroll && e.touches[0].clientY < 0)) {
-                    e.preventDefault(); // 阻止默认回弹行为
-                  }
-                }, { passive: false });
-                
-                // 禁用iOS的橡皮筋效果
-                document.documentElement.style.overflow = 'hidden';
-                document.body.style.overflow = 'auto';
-                document.body.style.height = '100%';
-                document.body.style.position = 'relative';
-                document.body.style.overscrollBehavior = 'none';
-              });
             """).then((_) {
               // 在样式和函数注入后，加载词汇数据
               if (widget.showVocabulary) {
@@ -1306,6 +811,11 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                 _isLoading = false;
                 _hasLoadedContent = true;
                 _webViewLoaded = true;
+
+                // 更新缓存状态
+                if (widget.articleId != null) {
+                  HtmlRenderer._contentLoadedCache[widget.articleId!] = true;
+                }
               });
             });
           },
@@ -1347,6 +857,8 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                       _isLoading = true;
                       _errorMessage = null;
                     });
+                    final String webviewUrl =
+                        ArticleService.getArticleHtmlUrl(widget.articleId!);
                     _webViewController?.loadUrl(
                       urlRequest: URLRequest(url: WebUri(webviewUrl)),
                     );
@@ -1386,5 +898,20 @@ class _HtmlRendererState extends State<HtmlRenderer> {
         ],
       ),
     );
+  }
+
+  // 预加载CSS文件
+  Future<void> _loadCSSFiles() async {
+    try {
+      _baseCSS = await rootBundle.loadString('assets/renderer/styles/base.css');
+      _typographyCSS =
+          await rootBundle.loadString('assets/renderer/styles/typograpy.css');
+      _uiCSS = await rootBundle.loadString('assets/renderer/styles/ui.css');
+      _economistCSS =
+          await rootBundle.loadString('assets/renderer/styles/economist.css');
+      log.i('CSS文件预加载完成');
+    } catch (e) {
+      log.e('加载CSS文件失败', e);
+    }
   }
 }

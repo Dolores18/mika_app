@@ -453,18 +453,31 @@ class ArticleService {
   }
 
   // 获取文章HTML内容
-  Future<String> getArticleHtmlContent(String id) async {
+  Future<String> getArticleHtml(String articleId) async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/articles/$id/html'));
+      final String url = getArticleHtmlUrl(articleId);
+      log.i('开始获取文章HTML内容: $url');
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Accept': 'text/html; charset=utf-8',
+          'Content-Type': 'text/html; charset=utf-8',
+        },
+      ).timeout(_requestTimeout);
+
       if (response.statusCode == 200) {
-        return response.body;
+        // 使用UTF-8解码确保中文字符正确处理
+        final String htmlContent = utf8.decode(response.bodyBytes);
+        log.i('成功获取文章HTML内容，长度: ${htmlContent.length}');
+        return htmlContent;
       } else {
-        throw Exception(
-            'Failed to load article content: ${response.statusCode}');
+        log.e('获取文章HTML内容失败: HTTP ${response.statusCode}');
+        throw Exception('获取文章HTML内容失败: HTTP ${response.statusCode}');
       }
     } catch (e) {
-      log.e('获取文章HTML内容失败: $e');
-      rethrow;
+      log.e('获取文章HTML内容出现异常: $e');
+      throw Exception('获取文章HTML内容出现异常: $e');
     }
   }
 
