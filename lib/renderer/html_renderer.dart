@@ -1364,6 +1364,9 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                 // 显示文本内容
                 var invisibleStyle = document.getElementById('init-invisible-style');
                 if (invisibleStyle) {
+                        // 立即通知Flutter初始渲染已完成，可以移除遮罩
+                    console.log('初始渲染完成，通知Flutter移除遮罩');
+                    window.flutter_inappwebview.callHandler('contentRendered');
                   invisibleStyle.innerHTML = 'html, body { opacity: 1 !important; transition: opacity 0.3s ease; }';
                   console.log('文本内容显示中，添加淡入效果');
                   
@@ -1375,9 +1378,7 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                     invisibleStyle.remove();
                     console.log('初始渲染完成，样式元素已移除');
 
-                    // 立即通知Flutter初始渲染已完成，可以移除遮罩
-                    console.log('初始渲染完成，通知Flutter移除遮罩');
-                    window.flutter_inappwebview.callHandler('contentRendered');
+          
 
                     // 开始加载图片
                     console.log('开始加载图片...');
