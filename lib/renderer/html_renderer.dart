@@ -325,7 +325,11 @@ class _HtmlRendererState extends State<HtmlRenderer> {
   Widget build(BuildContext context) {
     // 检查文章ID是否为空
     if (widget.articleId == null || widget.articleId!.isEmpty) {
-      return const Center(child: Text('文章ID不能为空'));
+      return Container(
+          color: Colors.white,
+          width: double.infinity,
+          height: double.infinity,
+          child: const Center(child: Text('文章ID不能为空')));
     }
 
     return _buildWebView(context);
@@ -333,9 +337,13 @@ class _HtmlRendererState extends State<HtmlRenderer> {
 
   Widget _buildWebView(BuildContext context) {
     if (widget.articleId == null) {
-      return const Center(
-        child: Text('请提供文章ID'),
-      );
+      return Container(
+          color: Colors.white,
+          width: double.infinity,
+          height: double.infinity,
+          child: const Center(
+            child: Text('请提供文章ID'),
+          ));
     }
 
     // 创建WebView
@@ -577,6 +585,24 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                 if (args.isNotEmpty) {
                   log.i('JavaScript日志: ${args[0]}');
                 }
+              },
+            );
+
+            // 添加内容渲染完成的处理器
+            controller.addJavaScriptHandler(
+              handlerName: 'contentRendered',
+              callback: (args) {
+                log.i('WebView内容完全渲染完成');
+                setState(() {
+                  _isLoading = false;
+                  _hasLoadedContent = true;
+                  _webViewLoaded = true;
+
+                  // 更新缓存状态
+                  if (widget.articleId != null) {
+                    HtmlRenderer._contentLoadedCache[widget.articleId!] = true;
+                  }
+                });
               },
             );
 
@@ -1334,66 +1360,69 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                   invisibleStyle.innerHTML = 'html, body { opacity: 1 !important; transition: opacity 0.3s ease; }';
                   console.log('文本内容显示中，添加淡入效果');
                   
-                  // 完成后移除样式元素
-                  setTimeout(function() {
+                  // 监听过渡动画完成
+                  document.body.addEventListener('transitionend', function fadeInComplete() {
+                    // 移除监听器，避免重复触发
+                    document.body.removeEventListener('transitionend', fadeInComplete);
+                    
                     invisibleStyle.remove();
                     console.log('初始渲染完成，样式元素已移除');
+
+                    // 开始加载图片
+                    console.log('开始加载图片...');
+                    const images = document.querySelectorAll('img[data-fixed-src]');
+                    let loadedCount = 0;
+                    const totalImages = images.length;
                     
-                    // 文本内容显示后，延迟300ms再加载图片
-                    setTimeout(function() {
-                      console.log('开始加载图片...');
-                      const images = document.querySelectorAll('img[data-fixed-src]');
-                      let loadedCount = 0;
-                      const totalImages = images.length;
-                      
-                      if (totalImages === 0) {
-                        console.log('没有需要加载的图片');
-                        return;
+                    if (totalImages === 0) {
+                      console.log('没有需要加载的图片');
+                      // 通知Flutter渲染完成
+                      window.flutter_inappwebview.callHandler('contentRendered');
+                      return;
+                    }
+                    
+                    console.log('开始加载 ' + totalImages + ' 张图片');
+                    
+                    // 设置图片加载完成的检查
+                    const checkAllImagesLoaded = function() {
+                      if (loadedCount >= totalImages) {
+                        console.log('所有图片加载完成');
+                        // 通知Flutter渲染完成
+                        window.flutter_inappwebview.callHandler('contentRendered');
                       }
+                    };
+                    
+                    for (let i = 0; i < images.length; i++) {
+                      const img = images[i];
+                      const fixedSrc = img.getAttribute('data-fixed-src');
                       
-                      console.log('开始加载 ' + totalImages + ' 张图片');
-                      
-                      for (let i = 0; i < images.length; i++) {
-                        const img = images[i];
-                        const fixedSrc = img.getAttribute('data-fixed-src');
+                      if (fixedSrc) {
+                        // 添加图片加载完成事件
+                        img.onload = function() {
+                          loadedCount++;
+                          img.style.backgroundColor = 'transparent';
+                          img.style.transition = 'background-color 0.3s ease';
+                          console.log('图片加载完成 (' + loadedCount + '/' + totalImages + ')');
+                          checkAllImagesLoaded();
+                        };
                         
-                        if (fixedSrc) {
-                          // 添加图片加载完成事件
-                          img.onload = function() {
-                            loadedCount++;
-                            img.style.backgroundColor = 'transparent';
-                            img.style.transition = 'background-color 0.3s ease';
-                            console.log('图片加载完成 (' + loadedCount + '/' + totalImages + ')');
-                          };
-                          
-                          img.onerror = function() {
-                            loadedCount++;
-                            console.error('图片加载失败: ' + fixedSrc);
-                            // 添加错误提示样式
-                            img.style.backgroundColor = '${widget.isDarkMode ? "#5c2b2b" : "#ffebee"}';
-                            img.style.border = '1px solid ${widget.isDarkMode ? "#8c3b3b" : "#ffcdd2"}';
-                          };
-                          
-                          // 开始加载图片
-                          img.setAttribute('src', fixedSrc);
-                          img.removeAttribute('data-fixed-src');
-                        }
+                        img.onerror = function() {
+                          loadedCount++;
+                          console.error('图片加载失败: ' + fixedSrc);
+                          // 添加错误提示样式
+                          img.style.backgroundColor = '${widget.isDarkMode ? "#5c2b2b" : "#ffebee"}';
+                          img.style.border = '1px solid ${widget.isDarkMode ? "#8c3b3b" : "#ffcdd2"}';
+                          checkAllImagesLoaded();
+                        };
+                        
+                        // 开始加载图片
+                        img.setAttribute('src', fixedSrc);
+                        img.removeAttribute('data-fixed-src');
                       }
-                    }, 300);
-                  }, 300);
+                    }
+                  }, { once: true });
                 }
               """);
-
-              setState(() {
-                _isLoading = false;
-                _hasLoadedContent = true;
-                _webViewLoaded = true;
-
-                // 更新缓存状态
-                if (widget.articleId != null) {
-                  HtmlRenderer._contentLoadedCache[widget.articleId!] = true;
-                }
-              });
             });
           },
           onLoadError: (controller, url, code, message) {
@@ -1408,8 +1437,13 @@ class _HtmlRendererState extends State<HtmlRenderer> {
           },
         ),
         if (_isLoading)
-          const Center(
-            child: CircularProgressIndicator(),
+          Container(
+            color: Colors.white,
+            width: double.infinity,
+            height: double.infinity,
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
           ),
         if (_errorMessage != null)
           Center(
@@ -1505,8 +1539,13 @@ class _HtmlRendererState extends State<HtmlRenderer> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
+        builder: (context) => Container(
+          color: Colors.white,
+          width: double.infinity,
+          height: double.infinity,
+          child: const Center(
+            child: CircularProgressIndicator(),
+          ),
         ),
       );
       log.i('加载对话框显示完成');
