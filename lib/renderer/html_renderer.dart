@@ -1368,6 +1368,10 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                     invisibleStyle.remove();
                     console.log('初始渲染完成，样式元素已移除');
 
+                    // 立即通知Flutter初始渲染已完成，可以移除遮罩
+                    console.log('初始渲染完成，通知Flutter移除遮罩');
+                    window.flutter_inappwebview.callHandler('contentRendered');
+
                     // 开始加载图片
                     console.log('开始加载图片...');
                     const images = document.querySelectorAll('img[data-fixed-src]');
@@ -1376,8 +1380,6 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                     
                     if (totalImages === 0) {
                       console.log('没有需要加载的图片');
-                      // 通知Flutter渲染完成
-                      window.flutter_inappwebview.callHandler('contentRendered');
                       return;
                     }
                     
@@ -1387,8 +1389,6 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                     const checkAllImagesLoaded = function() {
                       if (loadedCount >= totalImages) {
                         console.log('所有图片加载完成');
-                        // 通知Flutter渲染完成
-                        window.flutter_inappwebview.callHandler('contentRendered');
                       }
                     };
                     
