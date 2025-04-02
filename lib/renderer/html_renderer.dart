@@ -107,6 +107,10 @@ class _HtmlRendererState extends State<HtmlRenderer> {
     } else {
       _initializeWebViewAndLoadData();
     }
+
+    // 在初始化时增加一个全局变量来跟踪对话框状态
+    _webViewController?.evaluateJavascript(
+        source: "window.mikaDialogOpen = false;");
   }
 
   @override
@@ -901,7 +905,7 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                 menu.id = 'text-selection-menu';
                 menu.style.cssText = `
                   position: fixed !important;
-                  z-index: 99999 !important;
+                  z-index: 2147483646 !important; /* 最高优先级，但低于Dialog的backdrop */
                   background-color: #ffffff !important;
                   border: 1px solid #e0e0e0 !important;
                   border-radius: 8px !important;
@@ -1060,7 +1064,7 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                 // 滚动时隐藏菜单
                 document.addEventListener('scroll', hideMenu, { passive: true });
                 
-                // 创建菜单对象
+                // 在菜单对象中改进show方法
                 const menuObj = {
                   show: function(x, y) {
                     // 确保菜单不会超出视口
@@ -1078,10 +1082,13 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                     
                     // 计算最终位置，确保在视口内
                     let finalX = Math.min(Math.max(menuWidth / 2, x), viewportWidth - menuWidth / 2);
-                    // 如果菜单在顶部显示会超出视口，则在选择文本下方显示
-                    let finalY = y - menuHeight - 5; // 默认在选择文本上方显示
-                    if (finalY < 10) {
-                      finalY = y + 25; // 改为在选择文本下方显示
+                    
+                    // 确保菜单不会出现在屏幕顶部，始终在文本下方显示
+                    let finalY = y + 25; // 默认在文本下方显示
+                    
+                    // 如果菜单在底部会超出视口，则调整为在文本上方显示
+                    if (finalY + menuHeight > viewportHeight - 10) {
+                      finalY = y - menuHeight - 10;
                     }
                     
                     // 设置最终位置
@@ -1138,12 +1145,20 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                 scrollableDiv.appendChild(contentDiv);
               }
               
-              // 添加监听选择变化事件，显示自定义菜单
+              // 修改selectionchange事件处理器
               document.addEventListener('selectionchange', function() {
+                // 如果对话框已打开，不处理文本选择
+                if (window.mikaDialogOpen) {
+                  console.log('[MIKA] 对话框已打开，不处理文本选择');
+                  return;
+                }
+                
                 const selection = window.getSelection();
                 if (selection.isCollapsed) {
                   // 没有选择，隐藏菜单
-                  textSelectionMenu.hide();
+                  if (window.textSelectionMenu) {
+                    window.textSelectionMenu.hide();
+                  }
                   // 通知Flutter清空选中的文本
                   if (window.flutter_inappwebview) {
                     window.flutter_inappwebview.callHandler('saveSelectedText', '');
@@ -1151,6 +1166,12 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                 } else {
                   // 有文本被选中，但延迟显示菜单，确保选择已完成
                   setTimeout(function() {
+                    // 再次检查对话框状态，因为可能在延迟期间打开了对话框
+                    if (window.mikaDialogOpen) {
+                      console.log('[MIKA] 检测到对话框已打开，不显示文本选择菜单');
+                      return;
+                    }
+                    
                     const selection = window.getSelection();
                     if (selection && !selection.isCollapsed) {
                       const selectedText = selection.toString().trim();
@@ -1161,27 +1182,34 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                             window.flutter_inappwebview.callHandler('saveSelectedText', selectedText);
                           }
                           
+                          // 检查是否有对话框或模态框
+                          const hasBackdrop = document.querySelector('.modal-backdrop, [class*="-backdrop"]');
+                          if (hasBackdrop) {
+                            console.log('[MIKA] 检测到backdrop元素，不显示文本选择菜单');
+                            return;
+                          }
+                          
                           const range = selection.getRangeAt(0);
                           const rect = range.getBoundingClientRect();
                           
                           // 计算选中区域的中间位置
                           const x = rect.left + (rect.width / 2);
-                          // 将菜单位置稍微上移，避免遮挡文本
-                          const y = rect.top - 10;
+                          const y = rect.bottom + 10; // 将菜单定位在文本下方
                           
-                          textSelectionMenu.show(x, y);
+                          if (window.textSelectionMenu) {
+                            window.textSelectionMenu.show(x, y);
+                          }
                           
                           // 将选中的文本发送到控制台，便于调试
                           console.log('[MIKA] 选中文本: "' + selectedText + '", 长度: ' + selectedText.length);
-                          console.log('[MIKA] 已发送选中文本到Flutter');
                         } catch (e) {
                           console.error('[MIKA] 显示菜单时出错:', e);
                         }
                       }
-                    } else {
-                      textSelectionMenu.hide();
+                    } else if (window.textSelectionMenu) {
+                      window.textSelectionMenu.hide();
                     }
-                  }, 300); // 延迟时间从150ms增加到300ms，确保选择完全稳定
+                  }, 300); // 延迟以确保选择完全稳定
                 }
               });
               
@@ -1433,6 +1461,16 @@ class _HtmlRendererState extends State<HtmlRenderer> {
       return;
     }
 
+    // 隐藏文本选择菜单
+    if (_webViewController != null) {
+      _webViewController!.evaluateJavascript(source: """
+        if (window.textSelectionMenu) {
+          window.textSelectionMenu.hide();
+          console.log('[MIKA] 已隐藏文本选择菜单');
+        }
+      """);
+    }
+
     // 延迟500毫秒再显示对话框，确保JavaScript端已经处理完毕
     Future.delayed(const Duration(milliseconds: 500), () {
       log.i('延迟500ms后开始处理翻译请求，时间: ${DateTime.now().toString()}');
@@ -1481,27 +1519,48 @@ class _HtmlRendererState extends State<HtmlRenderer> {
               log.i('API查询成功: ${result.word}, 翻译: ${result.translation}');
               log.i('DictionaryResult详情: $result');
 
-              // 从DictionaryResult创建一个Vocabulary对象
-              final vocabulary = Vocabulary(
-                word: result.word,
-                translation: result.translation ?? '未找到翻译',
-                context: '', // 无上下文
-                example: '', // 无例句
-              );
-              log.i('已创建Vocabulary对象: ${vocabulary.word}');
-
               // 显示词典卡片对话框
               log.i('准备显示翻译结果对话框');
+
+              // 设置对话框打开标志
+              if (_webViewController != null) {
+                _webViewController!.evaluateJavascript(source: """
+                  window.mikaDialogOpen = true;
+                  console.log('[MIKA] 已设置对话框打开标志');
+                """);
+              }
+
+              // 使用最高z-index的Dialog显示DictionaryCard
               showDialog(
                 context: context,
-                builder: (context) => AlertDialog(
-                  contentPadding: const EdgeInsets.all(8),
-                  content: SingleChildScrollView(
-                    child: DictionaryCard.fromVocabulary(
-                      vocabulary: vocabulary,
+                useSafeArea: true,
+                barrierDismissible: true,
+                barrierColor: Colors.black.withOpacity(0.6),
+                builder: (context) => Theme(
+                  data: Theme.of(context).copyWith(
+                    dialogTheme: DialogTheme(
+                      elevation: 24,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  child: Dialog(
+                    insetPadding: const EdgeInsets.symmetric(
+                        horizontal: 20.0, vertical: 24.0),
+                    child: DictionaryCard.fromDictionaryResult(
+                      result: result,
                       onClose: () {
                         log.i('用户关闭了翻译结果对话框');
                         Navigator.of(context).pop();
+
+                        // 设置对话框关闭标志
+                        if (_webViewController != null) {
+                          _webViewController!.evaluateJavascript(source: """
+                            window.mikaDialogOpen = false;
+                            console.log('[MIKA] 已设置对话框关闭标志');
+                          """);
+                        }
                       },
                       isCompact: true,
                       onLookupMore: () {
@@ -1514,7 +1573,16 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                     ),
                   ),
                 ),
-              );
+              ).then((_) {
+                // 确保在对话框关闭后重置标志
+                if (_webViewController != null) {
+                  _webViewController!.evaluateJavascript(source: """
+                    window.mikaDialogOpen = false;
+                    console.log('[MIKA] 对话框关闭后重置标志');
+                  """);
+                }
+              });
+
               log.i('翻译结果对话框已显示');
               log.i('==== 翻译流程完成（成功）====');
             } else {

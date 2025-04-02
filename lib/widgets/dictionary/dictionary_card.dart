@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../models/article.dart';
 import '../../models/vocabulary.dart';
+import '../../models/dictionary_result.dart';
 
 class DictionaryCard extends StatelessWidget {
   final String word;
@@ -12,6 +13,12 @@ class DictionaryCard extends StatelessWidget {
   final VoidCallback? onAddToVocabulary;
   final VoidCallback? onLookupMore;
   final bool isCompact; // 是否使用紧凑模式（在文章中弹出时）
+  final String? phonetic;
+  final String? definition;
+  final String? tag;
+  final String? exchange;
+  final String? collins;
+  final String? oxford;
 
   const DictionaryCard({
     Key? key,
@@ -23,6 +30,12 @@ class DictionaryCard extends StatelessWidget {
     this.onAddToVocabulary,
     this.onLookupMore,
     this.isCompact = false,
+    this.phonetic,
+    this.definition,
+    this.tag,
+    this.exchange,
+    this.collins,
+    this.oxford,
   }) : super(key: key);
 
   // 从Vocabulary模型创建词典卡片的工厂构造函数
@@ -45,18 +58,44 @@ class DictionaryCard extends StatelessWidget {
     );
   }
 
+  // 从DictionaryResult模型创建词典卡片的新工厂构造函数
+  factory DictionaryCard.fromDictionaryResult({
+    required DictionaryResult result,
+    VoidCallback? onClose,
+    VoidCallback? onAddToVocabulary,
+    VoidCallback? onLookupMore,
+    bool isCompact = false,
+  }) {
+    return DictionaryCard(
+      word: result.word,
+      translation: result.translation ?? '',
+      wordContext: '',
+      example: '',
+      phonetic: result.phonetic,
+      definition: result.definition,
+      tag: result.tag,
+      exchange: result.exchange,
+      collins: result.collins,
+      oxford: result.oxford,
+      onClose: onClose,
+      onAddToVocabulary: onAddToVocabulary,
+      onLookupMore: onLookupMore,
+      isCompact: isCompact,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(isCompact ? 12 : 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(isCompact ? 8 : 16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -64,34 +103,27 @@ class DictionaryCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 标题栏
+          // 单词和音标
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: Row(
                   children: [
                     Text(
                       word,
-                      style: TextStyle(
-                        fontSize: isCompact ? 18 : 20,
+                      style: const TextStyle(
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Colors.blue[800],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    // 发音按钮
-                    IconButton(
-                      icon: const Icon(Icons.volume_up, size: 18),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () {
-                        // 此处可以添加实际发音逻辑
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('发音功能即将上线')),
-                        );
-                      },
-                    ),
+                    if (phonetic != null && phonetic!.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        "[$phonetic]",
+                        style:
+                            const TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -104,34 +136,33 @@ class DictionaryCard extends StatelessWidget {
                 ),
             ],
           ),
-          const Divider(),
 
-          // 翻译
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.blue[50],
-              borderRadius: BorderRadius.circular(4),
+          const Divider(height: 24),
+
+          // 中文释义
+          if (translation.isNotEmpty) ...[
+            Text(
+              "中文释义：$translation",
+              style: const TextStyle(fontSize: 16, color: Colors.blue),
             ),
-            child: Text(
-              translation,
-              style: TextStyle(
-                fontSize: isCompact ? 16 : 18,
-                color: Colors.blue[800],
-                height: 1.3,
-              ),
+            const SizedBox(height: 8),
+          ],
+
+          // 英文释义
+          if (definition != null && definition!.isNotEmpty) ...[
+            Text(
+              "英文释义：$definition",
+              style: const TextStyle(fontSize: 16),
             ),
-          ),
+            const SizedBox(height: 8),
+          ],
 
-          const SizedBox(height: 10),
-
-          // 上下文
+          // 上下文（如果有）
           if (wordContext.isNotEmpty) ...[
             Text(
               "上下文:",
               style: TextStyle(
-                fontSize: isCompact ? 13 : 14,
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey[700],
               ),
@@ -146,23 +177,22 @@ class DictionaryCard extends StatelessWidget {
               ),
               child: Text(
                 wordContext,
-                style: TextStyle(
-                  fontSize: isCompact ? 13 : 14,
+                style: const TextStyle(
+                  fontSize: 14,
                   fontStyle: FontStyle.italic,
                   height: 1.3,
                 ),
               ),
             ),
+            const SizedBox(height: 8),
           ],
 
-          const SizedBox(height: 10),
-
-          // 例句
+          // 例句（如果有）
           if (example.isNotEmpty) ...[
             Text(
               "例句:",
               style: TextStyle(
-                fontSize: isCompact ? 13 : 14,
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey[700],
               ),
@@ -177,10 +207,68 @@ class DictionaryCard extends StatelessWidget {
               ),
               child: Text(
                 example,
-                style: TextStyle(fontSize: isCompact ? 13 : 14, height: 1.3),
+                style: const TextStyle(fontSize: 14, height: 1.3),
               ),
             ),
+            const SizedBox(height: 8),
           ],
+
+          // 词汇分类
+          if (tag != null && tag!.isNotEmpty) ...[
+            Text(
+              "词汇分类：$tag",
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 4),
+          ],
+
+          // 变形
+          if (exchange != null && exchange!.isNotEmpty) ...[
+            Text(
+              "变形：$exchange",
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 4),
+          ],
+
+          // 柯林斯星级和牛津核心
+          Row(
+            children: [
+              if (collins != null && collins!.isNotEmpty && collins != '0') ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[100],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    "柯林斯星级：$collins",
+                    style: TextStyle(fontSize: 12, color: Colors.blue[800]),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              if (oxford != null && oxford!.isNotEmpty && oxford != '0') ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red[100],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    "牛津核心：$oxford",
+                    style: TextStyle(fontSize: 12, color: Colors.red[800]),
+                  ),
+                ),
+              ],
+            ],
+          ),
 
           const SizedBox(height: 16),
 

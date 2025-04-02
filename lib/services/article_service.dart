@@ -468,7 +468,29 @@ class ArticleService {
 
       if (response.statusCode == 200) {
         // 使用UTF-8解码确保中文字符正确处理
-        final String htmlContent = utf8.decode(response.bodyBytes);
+        String htmlContent = utf8.decode(response.bodyBytes);
+
+        // 移除第一个<h1>Politics</h1>标签
+        // 首先，查找文档结构中body开始后的第一个h1标签位置
+        final bodyTagStart = htmlContent.indexOf('<body>');
+        if (bodyTagStart != -1) {
+          final h1TagStart = htmlContent.indexOf('<h1>', bodyTagStart);
+          if (h1TagStart != -1) {
+            final h1TagEnd =
+                htmlContent.indexOf('</h1>', h1TagStart) + 5; // 加5是为了包含</h1>本身
+            if (h1TagEnd != -1 && h1TagEnd > h1TagStart) {
+              final String h1Content =
+                  htmlContent.substring(h1TagStart, h1TagEnd);
+              log.i('找到第一个h1标签: $h1Content');
+
+              // 移除该h1标签
+              htmlContent = htmlContent.substring(0, h1TagStart) +
+                  htmlContent.substring(h1TagEnd);
+              log.i('已移除第一个h1标签');
+            }
+          }
+        }
+
         log.i('成功获取文章HTML内容，长度: ${htmlContent.length}');
         return htmlContent;
       } else {
