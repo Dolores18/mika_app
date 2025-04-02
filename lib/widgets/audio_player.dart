@@ -52,12 +52,12 @@ class _AudioPlayerState extends State<AudioPlayer> {
       }
 
       // 监听缓冲位置
-      _bufferedPositionSubscription = _audioPlayer.bufferedPositionStream
-          .listen((bufferedPosition) {
-            setState(() {
-              _bufferedPosition = bufferedPosition;
-            });
-          });
+      _bufferedPositionSubscription =
+          _audioPlayer.bufferedPositionStream.listen((bufferedPosition) {
+        setState(() {
+          _bufferedPosition = bufferedPosition;
+        });
+      });
 
       _durationSubscription = _audioPlayer.durationStream.listen((duration) {
         setState(() {
@@ -202,11 +202,10 @@ class _AudioPlayerState extends State<AudioPlayer> {
                     ),
                     // 缓冲进度条
                     FractionallySizedBox(
-                      widthFactor:
-                          _duration.inMilliseconds > 0
-                              ? _bufferedPosition.inMilliseconds /
-                                  _duration.inMilliseconds
-                              : 0,
+                      widthFactor: _duration.inMilliseconds > 0
+                          ? _bufferedPosition.inMilliseconds /
+                              _duration.inMilliseconds
+                          : 0,
                       child: Container(
                         height: 4,
                         decoration: BoxDecoration(
@@ -232,16 +231,15 @@ class _AudioPlayerState extends State<AudioPlayer> {
                       ),
                       child: Slider(
                         min: 0,
-                        max:
-                            _duration.inMilliseconds.toDouble() == 0
-                                ? 1
-                                : _duration.inMilliseconds.toDouble(),
+                        max: _duration.inMilliseconds.toDouble() == 0
+                            ? 1
+                            : _duration.inMilliseconds.toDouble(),
                         value: _position.inMilliseconds.toDouble().clamp(
-                          0,
-                          _duration.inMilliseconds.toDouble() == 0
-                              ? 1
-                              : _duration.inMilliseconds.toDouble(),
-                        ),
+                              0,
+                              _duration.inMilliseconds.toDouble() == 0
+                                  ? 1
+                                  : _duration.inMilliseconds.toDouble(),
+                            ),
                         onChanged: (value) {
                           _audioPlayer.seek(
                             Duration(milliseconds: value.toInt()),

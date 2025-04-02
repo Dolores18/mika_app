@@ -366,76 +366,75 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child:
-                  state.explanation.isEmpty && state.isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : state.explanation.isEmpty
+              child: state.explanation.isEmpty && state.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : state.explanation.isEmpty
                       ? const Center(child: Text('AI正在思考中...'))
                       : NotificationListener<ScrollNotification>(
-                        onNotification: (ScrollNotification notification) {
-                          // 当用户手动滚动时，可以在这里做一些额外处理
-                          return false;
-                        },
-                        child: Markdown(
-                          controller: _scrollController,
-                          data: state.explanation,
-                          selectable: true,
-                          styleSheet: MarkdownStyleSheet(
-                            h1: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                            h2: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                            h3: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                            p: const TextStyle(
-                              fontSize: 14,
-                              height: 1.5,
-                              color: Colors.black87,
-                            ),
-                            code: TextStyle(
-                              fontSize: 12,
-                              backgroundColor: Colors.grey[200],
-                              fontFamily: 'monospace',
-                            ),
-                            codeblockDecoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            blockquote: const TextStyle(
-                              fontSize: 14,
-                              height: 1.5,
-                              color: Colors.black54,
-                              fontStyle: FontStyle.italic,
-                            ),
-                            blockquoteDecoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border(
-                                left: BorderSide(
-                                  color: Colors.grey[400]!,
-                                  width: 4,
+                          onNotification: (ScrollNotification notification) {
+                            // 当用户手动滚动时，可以在这里做一些额外处理
+                            return false;
+                          },
+                          child: Markdown(
+                            controller: _scrollController,
+                            data: state.explanation,
+                            selectable: true,
+                            styleSheet: MarkdownStyleSheet(
+                              h1: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                              h2: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                              h3: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                              p: const TextStyle(
+                                fontSize: 14,
+                                height: 1.5,
+                                color: Colors.black87,
+                              ),
+                              code: TextStyle(
+                                fontSize: 12,
+                                backgroundColor: Colors.grey[200],
+                                fontFamily: 'monospace',
+                              ),
+                              codeblockDecoration: BoxDecoration(
+                                color: Colors.grey[200],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              blockquote: const TextStyle(
+                                fontSize: 14,
+                                height: 1.5,
+                                color: Colors.black54,
+                                fontStyle: FontStyle.italic,
+                              ),
+                              blockquoteDecoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border(
+                                  left: BorderSide(
+                                    color: Colors.grey[400]!,
+                                    width: 4,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          extensionSet: md.ExtensionSet(
-                            md.ExtensionSet.commonMark.blockSyntaxes,
-                            [
-                              ...md.ExtensionSet.commonMark.inlineSyntaxes,
-                              md.EmojiSyntax(),
-                            ],
+                            extensionSet: md.ExtensionSet(
+                              md.ExtensionSet.commonMark.blockSyntaxes,
+                              [
+                                ...md.ExtensionSet.commonMark.inlineSyntaxes,
+                                md.EmojiSyntax(),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
             ),
             if (state.isLoading && state.explanation.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -462,29 +461,27 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
           color: Colors.white.withOpacity(0.6),
           borderRadius: BorderRadius.circular(12),
         ),
-        child:
-            state.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child:
-                          state.dictResult == null
-                              ? const Center(
-                                child: Text(
-                                  '没有找到该单词的释义',
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                              )
-                              : SingleChildScrollView(
-                                child: _buildDictionaryResult(
-                                  state.dictResult!,
-                                ),
-                              ),
-                    ),
-                  ],
-                ),
+        child: state.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: state.dictResult == null
+                        ? const Center(
+                            child: Text(
+                              '没有找到该单词的释义',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          )
+                        : SingleChildScrollView(
+                            child: _buildDictionaryResult(
+                              state.dictResult!,
+                            ),
+                          ),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -525,9 +522,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
               ],
             ],
           ),
-
           const Divider(height: 24),
-
           if (result.translation != null && result.translation!.isNotEmpty) ...[
             Text(
               "中文释义：${result.translation}",
@@ -535,7 +530,6 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
             ),
             const SizedBox(height: 8),
           ],
-
           if (result.definition != null && result.definition!.isNotEmpty) ...[
             Text(
               "英文释义：${result.definition}",
@@ -543,7 +537,6 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
             ),
             const SizedBox(height: 8),
           ],
-
           if (result.tag != null && result.tag!.isNotEmpty) ...[
             Text(
               "词汇分类：${result.tag}",
@@ -551,7 +544,6 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
             ),
             const SizedBox(height: 4),
           ],
-
           if (result.exchange != null && result.exchange!.isNotEmpty) ...[
             Text(
               "变形：${result.exchange}",
@@ -559,7 +551,6 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
             ),
             const SizedBox(height: 4),
           ],
-
           Row(
             children: [
               if (result.collins != null &&
@@ -581,7 +572,6 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                 ),
                 const SizedBox(width: 8),
               ],
-
               if (result.oxford != null &&
                   result.oxford!.isNotEmpty &&
                   result.oxford != '0') ...[

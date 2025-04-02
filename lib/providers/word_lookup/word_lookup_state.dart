@@ -26,14 +26,14 @@ class WordLookupState {
 
   // 创建初始状态的工厂方法
   factory WordLookupState.initial() => const WordLookupState(
-    isLoading: false,
-    showResults: false,
-    isAiMode: false,
-    searchedWord: '',
-    explanation: '',
-    dictResult: null,
-    contentUpdated: false,
-  );
+        isLoading: false,
+        showResults: false,
+        isAiMode: false,
+        searchedWord: '',
+        explanation: '',
+        dictResult: null,
+        contentUpdated: false,
+      );
 
   // copyWith方法用于创建状态的不可变拷贝
   WordLookupState copyWith({
@@ -82,12 +82,12 @@ class WordLookupState {
 
   @override
   int get hashCode => Object.hash(
-    isLoading,
-    showResults,
-    isAiMode,
-    searchedWord,
-    explanation,
-    dictResult,
-    contentUpdated,
-  );
+        isLoading,
+        showResults,
+        isAiMode,
+        searchedWord,
+        explanation,
+        dictResult,
+        contentUpdated,
+      );
 }

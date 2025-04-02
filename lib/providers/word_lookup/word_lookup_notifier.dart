@@ -12,7 +12,7 @@ class WordLookupNotifier extends StateNotifier<WordLookupState> {
   StreamSubscription<String>? _aiSubscription;
 
   WordLookupNotifier(this._dictionaryService, this._aiService)
-    : super(WordLookupState.initial());
+      : super(WordLookupState.initial());
 
   // 切换AI模式
   void toggleAiMode() {

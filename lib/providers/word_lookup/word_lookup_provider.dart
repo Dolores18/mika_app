@@ -9,13 +9,13 @@ import './word_lookup_notifier.dart';
 // 状态通知器提供者
 final wordLookupProvider =
     StateNotifierProvider<WordLookupNotifier, WordLookupState>((ref) {
-      // 创建服务实例
-      final dictionaryService = DictionaryService();
-      final aiService = AiService();
+  // 创建服务实例
+  final dictionaryService = DictionaryService();
+  final aiService = AiService();
 
-      // 返回通知器实例
-      return WordLookupNotifier(dictionaryService, aiService);
-    });
+  // 返回通知器实例
+  return WordLookupNotifier(dictionaryService, aiService);
+});
 
 // 便捷的单词搜索情况选择器
 final isWordSearchLoadingProvider = Provider<bool>((ref) {
