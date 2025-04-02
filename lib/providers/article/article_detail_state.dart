@@ -18,7 +18,7 @@ class ArticleDetailState {
     this.htmlContent,
     this.fontSize = 16.0,
     this.isDarkMode = false,
-    this.showAudioPlayer = true,
+    this.showAudioPlayer = false,
     this.showVocabulary = true,
     this.article,
   });

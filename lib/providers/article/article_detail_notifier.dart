@@ -35,7 +35,7 @@ class ArticleDetailNotifier extends StateNotifier<ArticleDetailState> {
       state = state.copyWith(
         article: article,
         isLoadingContent: false,
-        showAudioPlayer: article?.audioUrl != null,
+        showAudioPlayer: false,
         htmlContent: htmlContent,
       );
     } catch (e) {

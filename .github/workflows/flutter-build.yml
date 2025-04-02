@@ -2,9 +2,9 @@ name: Flutter CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "use_html" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "use_html" ]
   release:
     types: [created]
   # 手动触发选项
