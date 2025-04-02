@@ -86,154 +86,168 @@ class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
     final state = ref.watch(articleDetailProvider(widget.articleId));
     final notifier = ref.read(articleDetailProvider(widget.articleId).notifier);
 
-    if (state.article == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    final article = state.article;
+
+    // 只有当article不为null时才处理音频播放器
+    if (article != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (article.audioUrl != null &&
+            state.showAudioPlayer &&
+            _audioPlayerOverlay == null) {
+          _showAudioPlayerOverlay(article.audioUrl!);
+        } else if (!state.showAudioPlayer && _audioPlayerOverlay != null) {
+          _removeAudioPlayerOverlay();
+        }
+      });
     }
 
-    final article = state.article!;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (article.audioUrl != null &&
-          state.showAudioPlayer &&
-          _audioPlayerOverlay == null) {
-        _showAudioPlayerOverlay(article.audioUrl!);
-      } else if (!state.showAudioPlayer && _audioPlayerOverlay != null) {
-        _removeAudioPlayerOverlay();
-      }
-    });
-
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor:
-          state.isDarkMode ? const Color(0xFF121212) : Colors.white,
-      appBar: AppBar(
-        backgroundColor:
-            state.isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-        elevation: 0,
-        iconTheme: IconThemeData(
-          color: state.isDarkMode ? Colors.white : Colors.black87,
-        ),
-        title: const Text(''),
-        centerTitle: true,
-        actions: [
-          if (!state.showAudioPlayer && article.audioUrl != null)
-            IconButton(
-              icon: const Icon(Icons.headphones),
-              onPressed: () => notifier.toggleAudioPlayer(),
+    return FutureBuilder(
+      // 使用Future.value以确保FutureBuilder会立即处理
+      future: Future.value(true),
+      builder: (context, snapshot) {
+        return Scaffold(
+          key: _scaffoldKey,
+          backgroundColor:
+              state.isDarkMode ? const Color(0xFF121212) : Colors.white,
+          appBar: AppBar(
+            backgroundColor:
+                state.isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+            elevation: 0,
+            iconTheme: IconThemeData(
+              color: state.isDarkMode ? Colors.white : Colors.black87,
             ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => notifier.loadArticle(),
+            title: const Text(''),
+            centerTitle: true,
+            actions: [
+              if (article != null &&
+                  article.audioUrl != null &&
+                  !state.showAudioPlayer)
+                IconButton(
+                  icon: const Icon(Icons.headphones),
+                  onPressed: () => notifier.toggleAudioPlayer(),
+                ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () => notifier.loadArticle(),
+              ),
+              IconButton(
+                icon: const Icon(Icons.bookmark_border),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('收藏功能即将上线')),
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.share),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('分享功能即将上线')),
+                  );
+                },
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.bookmark_border),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('收藏功能即将上线')),
+          body: Builder(
+            builder: (context) {
+              return HtmlRenderer(
+                key: ValueKey('article_${widget.articleId}'),
+                articleId: widget.articleId,
+                isDarkMode: state.isDarkMode,
+                fontSize: state.fontSize,
+                showVocabulary: state.showVocabulary,
+                onWordSelected: (word) {
+                  _showWordExplanationCard(context, word, ref);
+                },
+                onFontSizeChanged: (newSize) {
+                  notifier.setFontSize(newSize.clamp(12.0, 24.0));
+                },
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('分享功能即将上线')),
-              );
-            },
+          bottomNavigationBar: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: state.isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove),
+                      onPressed: () {
+                        final newSize = (state.fontSize - 1).clamp(12.0, 24.0);
+                        if (newSize != state.fontSize) {
+                          Future.delayed(const Duration(milliseconds: 100), () {
+                            if (mounted) {
+                              notifier.setFontSize(newSize);
+                            }
+                          });
+                        }
+                      },
+                    ),
+                    Text(
+                      state.fontSize.toStringAsFixed(0),
+                      style: TextStyle(
+                        color: state.isDarkMode ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add),
+                      onPressed: () {
+                        final newSize = (state.fontSize + 1).clamp(12.0, 24.0);
+                        if (newSize != state.fontSize) {
+                          Future.delayed(const Duration(milliseconds: 100), () {
+                            if (mounted) {
+                              notifier.setFontSize(newSize);
+                            }
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        state.showVocabulary
+                            ? Icons.format_color_text
+                            : Icons.format_color_text_outlined,
+                        color: state.isDarkMode
+                            ? Colors.white70
+                            : Colors.grey[700],
+                      ),
+                      tooltip: '显示/隐藏重点词汇',
+                      onPressed: () => notifier.toggleVocabulary(),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        state.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                        color: state.isDarkMode
+                            ? Colors.white70
+                            : Colors.grey[700],
+                      ),
+                      onPressed: () {
+                        notifier.toggleDarkMode();
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
-      body: HtmlRenderer(
-        key: ValueKey('article_${widget.articleId}_fixed'),
-        articleId: widget.articleId,
-        isDarkMode: state.isDarkMode,
-        fontSize: state.fontSize,
-        showVocabulary: state.showVocabulary,
-        htmlContent: state.htmlContent,
-        onWordSelected: (word) {
-          _showWordExplanationCard(context, word, ref);
-        },
-        onFontSizeChanged: (newSize) {
-          notifier.setFontSize(newSize.clamp(12.0, 24.0));
-        },
-      ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: state.isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.remove),
-                  onPressed: () {
-                    final newSize = (state.fontSize - 1).clamp(12.0, 24.0);
-                    if (newSize != state.fontSize) {
-                      Future.delayed(const Duration(milliseconds: 100), () {
-                        if (mounted) {
-                          notifier.setFontSize(newSize);
-                        }
-                      });
-                    }
-                  },
-                ),
-                Text(
-                  state.fontSize.toStringAsFixed(0),
-                  style: TextStyle(
-                    color: state.isDarkMode ? Colors.white : Colors.black87,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: () {
-                    final newSize = (state.fontSize + 1).clamp(12.0, 24.0);
-                    if (newSize != state.fontSize) {
-                      Future.delayed(const Duration(milliseconds: 100), () {
-                        if (mounted) {
-                          notifier.setFontSize(newSize);
-                        }
-                      });
-                    }
-                  },
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    state.showVocabulary
-                        ? Icons.format_color_text
-                        : Icons.format_color_text_outlined,
-                    color: state.isDarkMode ? Colors.white70 : Colors.grey[700],
-                  ),
-                  tooltip: '显示/隐藏重点词汇',
-                  onPressed: () => notifier.toggleVocabulary(),
-                ),
-                IconButton(
-                  icon: Icon(
-                    state.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                    color: state.isDarkMode ? Colors.white70 : Colors.grey[700],
-                  ),
-                  onPressed: () {
-                    notifier.toggleDarkMode();
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+        );
+      },
     );
   }
 

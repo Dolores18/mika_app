@@ -3,7 +3,6 @@ import '../../models/article.dart';
 
 @immutable
 class ArticleDetailState {
-  final bool isLoadingContent;
   final String? contentError;
   final String? htmlContent;
   final double fontSize;
@@ -13,7 +12,6 @@ class ArticleDetailState {
   final Article? article;
 
   const ArticleDetailState({
-    this.isLoadingContent = false,
     this.contentError,
     this.htmlContent,
     this.fontSize = 16.0,
@@ -24,7 +22,6 @@ class ArticleDetailState {
   });
 
   ArticleDetailState copyWith({
-    bool? isLoadingContent,
     String? contentError,
     String? htmlContent,
     double? fontSize,
@@ -34,7 +31,6 @@ class ArticleDetailState {
     Article? article,
   }) {
     return ArticleDetailState(
-      isLoadingContent: isLoadingContent ?? this.isLoadingContent,
       contentError: contentError ?? this.contentError,
       htmlContent: htmlContent ?? this.htmlContent,
       fontSize: fontSize ?? this.fontSize,

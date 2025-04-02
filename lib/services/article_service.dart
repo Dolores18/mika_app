@@ -22,6 +22,8 @@ class ArticleService {
   }
 
   // 获取文章HTML URL
+  // 此方法现在由WebView组件直接使用，WebView直接加载此URL并在客户端处理内容
+  // 而不是先获取HTML内容再处理
   static String getArticleHtmlUrl(String articleId) {
     // 直接使用与getArticleHtmlContent相同的URL格式
     final int idNum = int.tryParse(articleId) ?? 1;

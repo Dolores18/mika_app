@@ -672,8 +672,33 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                     .replaceAll('SHOW_VOCABULARY_PLACEHOLDER',
                         widget.showVocabulary.toString()));
 
-            // 注入CSS并处理文档配置
+            // 在HTML内容加载完成后处理文档
             controller.evaluateJavascript(source: """
+              // 处理HTML内容 - 移除第一个h1标签
+              console.log('[MIKA] 开始处理HTML内容');
+              
+              try {
+                // 查找body下的第一个h1标签
+                const body = document.body;
+                if (body) {
+                  const h1Tags = body.getElementsByTagName('h1');
+                  if (h1Tags && h1Tags.length > 0) {
+                    const firstH1 = h1Tags[0];
+                    console.log('[MIKA] 找到第一个h1标签: ' + firstH1.textContent);
+                    
+                    // 移除该h1标签
+                    firstH1.parentNode.removeChild(firstH1);
+                    console.log('[MIKA] 已移除第一个h1标签');
+                  } else {
+                    console.log('[MIKA] 未找到h1标签');
+                  }
+                } else {
+                  console.log('[MIKA] 未找到body元素');
+                }
+              } catch (e) {
+                console.error('[MIKA] 处理HTML内容时出错', e);
+              }
+              
               // 确保内容在样式应用前不可见
               if (!document.getElementById('init-invisible-style')) {
                 var style = document.createElement('style');

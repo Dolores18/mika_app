@@ -20,29 +20,17 @@ class ArticleDetailNotifier extends StateNotifier<ArticleDetailState> {
     try {
       final article = await _articleService.getArticleById(articleId);
 
-      // 获取文章HTML内容
-      String? htmlContent;
-      if (article != null) {
-        try {
-          htmlContent = await _articleService.getArticleHtml(articleId);
-          log.i('成功获取文章HTML内容，长度: ${htmlContent?.length ?? 0}');
-        } catch (e) {
-          log.e('获取文章HTML内容失败', e);
-          htmlContent = null;
-        }
-      }
-
+      // 不再预先获取HTML内容，而是让WebView直接加载
       state = state.copyWith(
         article: article,
-        isLoadingContent: false,
         showAudioPlayer: false,
-        htmlContent: htmlContent,
+        // 不再设置htmlContent字段，让WebView直接加载
+        htmlContent: null,
       );
     } catch (e) {
       log.e('加载文章失败', e);
       state = state.copyWith(
         contentError: '加载文章失败: $e',
-        isLoadingContent: false,
       );
     }
   }
