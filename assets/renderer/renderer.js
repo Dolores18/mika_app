@@ -219,6 +219,12 @@ function initializeRenderer(options) {
     // 更新词汇元素样式已经通过CSS处理，无需JavaScript
   };
   
+  // 确保setVocabularyVisibility函数存在(与highlightVocabulary保持一致)
+  window.setVocabularyVisibility = function(show) {
+    document.documentElement.setAttribute('data-show-vocabulary', show);
+    // 更新词汇元素样式已经通过CSS处理，无需JavaScript
+  };
+  
   // 添加词汇点击处理
   document.addEventListener('click', function(e) {
     // 检查是否点击了词汇元素

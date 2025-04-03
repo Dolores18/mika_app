@@ -96,28 +96,73 @@ class _HtmlRendererState extends State<HtmlRenderer> {
   void didUpdateWidget(HtmlRenderer oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // 只有在已加载内容后才更新样式
-    if (_hasLoadedContent && _webViewController != null) {
-      if (oldWidget.isDarkMode != widget.isDarkMode) {
-        log.i('主题已更改: ${oldWidget.isDarkMode} -> ${widget.isDarkMode}');
+    // 如果两次渲染之间文章ID变化了，则重新初始化
+    if (widget.articleId != oldWidget.articleId) {
+      log.i('文章ID变化：${oldWidget.articleId} -> ${widget.articleId}');
+      // 不同文章ID意味着需要重新初始化
+      _hasLoadedContent = false;
+      // 重置状态
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    } else {
+      // 相同文章ID，只需更新属性
+      if (widget.isDarkMode != oldWidget.isDarkMode &&
+          _webViewController != null) {
+        log.i('暗色模式更新: ${oldWidget.isDarkMode} -> ${widget.isDarkMode}');
+        log.i('强制立即更新主题');
         _updateTheme();
       }
 
-      if (oldWidget.fontSize != widget.fontSize) {
-        log.i('字体大小已更改: ${oldWidget.fontSize} -> ${widget.fontSize}');
-        // 移除延迟，立即更新字体大小
+      if (widget.fontSize != oldWidget.fontSize) {
+        log.i('字体大小更新: ${oldWidget.fontSize} -> ${widget.fontSize}');
         _updateFontSize();
+      }
+
+      if (widget.showVocabulary != oldWidget.showVocabulary) {
+        log.i(
+            '词汇显示状态更新: ${oldWidget.showVocabulary} -> ${widget.showVocabulary}');
+        _updateVocabularyVisibility();
       }
     }
   }
 
   void _updateTheme() {
     if (_webViewController != null) {
+      // 1. 更新meta标签
       _webViewController!.evaluateJavascript(source: """
-            if (window.setDarkMode) {
-              window.setDarkMode(${widget.isDarkMode});
-            }
-          """);
+        // 更新color-scheme meta标签
+        var colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
+        if (!colorSchemeMeta) {
+          colorSchemeMeta = document.createElement('meta');
+          colorSchemeMeta.name = 'color-scheme';
+          document.head.appendChild(colorSchemeMeta);
+        }
+        colorSchemeMeta.content = '${widget.isDarkMode ? "dark" : "light"}';
+        
+        // 更新theme-color meta标签
+        var themeColorMeta = document.querySelector('meta[name="theme-color"]');
+        if (!themeColorMeta) {
+          themeColorMeta = document.createElement('meta');
+          themeColorMeta.name = 'theme-color';
+          document.head.appendChild(themeColorMeta);
+        }
+        themeColorMeta.content = '${widget.isDarkMode ? "#121212" : "#ffffff"}';
+
+        // 强制HTML元素使用正确的主题
+        document.documentElement.setAttribute('data-theme', '${widget.isDarkMode ? "dark" : "light"}');
+        document.documentElement.style.setProperty('color-scheme', '${widget.isDarkMode ? "dark" : "light only"}', 'important');
+        
+        console.log('[MIKA] 主题元数据已更新为: ${widget.isDarkMode ? "深色" : "浅色"}');
+      """);
+
+      // 2. 调用渲染器中的setDarkMode方法
+      _webViewController!.evaluateJavascript(source: """
+        if (window.setDarkMode) {
+          window.setDarkMode(${widget.isDarkMode});
+        }
+      """);
     }
   }
 
@@ -161,6 +206,17 @@ class _HtmlRendererState extends State<HtmlRenderer> {
       // ));
 
       // log.i('应用 textZoom: $zoomFactor%'); // 移除
+    }
+  }
+
+  // 更新词汇显示状态
+  void _updateVocabularyVisibility() {
+    if (_webViewController != null) {
+      _webViewController!.evaluateJavascript(source: """
+        if (window.setVocabularyVisibility) {
+          window.setVocabularyVisibility(${widget.showVocabulary});
+        }
+      """);
     }
   }
 
@@ -280,7 +336,18 @@ class _HtmlRendererState extends State<HtmlRenderer> {
               style.innerHTML = 'html, body { opacity: 0 !important; }';
               document.head.appendChild(style);
               
-             
+              // 添加META标签强制禁用暗色模式
+              var colorSchemeMeta = document.createElement('meta');
+              colorSchemeMeta.name = 'color-scheme';
+              colorSchemeMeta.content = 'light';
+              document.head.appendChild(colorSchemeMeta);
+
+              // 添加META标签禁用主题颜色
+              var themeColorMeta = document.createElement('meta');
+              themeColorMeta.name = 'theme-color';
+              themeColorMeta.content = '#ffffff';
+              document.head.appendChild(themeColorMeta);
+              
               // 添加禁用系统文本选择菜单的样式
               var selectionStyle = document.createElement('style');
               selectionStyle.id = 'selection-style';
