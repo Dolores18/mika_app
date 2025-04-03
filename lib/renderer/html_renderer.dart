@@ -8,7 +8,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:async'; // 添加dart:async导入
 import 'package:http/http.dart' as http;
-import '../server/local_server.dart'; // 添加本地服务器导入
+
 import '../services/dictionary_service.dart';
 import '../widgets/dictionary/dictionary_card.dart';
 import '../models/dictionary_result.dart';
@@ -66,16 +66,6 @@ class _HtmlRendererState extends State<HtmlRenderer> {
     super.initState();
     _loadCSSFiles();
 
-    // 记录初始化时是否有预加载的词汇数据
-    if (widget.vocabularyData != null) {
-      log.i('HtmlRenderer初始化时收到预加载词汇数据: ${widget.vocabularyData!.length} 个词汇');
-      if (widget.vocabularyData!.isNotEmpty) {
-        log.i('预加载词汇示例: ${widget.vocabularyData![0]}');
-      }
-    } else {
-      log.w('HtmlRenderer初始化时没有收到预加载词汇数据');
-    }
-
     // 检查是否有缓存的控制器
     if (widget.articleId != null &&
         HtmlRenderer._controllerCache.containsKey(widget.articleId)) {
@@ -89,149 +79,13 @@ class _HtmlRendererState extends State<HtmlRenderer> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _updateTheme();
           _updateFontSize();
-          _updateVocabulary();
-
-          // 如果有预加载的词汇数据，应用它
-          if (widget.vocabularyData != null &&
-              widget.vocabularyData!.isNotEmpty) {
-            log.i('使用控制器缓存，应用预加载词汇数据: ${widget.vocabularyData!.length} 个词汇');
-            _preloadedVocabulary = widget.vocabularyData;
-            _applyPreloadedVocabulary();
-          } else {
-            log.w('使用控制器缓存，但没有预加载词汇数据');
-          }
         });
-      } else {
-        _initializeWebViewAndLoadData();
-      }
-    } else {
-      _initializeWebViewAndLoadData();
-    }
+      } else {}
+    } else {}
 
     // 在初始化时增加一个全局变量来跟踪对话框状态
     _webViewController?.evaluateJavascript(
         source: "window.mikaDialogOpen = false;");
-  }
-
-  @override
-  void dispose() {
-    // 不要在dispose中释放控制器，让它保持在缓存中
-    super.dispose();
-  }
-
-  void _initializeWebViewAndLoadData() async {
-    // 确保本地服务器已启动
-    try {
-      log.i('确保本地服务器已启动');
-      // LocalServer.start() 会返回服务器的基础URL
-      await LocalServer.start();
-
-      // 使用预加载的词汇数据
-      if (widget.showVocabulary && widget.vocabularyData != null) {
-        _preloadedVocabulary = widget.vocabularyData;
-        log.i('使用预加载的词汇数据: ${_preloadedVocabulary?.length ?? 0} 个词汇');
-        if (_preloadedVocabulary != null && _preloadedVocabulary!.isNotEmpty) {
-          log.i('预加载词汇示例[0]: ${_preloadedVocabulary![0]}');
-          // 打印原始词汇数据结构
-          log.i('词汇数据结构检查: ${_preloadedVocabulary!.runtimeType}');
-        } else {
-          log.w('预加载词汇数据为空');
-        }
-      } else {
-        log.w(
-            '未使用预加载词汇数据: showVocabulary=${widget.showVocabulary}, vocabularyData=${widget.vocabularyData != null}');
-      }
-    } catch (e) {
-      log.e('启动本地服务器失败', e);
-    }
-  }
-
-  // 预加载词汇数据
-  void _preloadVocabularyData() async {
-    try {
-      // 构建API请求URL
-      final apiUrl = '/api/articles/${widget.articleId}/with_analysis';
-
-      // 记录开始预加载词汇数据
-      log.i('开始预加载词汇数据：$apiUrl');
-
-      // 创建HTTP客户端实例
-      final client = http.Client();
-
-      // 发起请求获取文章分析数据（包含词汇）
-      final response = await client.get(
-        Uri.parse('http://127.0.0.1:8000$apiUrl'),
-        headers: {
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-      );
-
-      if (response.statusCode == 200) {
-        // 解析响应数据
-        final data = jsonDecode(response.body);
-
-        // 提取词汇数据
-        if (data != null &&
-            data['analysis'] != null &&
-            data['analysis']['vocabulary'] != null) {
-          _preloadedVocabulary = data['analysis']['vocabulary'];
-          log.i('词汇数据预加载成功: ${_preloadedVocabulary?.length ?? 0} 个词汇');
-
-          // 检查WebView是否已加载完成，如果已完成则立即应用词汇
-          if (_webViewLoaded && _webViewController != null) {
-            _applyPreloadedVocabulary();
-          }
-        } else {
-          log.w('词汇数据格式不正确或为空');
-        }
-      } else {
-        log.e('预加载词汇数据失败: HTTP ${response.statusCode}');
-      }
-    } catch (e) {
-      log.e('预加载词汇数据时出错', e);
-    }
-  }
-
-  // 将预加载的词汇数据应用到WebView
-  void _applyPreloadedVocabulary() {
-    if (_preloadedVocabulary == null || _webViewController == null) {
-      log.w(
-          '无法应用预加载词汇: _preloadedVocabulary=${_preloadedVocabulary != null}, _webViewController=${_webViewController != null}');
-      return;
-    }
-
-    log.i('开始应用预加载的词汇数据: ${_preloadedVocabulary!.length} 个词汇');
-
-    try {
-      // 将词汇数据转换为JSON字符串
-      final vocabularyJson = jsonEncode(_preloadedVocabulary);
-      log.i('词汇数据JSON长度: ${vocabularyJson.length}');
-
-      if (vocabularyJson.length > 100) {
-        log.i('词汇JSON预览: ${vocabularyJson.substring(0, 100)}...');
-      } else {
-        log.i('词汇JSON完整内容: $vocabularyJson');
-      }
-
-      // 将词汇数据传递给WebView
-      _webViewController!.evaluateJavascript(source: """
-        console.log('开始处理预加载词汇数据（从缓存控制器）: ${_preloadedVocabulary!.length} 个词汇');
-        if (window.processPreloadedVocabulary) {
-          console.log('找到 processPreloadedVocabulary 函数，开始处理词汇');
-          window.processPreloadedVocabulary($vocabularyJson);
-          console.log('词汇处理完成');
-        } else {
-          console.error('processPreloadedVocabulary函数未定义');
-        }
-      """).then((value) {
-        log.i('词汇数据JavaScript处理完成: $value');
-      }).catchError((error) {
-        log.e('词汇数据JavaScript处理错误', error);
-      });
-    } catch (e) {
-      log.e('应用预加载词汇数据时出错', e);
-    }
   }
 
   @override
@@ -249,12 +103,6 @@ class _HtmlRendererState extends State<HtmlRenderer> {
         log.i('字体大小已更改: ${oldWidget.fontSize} -> ${widget.fontSize}');
         // 移除延迟，立即更新字体大小
         _updateFontSize();
-      }
-
-      if (oldWidget.showVocabulary != widget.showVocabulary) {
-        log.i(
-            '词汇高亮已更改: ${oldWidget.showVocabulary} -> ${widget.showVocabulary}');
-        _updateVocabulary();
       }
     }
   }
@@ -309,16 +157,6 @@ class _HtmlRendererState extends State<HtmlRenderer> {
       // ));
 
       // log.i('应用 textZoom: $zoomFactor%'); // 移除
-    }
-  }
-
-  void _updateVocabulary() {
-    if (_webViewController != null) {
-      _webViewController!.evaluateJavascript(source: """
-            if (window.highlightVocabulary) {
-              window.highlightVocabulary(${widget.showVocabulary});
-            }
-          """);
     }
   }
 
@@ -436,28 +274,7 @@ class _HtmlRendererState extends State<HtmlRenderer> {
               style.innerHTML = 'html, body { opacity: 0 !important; }';
               document.head.appendChild(style);
               
-              // 添加词汇高亮样式
-              var vocabStyle = document.createElement('style');
-              vocabStyle.id = 'vocabulary-style';
-              vocabStyle.innerHTML = `
-                .vocabulary-word {
-                  background-color: ${widget.showVocabulary ? '#fff59d' : 'transparent'} !important;
-                  color: ${widget.showVocabulary ? '#000' : 'inherit'} !important;
-                  border-radius: 2px !important;
-                  cursor: pointer !important;
-                  padding: 0 2px !important;
-                  margin: 0 -2px !important;
-                  transition: all 0.2s ease !important;
-                  display: inline-block !important;
-                }
-                
-                .vocabulary-word:hover {
-                  background-color: #ffd54f !important;
-                  box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
-                }
-              `;
-              document.head.appendChild(vocabStyle);
-              
+             
               // 添加禁用系统文本选择菜单的样式
               var selectionStyle = document.createElement('style');
               selectionStyle.id = 'selection-style';
@@ -953,10 +770,7 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                 
                 // 创建一个全局变量来保存当前选中的文本
                 window.currentSelectedText = '';
-                
-                // 获取当前主题，从全局配置或数据属性
-                const isDarkMode = window.appConfig ? window.appConfig.isDarkMode : (document.documentElement.getAttribute('data-theme') === 'dark');
-                console.log('[MIKA] 检测到的主题模式: ' + (isDarkMode ? '深色' : '浅色'));
+       
                 
                 // 创建菜单元素
                 const menu = document.createElement('div');
@@ -1336,29 +1150,6 @@ class _HtmlRendererState extends State<HtmlRenderer> {
               setDarkMode(${widget.isDarkMode});
               highlightVocabulary(${widget.showVocabulary});
             """).then((_) {
-              // 在样式和函数注入后，加载词汇数据
-              if (widget.showVocabulary) {
-                if (widget.vocabularyData != null &&
-                    widget.vocabularyData!.isNotEmpty) {
-                  log.i('使用预加载的词汇数据: ${widget.vocabularyData!.length} 个词汇');
-
-                  // 将预加载的词汇数据作为参数传递给JavaScript函数
-                  final vocabularyJson = jsonEncode(widget.vocabularyData);
-                  controller.evaluateJavascript(source: """
-                    if (window.processPreloadedVocabulary) {
-                      console.log('调用processPreloadedVocabulary函数处理预加载词汇数据');
-                      window.processPreloadedVocabulary($vocabularyJson);
-                    } else {
-                      console.error('processPreloadedVocabulary函数未定义');
-                    }
-                  """);
-                } else {
-                  log.w('没有可用的预加载词汇数据');
-                }
-              } else {
-                log.i('词汇高亮功能已禁用');
-              }
-
               // 先显示文本内容
               controller.evaluateJavascript(source: """
                 // 显示文本内容
@@ -1730,53 +1521,6 @@ class _HtmlRendererState extends State<HtmlRenderer> {
       log.i('CSS文件预加载完成');
     } catch (e) {
       log.e('加载CSS文件失败', e);
-    }
-  }
-
-  // 测试翻译功能
-  void _testTranslationFeature() {
-    log.i('开始测试翻译功能');
-    final testWord = 'hello';
-
-    // 首先测试API连接是否正常
-    _testDictionaryAPI().then((success) {
-      if (success) {
-        log.i('API测试成功，继续调用翻译对话框');
-        // 直接调用翻译对话框
-        _showTranslationDialog(context, testWord);
-      } else {
-        log.e('API测试失败，检查网络连接和API服务');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('翻译服务不可用，请检查网络连接'),
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-    });
-
-    log.i('翻译功能测试已触发');
-  }
-
-  // 测试字典API是否可用
-  Future<bool> _testDictionaryAPI() async {
-    log.i('开始测试字典API连接');
-    final DictionaryService dictionaryService = DictionaryService();
-
-    try {
-      log.i('使用单词"test"测试API');
-      final result = await dictionaryService.lookupWord('test');
-
-      if (result != null) {
-        log.i('API测试成功，收到响应: ${result.word}');
-        return true;
-      } else {
-        log.w('API测试返回空结果');
-        return false;
-      }
-    } catch (e) {
-      log.e('API测试失败', e);
-      return false;
     }
   }
 }
