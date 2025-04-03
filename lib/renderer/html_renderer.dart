@@ -130,37 +130,15 @@ class _HtmlRendererState extends State<HtmlRenderer> {
 
   void _updateTheme() {
     if (_webViewController != null) {
-      // 1. 更新meta标签
+      // 调用mikaRenderer接口更新主题
       _webViewController!.evaluateJavascript(source: """
-        // 更新color-scheme meta标签
-        var colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
-        if (!colorSchemeMeta) {
-          colorSchemeMeta = document.createElement('meta');
-          colorSchemeMeta.name = 'color-scheme';
-          document.head.appendChild(colorSchemeMeta);
-        }
-        colorSchemeMeta.content = '${widget.isDarkMode ? "dark" : "light"}';
-        
-        // 更新theme-color meta标签
-        var themeColorMeta = document.querySelector('meta[name="theme-color"]');
-        if (!themeColorMeta) {
-          themeColorMeta = document.createElement('meta');
-          themeColorMeta.name = 'theme-color';
-          document.head.appendChild(themeColorMeta);
-        }
-        themeColorMeta.content = '${widget.isDarkMode ? "#121212" : "#ffffff"}';
-
-        // 强制HTML元素使用正确的主题
-        document.documentElement.setAttribute('data-theme', '${widget.isDarkMode ? "dark" : "light"}');
-        document.documentElement.style.setProperty('color-scheme', '${widget.isDarkMode ? "dark" : "light only"}', 'important');
-        
-        console.log('[MIKA] 主题元数据已更新为: ${widget.isDarkMode ? "深色" : "浅色"}');
-      """);
-
-      // 2. 调用渲染器中的setDarkMode方法
-      _webViewController!.evaluateJavascript(source: """
-        if (window.setDarkMode) {
+        if (window.mikaRenderer && window.mikaRenderer.setDarkMode) {
+          window.mikaRenderer.setDarkMode(${widget.isDarkMode});
+        } else if (window.setDarkMode) {
+          // 兼容旧版本
           window.setDarkMode(${widget.isDarkMode});
+        } else {
+          console.error('[MIKA] 未找到主题更新函数');
         }
       """);
     }
@@ -170,42 +148,14 @@ class _HtmlRendererState extends State<HtmlRenderer> {
     if (_webViewController != null) {
       log.i('应用新字体大小: ${widget.fontSize}');
 
-      // 基于16px作为标准大小计算缩放比例
-      // final int zoomFactor = (widget.fontSize / 16 * 100).round(); // 移除
-
-      // 首先通过JavaScript更新字体大小
+      // 调用mikaRenderer接口更新字体大小
       _webViewController!.evaluateJavascript(source: """
-        try {
-          // 更新CSS变量
-          document.documentElement.style.setProperty('--font-size-base', '${widget.fontSize}px');
-          document.documentElement.setAttribute('data-font-size', '${widget.fontSize}');
-          
-          // 更新动态样式 (确保CSS中使用了 --font-size-base)
-          var dynamicStyle = document.getElementById('dynamic-styles');
-          if(dynamicStyle) {
-            // 确认是否真的需要更新整个style块，或者CSS是否已依赖 --font-size-base
-            dynamicStyle.textContent = `
-              :root { 
-                --font-size-base: ${widget.fontSize}px;
-              }
-            `;
-          } else {
-            console.log('未找到dynamic-styles元素');
-          }
-          
-          console.log('通过JavaScript更新了字体大小: ${widget.fontSize}px');
-        } catch(e) {
-          console.error('更新字体大小时出错', e);
+        if (window.mikaRenderer && window.mikaRenderer.setFontSize) {
+          window.mikaRenderer.setFontSize(${widget.fontSize});
+        } else {
+          console.error('[MIKA] mikaRenderer接口不可用，无法设置字体大小');
         }
       """);
-
-      // 然后设置textZoom作为备份方法 (移除)
-      // _webViewController!.setSettings(
-      //     settings: InAppWebViewSettings(
-      //   textZoom: zoomFactor,
-      // ));
-
-      // log.i('应用 textZoom: $zoomFactor%'); // 移除
     }
   }
 
@@ -213,8 +163,13 @@ class _HtmlRendererState extends State<HtmlRenderer> {
   void _updateVocabularyVisibility() {
     if (_webViewController != null) {
       _webViewController!.evaluateJavascript(source: """
-        if (window.setVocabularyVisibility) {
+        if (window.mikaRenderer && window.mikaRenderer.setVocabularyVisibility) {
+          window.mikaRenderer.setVocabularyVisibility(${widget.showVocabulary});
+        } else if (window.setVocabularyVisibility) {
+          // 兼容旧版本
           window.setVocabularyVisibility(${widget.showVocabulary});
+        } else {
+          console.error('[MIKA] 未找到词汇显示控制函数');
         }
       """);
     }
@@ -331,15 +286,33 @@ class _HtmlRendererState extends State<HtmlRenderer> {
 
             // 首先添加CSS使内容初始不可见
             controller.evaluateJavascript(source: """
-              var style = document.createElement('style');
-              style.id = 'init-invisible-style';
-              style.innerHTML = 'html, body { opacity: 0 !important; }';
-              document.head.appendChild(style);
+              // 强制禁用系统暗色模式
+              var preventAutoDarkStyle = document.createElement('style');
+              preventAutoDarkStyle.id = 'prevent-auto-dark-style';
+              preventAutoDarkStyle.textContent = \`
+                /* 禁用WebView自动应用的深色模式 */
+                html {
+                  color-scheme: only light !important;
+                  forced-color-adjust: none !important;
+                }
+                
+                /* 确保最高优先级应用我们的主题 */
+                @media (prefers-color-scheme: dark) {
+                  :root:not([data-theme="dark"]) {
+                    color-scheme: only light !important;
+                  }
+                  
+                  :root[data-theme="dark"] {
+                    color-scheme: only dark !important;
+                  }
+                }
+              \`;
+              document.head.appendChild(preventAutoDarkStyle);
               
               // 添加META标签强制禁用暗色模式
               var colorSchemeMeta = document.createElement('meta');
               colorSchemeMeta.name = 'color-scheme';
-              colorSchemeMeta.content = 'light';
+              colorSchemeMeta.content = 'only light';
               document.head.appendChild(colorSchemeMeta);
 
               // 添加META标签禁用主题颜色
@@ -348,10 +321,16 @@ class _HtmlRendererState extends State<HtmlRenderer> {
               themeColorMeta.content = '#ffffff';
               document.head.appendChild(themeColorMeta);
               
+              // 设置初始样式使内容不可见
+              var style = document.createElement('style');
+              style.id = 'init-invisible-style';
+              style.innerHTML = 'html, body { opacity: 0 !important; }';
+              document.head.appendChild(style);
+              
               // 添加禁用系统文本选择菜单的样式
               var selectionStyle = document.createElement('style');
               selectionStyle.id = 'selection-style';
-              selectionStyle.innerHTML = `
+              selectionStyle.innerHTML = \`
                 /* 自定义选中文本的样式 */
                 ::selection {
                   background-color: rgba(255, 235, 59, 0.3) !important;
@@ -366,7 +345,7 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                 body {
                   -webkit-touch-callout: none !important;
                 }
-              `;
+              \`;
               document.head.appendChild(selectionStyle);
               
               // 设置主题状态到全局变量

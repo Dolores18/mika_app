@@ -1,12 +1,140 @@
 // MIKA阅读器渲染器JavaScript代码
 // 处理HTML内容、应用样式和添加交互功能
 
+// 创建MIKA渲染器接口对象
+window.mikaRenderer = {
+  // 设置字体大小
+  setFontSize: function(size) {
+    // 更新CSS变量
+    document.documentElement.style.setProperty('--font-size-base', size + 'px');
+    document.documentElement.setAttribute('data-font-size', size);
+    
+    // 更新动态样式
+    var dynamicStyle = document.getElementById('dynamic-styles');
+    if (dynamicStyle) {
+      dynamicStyle.textContent = `
+        :root { 
+          --font-size-base: ${size}px;
+        }
+      `;
+    } else {
+      console.log('[MIKA] 未找到dynamic-styles元素');
+    }
+    
+    console.log('[MIKA] 字体大小设置为: ' + size + 'px');
+  },
+  
+  // 设置暗色/亮色主题
+  setDarkMode: function(isDark) {
+    console.log('[MIKA] 设置主题: ' + (isDark ? '深色' : '浅色'));
+    
+    // 1. 更新HTML根元素属性
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    
+    // 2. 更新meta标签
+    this._updateColorSchemeMeta(isDark);
+    
+    // 3. 修改文本选择菜单样式（如果存在）
+    if (window.textSelectionMenu) {
+      const menu = document.getElementById('text-selection-menu');
+      if (menu) {
+        // 根据主题设置菜单背景色
+        menu.style.backgroundColor = isDark ? '#1e1e1e' : '#ffffff';
+        menu.style.borderColor = isDark ? '#333333' : '#e0e0e0';
+        
+        // 设置菜单按钮颜色
+        const buttons = menu.querySelectorAll('button');
+        buttons.forEach(button => {
+          button.style.backgroundColor = isDark ? '#333333' : '#f5f5f5';
+          button.style.color = isDark ? '#ffffff' : '#000000';
+        });
+      }
+    }
+    
+    console.log('[MIKA] 主题更新完成');
+  },
+  
+  // 私有：更新颜色方案meta标签
+  _updateColorSchemeMeta: function(isDark) {
+    // 更新color-scheme meta标签
+    var colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
+    if (!colorSchemeMeta) {
+      colorSchemeMeta = document.createElement('meta');
+      colorSchemeMeta.name = 'color-scheme';
+      document.head.appendChild(colorSchemeMeta);
+    }
+    colorSchemeMeta.content = isDark ? 'dark' : 'light';
+    
+    // 更新theme-color meta标签
+    var themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    if (!themeColorMeta) {
+      themeColorMeta = document.createElement('meta');
+      themeColorMeta.name = 'theme-color';
+      document.head.appendChild(themeColorMeta);
+    }
+    themeColorMeta.content = isDark ? '#121212' : '#ffffff';
+    
+    // 更新CSS变量
+    document.documentElement.style.setProperty('color-scheme', isDark ? 'dark' : 'light only', 'important');
+  },
+  
+  // 设置词汇显示状态
+  setVocabularyVisibility: function(show) {
+    console.log('[MIKA] 设置词汇显示: ' + (show ? '显示' : '隐藏'));
+    document.documentElement.setAttribute('data-show-vocabulary', show);
+  }
+};
+
 // 初始化渲染器
 function initializeRenderer(options) {
   const { isDarkMode, fontSize, showVocabulary, apiBaseUrl, baseCSS, typographyCSS, uiCSS, economistCSS } = options;
   
   console.log('[MIKA] 开始初始化渲染器');
   console.log('[MIKA] 配置:', options);
+  
+  // 确保在初始化时强制使用浅色主题
+  document.documentElement.setAttribute('data-theme', 'light');
+  
+  // 添加防止自动暗色模式的样式
+  var preventAutoDarkStyle = document.createElement('style');
+  preventAutoDarkStyle.id = 'prevent-auto-dark-style';
+  preventAutoDarkStyle.textContent = `
+    /* 禁用WebView自动应用的深色模式 */
+    html {
+      color-scheme: only light !important;
+      forced-color-adjust: none !important;
+    }
+    
+    /* 确保最高优先级应用我们的主题 */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="dark"]) {
+        color-scheme: only light !important;
+      }
+      
+      :root[data-theme="dark"] {
+        color-scheme: only dark !important;
+      }
+    }
+  `;
+  document.head.appendChild(preventAutoDarkStyle);
+  
+  // 更新META标签
+  var colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
+  if (!colorSchemeMeta) {
+    colorSchemeMeta = document.createElement('meta');
+    colorSchemeMeta.name = 'color-scheme';
+    document.head.appendChild(colorSchemeMeta);
+  }
+  colorSchemeMeta.content = 'only light';
+  
+  // 更新主题颜色META标签
+  var themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  if (!themeColorMeta) {
+    themeColorMeta = document.createElement('meta');
+    themeColorMeta.name = 'theme-color';
+    document.head.appendChild(themeColorMeta);
+  }
+  themeColorMeta.content = '#ffffff';
   
   // 处理HTML内容 - 移除第一个h1标签
   console.log('[MIKA] 开始处理HTML内容');
@@ -36,29 +164,6 @@ function initializeRenderer(options) {
   // 添加CSS样式
   var baseStyles = document.getElementById('base-styles');
   if (!baseStyles) {
-    // 添加禁用自动深色模式的CSS
-    var preventAutoDarkStyle = document.createElement('style');
-    preventAutoDarkStyle.id = 'prevent-auto-dark-style';
-    preventAutoDarkStyle.textContent = `
-      /* 禁用WebView自动应用的深色模式 */
-      html {
-        color-scheme: only light !important;
-        forced-color-adjust: none !important;
-      }
-      
-      /* 确保最高优先级应用我们的主题 */
-      @media (prefers-color-scheme: dark) {
-        :root:not([data-theme="dark"]) {
-          color-scheme: only light !important;
-        }
-        
-        :root[data-theme="dark"] {
-          color-scheme: only dark !important;
-        }
-      }
-    `;
-    document.head.appendChild(preventAutoDarkStyle);
-    
     // 添加基础样式
     var baseStyle = document.createElement('style');
     baseStyle.id = 'base-style';
@@ -210,19 +315,38 @@ function initializeRenderer(options) {
   
   // 注入JS函数来更新主题
   window.setDarkMode = function(isDark) {
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    // 调用mikaRenderer中的方法，保持向后兼容
+    if (window.mikaRenderer && window.mikaRenderer.setDarkMode) {
+      window.mikaRenderer.setDarkMode(isDark);
+    } else {
+      // 旧的实现作为备用方案
+      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+      console.warn('[MIKA] mikaRenderer.setDarkMode未找到，使用备用方法');
+    }
   };
   
   // 注入JS函数来更新词汇显示
   window.highlightVocabulary = function(show) {
-    document.documentElement.setAttribute('data-show-vocabulary', show);
-    // 更新词汇元素样式已经通过CSS处理，无需JavaScript
+    // 调用mikaRenderer中的方法，保持向后兼容
+    if (window.mikaRenderer && window.mikaRenderer.setVocabularyVisibility) {
+      window.mikaRenderer.setVocabularyVisibility(show);
+    } else {
+      // 旧的实现作为备用方案
+      document.documentElement.setAttribute('data-show-vocabulary', show);
+      console.warn('[MIKA] mikaRenderer.setVocabularyVisibility未找到，使用备用方法');
+    }
   };
   
   // 确保setVocabularyVisibility函数存在(与highlightVocabulary保持一致)
   window.setVocabularyVisibility = function(show) {
-    document.documentElement.setAttribute('data-show-vocabulary', show);
-    // 更新词汇元素样式已经通过CSS处理，无需JavaScript
+    // 调用mikaRenderer中的方法，保持向后兼容
+    if (window.mikaRenderer && window.mikaRenderer.setVocabularyVisibility) {
+      window.mikaRenderer.setVocabularyVisibility(show);
+    } else {
+      // 旧的实现作为备用方案
+      document.documentElement.setAttribute('data-show-vocabulary', show);
+      console.warn('[MIKA] mikaRenderer.setVocabularyVisibility未找到，使用备用方法');
+    }
   };
   
   // 添加词汇点击处理
@@ -664,8 +788,9 @@ function initializeRenderer(options) {
   const textSelectionMenu = createTextSelectionMenu();
   
   // 应用初始设置
-  setDarkMode(isDarkMode);
-  highlightVocabulary(showVocabulary);
+  window.mikaRenderer.setDarkMode(isDarkMode);
+  window.mikaRenderer.setFontSize(fontSize);
+  window.mikaRenderer.setVocabularyVisibility(showVocabulary);
   
   console.log('[MIKA] 渲染器初始化完成');
   
