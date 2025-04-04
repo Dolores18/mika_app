@@ -4,6 +4,7 @@ import '../utils/logger.dart';
 import '../services/article_service.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart'; // 添加手势绑定的导入
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:async'; // 添加dart:async导入
@@ -87,6 +88,14 @@ class HtmlRendererState extends State<HtmlRenderer> {
   // 在_HtmlRendererState类中添加一个变量来保存选中的文本
   String? _selectedText;
 
+  // 添加文本选择菜单的OverlayEntry
+  OverlayEntry? _textSelectionMenuOverlay;
+  // 添加文本选择菜单的坐标数据
+  Map<String, dynamic>? _selectionCoordinates;
+
+  // 添加高亮文本列表
+  final List<Map<String, dynamic>> _highlightedTexts = [];
+
   @override
   void initState() {
     super.initState();
@@ -113,6 +122,15 @@ class HtmlRendererState extends State<HtmlRenderer> {
     // 在初始化时增加一个全局变量来跟踪对话框状态
     _webViewController?.evaluateJavascript(
         source: "window.mikaDialogOpen = false;");
+  }
+
+  @override
+  void dispose() {
+    // 确保移除文本选择菜单
+    _hideTextSelectionMenu();
+    // 清除所有高亮
+    _clearAllHighlights();
+    super.dispose();
   }
 
   @override
@@ -545,6 +563,106 @@ class HtmlRendererState extends State<HtmlRenderer> {
               };
               console.log('已添加解决TextClassifier问题和ActionMode稳定的代码');
             """);
+
+            // 添加文本选择坐标处理器
+            controller.addJavaScriptHandler(
+              handlerName: 'textSelectionCoordinates',
+              callback: (args) {
+                if (args.isNotEmpty) {
+                  log.i('收到文本选择坐标: ${args[0]}');
+                  // 确保在UI线程上执行
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    try {
+                      if (mounted) {
+                        final coordinates = args[0] as Map<String, dynamic>;
+                        _showTextSelectionMenu(coordinates);
+                        log.i('文本选择菜单显示请求已处理');
+                      } else {
+                        log.w('组件已卸载，无法显示文本选择菜单');
+                      }
+                    } catch (e) {
+                      log.e('显示文本选择菜单时发生错误', e);
+                    }
+                  });
+                } else {
+                  log.w('收到textSelectionCoordinates调用，但参数为空');
+                }
+              },
+            );
+
+            // 添加隐藏文本选择菜单处理器
+            controller.addJavaScriptHandler(
+              handlerName: 'hideTextSelectionMenu',
+              callback: (args) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    _hideTextSelectionMenu();
+                  }
+                });
+              },
+            );
+
+            // 在onWebViewCreated方法中添加新的JavaScript处理程序
+            controller.addJavaScriptHandler(
+              handlerName: 'onHighlightCreated',
+              callback: (args) {
+                if (args.isNotEmpty) {
+                  final highlightInfo = args[0] as Map<String, dynamic>;
+                  log.i('收到高亮创建通知: $highlightInfo');
+
+                  setState(() {
+                    _highlightedTexts.add(highlightInfo);
+                  });
+
+                  // 显示提示
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('已添加高亮'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                }
+              },
+            );
+
+            controller.addJavaScriptHandler(
+              handlerName: 'onHighlightRemoved',
+              callback: (args) {
+                if (args.isNotEmpty) {
+                  final highlightId = args[0];
+                  log.i('收到高亮移除通知: $highlightId');
+
+                  setState(() {
+                    _highlightedTexts
+                        .removeWhere((item) => item['id'] == highlightId);
+                  });
+                }
+              },
+            );
+
+            controller.addJavaScriptHandler(
+              handlerName: 'onAllHighlightsRemoved',
+              callback: (args) {
+                log.i('收到所有高亮移除通知');
+
+                setState(() {
+                  _highlightedTexts.clear();
+                });
+              },
+            );
+
+            controller.addJavaScriptHandler(
+              handlerName: 'onHighlightClicked',
+              callback: (args) {
+                if (args.isNotEmpty) {
+                  final highlightInfo = args[0] as Map<String, dynamic>;
+                  log.i('收到高亮点击通知: $highlightInfo');
+
+                  // 显示高亮操作菜单
+                  _showHighlightOptionsDialog(highlightInfo);
+                }
+              },
+            );
           },
           onLoadStart: (controller, url) {
             log.i('【网络请求】WebView开始加载: $url');
@@ -906,5 +1024,376 @@ class HtmlRendererState extends State<HtmlRenderer> {
     } catch (e) {
       log.e('加载渲染器JS文件失败', e);
     }
+  }
+
+  // 显示文本选择菜单
+  void _showTextSelectionMenu(Map<String, dynamic> coordinates) {
+    // 先移除旧菜单
+    _hideTextSelectionMenu();
+
+    // 保存坐标数据
+    _selectionCoordinates = coordinates;
+
+    // 获取选区坐标信息
+    final double x = (coordinates['x'] as num?)?.toDouble() ?? 0.0;
+    final double y = (coordinates['y'] as num?)?.toDouble() ?? 0.0;
+    final double viewportWidth =
+        (coordinates['viewportWidth'] as num?)?.toDouble() ?? 0.0;
+    final double viewportHeight =
+        (coordinates['viewportHeight'] as num?)?.toDouble() ?? 0.0;
+    final String text = coordinates['text'] as String? ?? '';
+
+    log.i('准备显示文本选择菜单');
+    log.i('坐标信息: x=$x, y=$y, text="$text"');
+
+    // 创建OverlayEntry显示文本选择菜单
+    _textSelectionMenuOverlay = OverlayEntry(
+      builder: (context) {
+        // 使用BuildContext创建菜单
+        return FutureBuilder(
+          // 延迟一帧来确保有效的context
+          future: Future.microtask(() => true),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const SizedBox();
+
+            try {
+              // 计算菜单在WebView中的位置
+              final RenderBox? renderBox =
+                  context.findRenderObject() as RenderBox?;
+              if (renderBox == null) {
+                log.w('无法获取renderBox，返回空菜单');
+                return const SizedBox();
+              }
+
+              // 计算WebView相对于屏幕的位置
+              final Offset webviewOffset = renderBox.localToGlobal(Offset.zero);
+              log.i('WebView偏移: $webviewOffset');
+
+              // 计算菜单实际位置
+              final menuX = webviewOffset.dx + x;
+              final menuY = webviewOffset.dy + y + 10; // 在文本下方10像素处显示
+
+              log.i('菜单位置: menuX=$menuX, menuY=$menuY');
+
+              return Positioned(
+                left: menuX - 120, // 菜单宽度的一半，使菜单居中在选择位置
+                top: menuY,
+                child: Material(
+                  elevation: 8.0,
+                  borderRadius: BorderRadius.circular(8.0),
+                  color: widget.isDarkMode
+                      ? const Color(0xFF252525)
+                      : Colors.white,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8.0),
+                      border: Border.all(
+                        color: widget.isDarkMode
+                            ? const Color(0xFF444444)
+                            : const Color(0xFFE0E0E0),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 复制按钮
+                        TextButton(
+                          onPressed: () {
+                            _copySelectedText();
+                            _hideTextSelectionMenu();
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12.0, vertical: 8.0),
+                            backgroundColor: widget.isDarkMode
+                                ? const Color(0xFF333333)
+                                : const Color(0xFFF5F5F5),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(4.0)),
+                            ),
+                          ),
+                          child: Text(
+                            '复制',
+                            style: TextStyle(
+                              color: widget.isDarkMode
+                                  ? Colors.white
+                                  : Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8.0),
+                        // 高亮按钮
+                        TextButton(
+                          onPressed: () {
+                            _highlightSelectedText();
+                            _hideTextSelectionMenu();
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12.0, vertical: 8.0),
+                            backgroundColor: widget.isDarkMode
+                                ? const Color(0xFF333333)
+                                : const Color(0xFFF5F5F5),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(4.0)),
+                            ),
+                          ),
+                          child: Text(
+                            '高亮',
+                            style: TextStyle(
+                              color: widget.isDarkMode
+                                  ? Colors.white
+                                  : Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8.0),
+                        // 翻译按钮
+                        TextButton(
+                          onPressed: () {
+                            _translateSelectedText();
+                            _hideTextSelectionMenu();
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12.0, vertical: 8.0),
+                            backgroundColor: widget.isDarkMode
+                                ? const Color(0xFF333333)
+                                : const Color(0xFFF5F5F5),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(4.0)),
+                            ),
+                          ),
+                          child: Text(
+                            '翻译',
+                            style: TextStyle(
+                              color: widget.isDarkMode
+                                  ? Colors.white
+                                  : Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(8.0),
+                  ),
+                ),
+              );
+            } catch (e) {
+              log.e('创建文本选择菜单时出错', e);
+              return const SizedBox();
+            }
+          },
+        );
+      },
+    );
+
+    // 将菜单添加到Overlay
+    if (mounted && context.mounted) {
+      try {
+        Overlay.of(context).insert(_textSelectionMenuOverlay!);
+        log.i('文本选择菜单已添加到Overlay');
+      } catch (e) {
+        log.e('将菜单添加到Overlay时出错', e);
+      }
+    } else {
+      log.w('组件已卸载，无法添加文本选择菜单到Overlay');
+    }
+  }
+
+  // 隐藏文本选择菜单
+  void _hideTextSelectionMenu() {
+    _textSelectionMenuOverlay?.remove();
+    _textSelectionMenuOverlay = null;
+    _selectionCoordinates = null;
+  }
+
+  // 复制选中的文本
+  void _copySelectedText() {
+    if (_selectedText != null && _selectedText!.isNotEmpty) {
+      Clipboard.setData(ClipboardData(text: _selectedText!)).then((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('已复制到剪贴板'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      });
+      log.i('复制文本: $_selectedText');
+    }
+  }
+
+  // 翻译选中的文本
+  void _translateSelectedText() {
+    if (_selectedText != null && _selectedText!.isNotEmpty) {
+      log.i('翻译文本: $_selectedText');
+      _showTranslationDialog(context, _selectedText!);
+    }
+  }
+
+  // 高亮选中的文本
+  void _highlightSelectedText() {
+    if (_selectedText == null || _selectedText!.isEmpty) {
+      log.w('无法高亮：文本为空');
+      return;
+    }
+
+    log.i('准备高亮文本: $_selectedText');
+
+    if (_webViewController != null) {
+      _webViewController!.evaluateJavascript(source: """
+        if (window.mikaRenderer && window.mikaRenderer.highlightSelection) {
+          const result = window.mikaRenderer.highlightSelection();
+          if (result) {
+            console.log('[MIKA] 高亮成功: ' + JSON.stringify(result));
+          } else {
+            console.error('[MIKA] 高亮失败');
+          }
+        } else {
+          console.error('[MIKA] 高亮函数不可用');
+        }
+      """).then((value) {
+        log.i('高亮JavaScript执行结果: $value');
+      }).catchError((error) {
+        log.e('执行高亮JavaScript时出错', error);
+      });
+    }
+  }
+
+  // 显示高亮操作对话框
+  void _showHighlightOptionsDialog(Map<String, dynamic> highlightInfo) {
+    final String highlightId = highlightInfo['id'] as String? ?? '';
+    final String text = highlightInfo['text'] as String? ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor:
+          widget.isDarkMode ? const Color(0xFF252525) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  '高亮文本',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: widget.isDarkMode ? Colors.white : Colors.black,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: widget.isDarkMode
+                      ? const Color(0xFF333333)
+                      : const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    color: widget.isDarkMode ? Colors.white : Colors.black,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.copy),
+                    label: const Text('复制'),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: text)).then((_) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('已复制到剪贴板'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: widget.isDarkMode
+                          ? const Color(0xFF444444)
+                          : Colors.white,
+                      foregroundColor:
+                          widget.isDarkMode ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.translate),
+                    label: const Text('翻译'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _showTranslationDialog(context, text);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: widget.isDarkMode
+                          ? const Color(0xFF444444)
+                          : Colors.white,
+                      foregroundColor:
+                          widget.isDarkMode ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('移除高亮'),
+                    onPressed: () {
+                      if (_webViewController != null) {
+                        _webViewController!.evaluateJavascript(source: """
+                          if (window.mikaRenderer && window.mikaRenderer.removeHighlight) {
+                            window.mikaRenderer.removeHighlight('$highlightId');
+                          }
+                        """);
+                      }
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: widget.isDarkMode
+                          ? const Color(0xFF444444)
+                          : Colors.white,
+                      foregroundColor: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 清除所有高亮
+  void _clearAllHighlights() {
+    if (_webViewController != null) {
+      _webViewController!.evaluateJavascript(source: """
+        if (window.mikaRenderer && window.mikaRenderer.removeAllHighlights) {
+          window.mikaRenderer.removeAllHighlights();
+        }
+      """);
+    }
+    _highlightedTexts.clear();
   }
 }
