@@ -198,7 +198,37 @@ function initializeRenderer(options) {
     `;
     document.head.appendChild(cssContent);
   }
-  
+  // 添加图片居中样式
+  var imageStyle = document.createElement('style');
+  imageStyle.id = 'image-center-style';
+  imageStyle.textContent = `
+    .article-content img {
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+      max-width: 100%;
+      width: 100%;
+      height: auto;
+      box-sizing: border-box;
+      padding: 10px 0;
+    }
+    
+    /* 对大图片增加特殊处理 */
+    .article-content figure {
+      margin: 1em 0;
+      width: 100%;
+      text-align: center;
+    }
+    
+    /* 图片说明文字样式 */
+    .article-content figcaption {
+      font-size: 0.85em;
+      color: #666;
+      text-align: center;
+      margin-top: 5px;
+    }
+  `;
+  document.head.appendChild(imageStyle);
   // 立即通知Flutter基本内容已准备好，可以移除遮罩
   console.log('[MIKA] 基本内容已处理完成，通知Flutter移除遮罩');
   if (window.flutter_inappwebview) {
