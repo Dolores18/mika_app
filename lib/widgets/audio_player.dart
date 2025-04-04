@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart' as just_audio;
 import 'dart:async';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/article/article_detail_provider.dart';
 
-class AudioPlayer extends StatefulWidget {
+class AudioPlayer extends ConsumerStatefulWidget {
   final String url;
-  final VoidCallback? onClose;
+  final VoidCallback onClose;
+  final String? articleId;
 
-  const AudioPlayer({super.key, required this.url, this.onClose});
+  const AudioPlayer({
+    Key? key,
+    required this.url,
+    required this.onClose,
+    this.articleId,
+  }) : super(key: key);
 
   @override
-  State<AudioPlayer> createState() => _AudioPlayerState();
+  ConsumerState<AudioPlayer> createState() => _AudioPlayerState();
 }
 
-class _AudioPlayerState extends State<AudioPlayer> {
+class _AudioPlayerState extends ConsumerState<AudioPlayer> {
   late just_audio.AudioPlayer _audioPlayer;
   bool _isPlaying = false;
   bool _isLoading = false;
@@ -122,10 +130,17 @@ class _AudioPlayerState extends State<AudioPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    // 从ConsumerRef获取主题状态
+    bool isDarkMode = false;
+    if (widget.articleId != null) {
+      isDarkMode = ref.watch(articleDetailProvider(widget.articleId!)
+          .select((state) => state.isDarkMode));
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.grey[100],
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -140,18 +155,27 @@ class _AudioPlayerState extends State<AudioPlayer> {
         children: [
           Row(
             children: [
-              const Icon(Icons.audiotrack, color: Color(0xFF6b4bbd)),
+              Icon(Icons.audiotrack,
+                  color: isDarkMode ? Colors.white70 : const Color(0xFF6b4bbd)),
               const SizedBox(width: 12),
-              const Text(
+              Text(
                 '收听音频',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
               ),
               const Spacer(),
               if (_isLoading || _isBuffering)
-                const SizedBox(
+                SizedBox(
                   width: 24,
                   height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        isDarkMode ? Colors.white70 : const Color(0xFF6b4bbd)),
+                  ),
                 )
               else
                 IconButton(
@@ -160,7 +184,7 @@ class _AudioPlayerState extends State<AudioPlayer> {
                         ? Icons.pause_circle_filled
                         : Icons.play_circle_fill,
                   ),
-                  color: const Color(0xFF6b4bbd),
+                  color: isDarkMode ? Colors.white70 : const Color(0xFF6b4bbd),
                   iconSize: 36,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -174,20 +198,24 @@ class _AudioPlayerState extends State<AudioPlayer> {
                 ),
               const SizedBox(width: 12),
               // 添加关闭按钮
-              if (widget.onClose != null)
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  color: Colors.grey[700],
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: widget.onClose,
-                ),
+              IconButton(
+                icon: Icon(Icons.close),
+                color: isDarkMode ? Colors.white70 : Colors.grey[700],
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: widget.onClose,
+              ),
             ],
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              Text(_formatDuration(_position)),
+              Text(
+                _formatDuration(_position),
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white70 : Colors.black87,
+                ),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Stack(
@@ -196,7 +224,7 @@ class _AudioPlayerState extends State<AudioPlayer> {
                     Container(
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey[300],
+                        color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -209,7 +237,8 @@ class _AudioPlayerState extends State<AudioPlayer> {
                       child: Container(
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.grey[400],
+                          color:
+                              isDarkMode ? Colors.grey[600] : Colors.grey[400],
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -224,10 +253,16 @@ class _AudioPlayerState extends State<AudioPlayer> {
                         overlayShape: const RoundSliderOverlayShape(
                           overlayRadius: 16,
                         ),
-                        activeTrackColor: const Color(0xFF6b4bbd),
+                        activeTrackColor: isDarkMode
+                            ? Colors.white70
+                            : const Color(0xFF6b4bbd),
                         inactiveTrackColor: Colors.transparent,
-                        thumbColor: const Color(0xFF6b4bbd),
-                        overlayColor: const Color(0xFF6b4bbd).withOpacity(0.2),
+                        thumbColor:
+                            isDarkMode ? Colors.white : const Color(0xFF6b4bbd),
+                        overlayColor: (isDarkMode
+                                ? Colors.white
+                                : const Color(0xFF6b4bbd))
+                            .withOpacity(0.2),
                       ),
                       child: Slider(
                         min: 0,
@@ -251,7 +286,12 @@ class _AudioPlayerState extends State<AudioPlayer> {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(_formatDuration(_duration)),
+              Text(
+                _formatDuration(_duration),
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white70 : Colors.black87,
+                ),
+              ),
             ],
           ),
         ],

@@ -14,6 +14,7 @@ import '../widgets/dictionary/dictionary_card.dart';
 import '../models/dictionary_result.dart';
 import '../models/vocabulary.dart';
 
+// 确保类是公开的（public）
 class HtmlRenderer extends StatefulWidget {
   final String? articleId;
   final bool isDarkMode;
@@ -40,17 +41,39 @@ class HtmlRenderer extends StatefulWidget {
     this.vocabularyData, // 添加对应的构造参数
   }) : super(key: key);
 
+  // 添加一个静态方法来刷新指定文章的内容
+  static void refresh(String articleId) {
+    log.i('Riverpod调用刷新文章: $articleId');
+    final controller = _controllerCache[articleId];
+    if (controller != null) {
+      // 重置加载状态
+      _contentLoadedCache[articleId] = false;
+
+      // 重新加载 URL
+      final webviewUrl = ArticleService.getArticleHtmlUrl(articleId);
+      controller.loadUrl(
+        urlRequest: URLRequest(url: WebUri(webviewUrl)),
+      );
+      log.i('文章WebView刷新请求已发送');
+    } else {
+      log.w('未找到缓存的WebView控制器，无法刷新文章: $articleId');
+    }
+  }
+
   @override
-  State<HtmlRenderer> createState() => _HtmlRendererState();
+  State<HtmlRenderer> createState() => HtmlRendererState();
 }
 
-class _HtmlRendererState extends State<HtmlRenderer> {
+// 将私有的 _HtmlRendererState 改为公开的 HtmlRendererState
+class HtmlRendererState extends State<HtmlRenderer> {
   bool _isLoading = true;
-  InAppWebViewController? _webViewController;
   String? _errorMessage;
-  bool _hasLoadedContent = false; // 添加标记，表示内容是否已加载
-  List<dynamic>? _preloadedVocabulary;
+  bool _hasLoadedContent = false;
   bool _webViewLoaded = false;
+  InAppWebViewController? _webViewController;
+
+  // 注意: 刷新逻辑已移至ArticleDetailNotifier.refreshContent()方法中
+  // 使用Riverpod进行状态管理，通过HtmlRenderer.refresh静态方法实现
 
   // 存储CSS文件内容
   String _baseCSS = '';
@@ -295,20 +318,20 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                   color-scheme: only light !important;
                   forced-color-adjust: none !important;
                 }
-                
+
                 /* 确保最高优先级应用我们的主题 */
                 @media (prefers-color-scheme: dark) {
                   :root:not([data-theme="dark"]) {
                     color-scheme: only light !important;
                   }
-                  
+
                   :root[data-theme="dark"] {
                     color-scheme: only dark !important;
                   }
                 }
               \`;
               document.head.appendChild(preventAutoDarkStyle);
-              
+
               // 添加META标签强制禁用暗色模式
               var colorSchemeMeta = document.createElement('meta');
               colorSchemeMeta.name = 'color-scheme';
@@ -320,13 +343,13 @@ class _HtmlRendererState extends State<HtmlRenderer> {
               themeColorMeta.name = 'theme-color';
               themeColorMeta.content = '#ffffff';
               document.head.appendChild(themeColorMeta);
-              
+
               // 设置初始样式使内容不可见
               var style = document.createElement('style');
               style.id = 'init-invisible-style';
               style.innerHTML = 'html, body { opacity: 0 !important; }';
               document.head.appendChild(style);
-              
+
               // 添加禁用系统文本选择菜单的样式
               var selectionStyle = document.createElement('style');
               selectionStyle.id = 'selection-style';
@@ -340,17 +363,17 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                   background-color: rgba(255, 235, 59, 0.3) !important;
                   color: inherit !important;
                 }
-                
+
                 /* 禁用长按菜单 */
                 body {
                   -webkit-touch-callout: none !important;
                 }
               \`;
               document.head.appendChild(selectionStyle);
-              
+
               // 设置主题状态到全局变量
               window.isDarkMode = ${widget.isDarkMode};
-              
+
               // 设置主题数据属性到HTML元素
               document.documentElement.setAttribute('data-theme', '${widget.isDarkMode ? "dark" : "light"}');
               console.log('[MIKA] 设置主题模式: ' + (${widget.isDarkMode} ? '深色' : '浅色'));
@@ -567,7 +590,7 @@ class _HtmlRendererState extends State<HtmlRenderer> {
                   uiCSS: `${_uiCSS}`,
                   economistCSS: `${_economistCSS}`
                 });
-                
+
                 // 显示内容
                 renderer.showContent();
               """).then((_) {

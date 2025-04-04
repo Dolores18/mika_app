@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/article_service.dart';
 import '../../utils/logger.dart';
 import 'article_detail_state.dart';
+import '../../renderer/html_renderer.dart';
 
 class ArticleDetailNotifier extends StateNotifier<ArticleDetailState> {
   final ArticleService _articleService;
@@ -35,6 +36,21 @@ class ArticleDetailNotifier extends StateNotifier<ArticleDetailState> {
     }
   }
 
+  // 添加刷新方法，使用HtmlRenderer静态方法
+  void refreshContent() {
+    log.i('通过Riverpod刷新文章内容：$articleId');
+
+    // 使用HtmlRenderer静态方法刷新WebView
+    HtmlRenderer.refresh(articleId);
+
+    // 重置HTML内容缓存，确保下次加载时获取最新内容
+    state = state.copyWith(
+      htmlContent: null,
+    );
+
+    log.i('文章刷新请求已发送');
+  }
+
   void setFontSize(double fontSize) {
     if (fontSize == state.fontSize) {
       log.d('字体大小未变化，忽略更新: $fontSize');
@@ -46,7 +62,9 @@ class ArticleDetailNotifier extends StateNotifier<ArticleDetailState> {
   }
 
   void toggleDarkMode() {
-    state = state.copyWith(isDarkMode: !state.isDarkMode);
+    state = state.copyWith(
+      isDarkMode: !state.isDarkMode,
+    );
   }
 
   void toggleAudioPlayer() {
