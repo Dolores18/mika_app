@@ -126,6 +126,33 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
         
+      - name: Fix Isar namespace issue
+        run: |
+          echo "🔧 修复 Isar Flutter Libs namespace 问题"
+          ISAR_BUILD_FILE="$HOME/.pub-cache/hosted/pub.dev/isar_flutter_libs-3.0.5/android/build.gradle"
+          
+          if [ -f "$ISAR_BUILD_FILE" ]; then
+            echo "✅ 找到 Isar build.gradle 文件: $ISAR_BUILD_FILE"
+            
+            # 检查是否已经有 namespace
+            if grep -q "namespace" "$ISAR_BUILD_FILE"; then
+              echo "ℹ️ namespace 已存在，跳过修复"
+            else
+              echo "🔄 添加 namespace 到 build.gradle"
+              # 在 "android {" 行后添加 namespace
+              sed -i '/^android {/a\    namespace '"'"'dev.isar.isar_flutter_libs'"'"'' "$ISAR_BUILD_FILE"
+              echo "✅ Isar namespace 修复完成"
+              
+              # 验证修复结果
+              echo "📋 修复后的 android 块内容:"
+              sed -n '/^android {/,/^}/p' "$ISAR_BUILD_FILE"
+            fi
+          else
+            echo "⚠️ 未找到 Isar build.gradle 文件，可能使用了不同版本"
+            echo "🔍 搜索所有 isar_flutter_libs 目录:"
+            find $HOME/.pub-cache -name "isar_flutter_libs*" -type d 2>/dev/null || true
+          fi
+        
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
         
