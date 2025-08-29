@@ -36,29 +36,29 @@ jobs:
           echo "修改的文件:"
           git diff --name-only HEAD~1 HEAD
       
-      # 只缓存Gradle依赖项，不包含任何编译产物
-      - name: Cache Gradle dependencies
-        if: ${{ github.event.inputs.clear_cache != 'true' }}
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches/modules-2
-            ~/.gradle/caches/jars-*
-            ~/.gradle/wrapper/dists
-          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-deps-
+      # 暂时禁用缓存以避免版本冲突问题
+      # - name: Cache Gradle dependencies
+      #   if: ${{ github.event.inputs.clear_cache != 'true' }}
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: |
+      #       ~/.gradle/caches/modules-2
+      #       ~/.gradle/caches/jars-*
+      #       ~/.gradle/wrapper/dists
+      #     key: ${{ runner.os }}-gradle-deps-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}-${{ github.sha }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-gradle-deps-
       
-      # 只缓存pub依赖项，不包含任何代码编译产物
-      - name: Cache Flutter dependencies
-        if: ${{ github.event.inputs.clear_cache != 'true' }}
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pub-cache
-          key: ${{ runner.os }}-flutter-deps-${{ hashFiles('**/pubspec.lock') }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-deps-
+      # 暂时禁用缓存以避免版本冲突问题  
+      # - name: Cache Flutter dependencies
+      #   if: ${{ github.event.inputs.clear_cache != 'true' }}
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: |
+      #       ~/.pub-cache
+      #     key: ${{ runner.os }}-flutter-deps-${{ hashFiles('**/pubspec.lock') }}-${{ github.sha }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-flutter-deps-
 
       - name: Setup Java
         uses: actions/setup-java@v3
@@ -122,20 +122,37 @@ jobs:
           pwd
           echo "Directory contents:"
           ls -la
-      - name: Clear Isar cache to avoid version conflicts
+      - name: Clear all caches to avoid version conflicts  
         run: |
-          echo "🧹 清理 Isar 相关缓存以避免版本冲突"
-        
-          # 只清理 isar 相关的缓存
-          rm -rf $HOME/.pub-cache/hosted/pub.dev/isar_flutter_libs-3.1.*
-          rm -rf $HOME/.pub-cache/hosted/pub.dev/isar-3.1.*
+          echo "🧹 清理所有缓存以避免版本冲突"
+          
+          # 清理 Flutter 和 Dart 缓存
+          flutter clean || true
+          dart pub cache clean --force || true
+          
+          # 清理 pub-cache 中的问题包
+          rm -rf $HOME/.pub-cache/hosted/pub.dev/isar*
+          rm -rf $HOME/.pub-cache/hosted/pub.dev/flutter_inappwebview*
+          rm -rf $HOME/.pub-cache/hosted/pub.dev/webview_flutter*
+          
+          # 清理所有编译产物
+          rm -rf build/
+          rm -rf android/.gradle/
+          rm -rf android/app/build/
+          rm -rf .dart_tool/
           
           # 删除 pubspec.lock 强制重新解析依赖
           rm -f pubspec.lock
           
-          echo "✅ Isar 缓存清理完成"      
-      - name: Install dependencies
-        run: flutter pub get
+          echo "✅ 缓存清理完成"
+          
+      - name: Install dependencies with clean resolution
+        run: |
+          echo "📦 重新安装依赖"
+          flutter pub get --no-example
+          
+          echo "📋 检查安装的 Isar 版本:"
+          flutter pub deps | grep isar || true
         
       - name: Fix Isar namespace issue
         run: |
@@ -221,6 +238,41 @@ jobs:
               fi
             done
           fi
+          
+      - name: Fix Android SDK compatibility issues
+        run: |
+          echo "🔧 修复 Android SDK 兼容性问题"
+          
+          # 检查并修复项目的 build.gradle
+          APP_BUILD_GRADLE="android/app/build.gradle"
+          if [ -f "$APP_BUILD_GRADLE" ]; then
+            echo "📋 当前 app/build.gradle 配置:"
+            grep -E "(compileSdkVersion|targetSdkVersion|minSdkVersion)" "$APP_BUILD_GRADLE" || true
+            
+            # 确保使用统一的 SDK 版本
+            echo "🔄 确保 Android SDK 版本一致性"
+            
+            # 检查 Isar 是否设置了正确的 compileSdkVersion
+            ALL_ISAR_DIRS=$(find $HOME/.pub-cache/hosted/pub.dev/ -name "isar_flutter_libs-*" -type d 2>/dev/null | sort || true)
+            for DIR in $ALL_ISAR_DIRS; do
+              ISAR_BUILD_FILE="$DIR/android/build.gradle"
+              if [ -f "$ISAR_BUILD_FILE" ]; then
+                echo "📋 检查 $(basename $DIR) 的 SDK 版本:"
+                grep -E "(compileSdkVersion|minSdkVersion)" "$ISAR_BUILD_FILE" || true
+                
+                # 如果 Isar 使用的是 SDK 30，但项目使用更高版本，可能会冲突
+                if grep -q "compileSdkVersion 30" "$ISAR_BUILD_FILE"; then
+                  echo "⚠️ Isar 使用 SDK 30，可能需要升级"
+                  # 将 Isar 的 compileSdkVersion 升级到 34
+                  sed -i 's/compileSdkVersion 30/compileSdkVersion 34/' "$ISAR_BUILD_FILE"
+                  echo "✅ 已将 Isar SDK 版本升级到 34"
+                fi
+              fi
+            done
+          else
+            echo "⚠️ 未找到 app/build.gradle 文件"
+          fi
+
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
         
