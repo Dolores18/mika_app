@@ -175,9 +175,9 @@ jobs:
               echo "✅ 找到版本 ${VERSION} 的 build.gradle 文件"
               
               # 检查是否已经有 namespace
-              if grep -q "namespace" "$ISAR_BUILD_FILE"; then
-                echo "ℹ️ 版本 ${VERSION} 的 namespace 已存在，跳过修复"
-              else
+              HAS_NAMESPACE=$(grep -q "namespace" "$ISAR_BUILD_FILE" && echo "true" || echo "false")
+              
+              if [ "$HAS_NAMESPACE" = "false" ]; then
                 echo "🔄 为版本 ${VERSION} 添加 namespace"
                 # 备份原文件
                 cp "$ISAR_BUILD_FILE" "$ISAR_BUILD_FILE.backup"
@@ -196,6 +196,21 @@ jobs:
                 else
                   echo "❌ 版本 ${VERSION} namespace 修复失败"
                 fi
+              else
+                echo "ℹ️ 版本 ${VERSION} 的 namespace 已存在"
+              fi
+              
+              # 无论是否有 namespace，都检查并修复 SDK 版本
+              if grep -q "compileSdkVersion 30" "$ISAR_BUILD_FILE"; then
+                echo "🔄 为版本 ${VERSION} 升级 SDK 版本从 30 到 35"
+                sed -i 's/compileSdkVersion 30/compileSdkVersion 35/' "$ISAR_BUILD_FILE"
+                echo "✅ 版本 ${VERSION} SDK 版本已升级到 35"
+                FIXED_COUNT=$((FIXED_COUNT + 1))
+              elif grep -q "compileSdkVersion 35" "$ISAR_BUILD_FILE"; then
+                echo "ℹ️ 版本 ${VERSION} 已使用 SDK 35"
+              else
+                echo "⚠️ 版本 ${VERSION} 使用未知的 SDK 版本"
+                grep "compileSdkVersion" "$ISAR_BUILD_FILE" || echo "   (未找到 compileSdkVersion)"
               fi
             else
               echo "⚠️ 版本 ${VERSION} 的文件不存在: $ISAR_BUILD_FILE"
@@ -231,6 +246,17 @@ jobs:
                     echo "   ✅ $VERSION_DIR 动态修复成功"
                   else
                     echo "   ❌ $VERSION_DIR 动态修复失败"
+                  fi
+                fi
+                
+                # 检查并修复 SDK 版本
+                if grep -q "compileSdkVersion 30" "$BUILD_FILE"; then
+                  echo "🔄 动态修复 $VERSION_DIR SDK 版本"
+                  sed -i 's/compileSdkVersion 30/compileSdkVersion 35/' "$BUILD_FILE"
+                  if grep -q "compileSdkVersion 35" "$BUILD_FILE"; then
+                    echo "   ✅ $VERSION_DIR SDK 版本修复成功"
+                  else
+                    echo "   ❌ $VERSION_DIR SDK 版本修复失败"
                   fi
                 fi
               else
