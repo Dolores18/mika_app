@@ -147,7 +147,7 @@ class VocabularyHighlight {
 //   'contentType',
 // ];
 
-// @Name("contentIdIndex") 
+// @Name("contentIdIndex")
 // @Index(type: IndexType.value)
 // const contentIdIndex = [
 //   'contentId',
@@ -166,7 +166,7 @@ class VocabularyHighlight {
 // ];
 
 // @Name("jsIdIndex")
-// @Index(type: IndexType.value) 
+// @Index(type: IndexType.value)
 // const jsIdIndex = [
 //   'jsId',
 // ];
