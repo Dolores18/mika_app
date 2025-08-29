@@ -14,6 +14,7 @@ class HighlightService {
     required String word,
     required String selectedText,
     required TextPosition position,
+    String? jsId, // 添加JavaScript ID参数
     String? originalForm,
     HighlightColor color = HighlightColor.yellow,
     String? quickNote,
@@ -43,6 +44,7 @@ class HighlightService {
         word: word,
         selectedText: selectedText,
         position: position,
+        jsId: jsId, // 保存JavaScript ID
         originalForm: originalForm,
         highlightColor: color,
         quickNote: quickNote,

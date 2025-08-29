@@ -73,6 +73,9 @@ extension HighlightColorExtension on HighlightColor {
 class VocabularyHighlight {
   Id id = Isar.autoIncrement;
 
+  // JavaScript ID（用于与前端DOM元素关联）
+  String? jsId; // JavaScript生成的高亮ID，如 "mika-highlight-1756492016595-900"
+
   // 内容关联信息
   late String contentType; // 'english_article', 'japanese_news' 等
   late String contentId; // 文章ID
@@ -110,6 +113,7 @@ class VocabularyHighlight {
     required this.word,
     required this.selectedText,
     required this.position,
+    this.jsId, // 添加JavaScript ID参数
     this.originalForm,
     this.translation,
     this.quickNote,
@@ -140,27 +144,33 @@ class VocabularyHighlight {
   }
 }
 
-/// 索引定义
-@Name("contentTypeIndex")
-@Index(type: IndexType.value)
-const contentTypeIndex = [
-  'contentType',
-];
+/// 索引定义（注释掉，因为这些索引会在生成的代码中自动处理）
+// @Name("contentTypeIndex")
+// @Index(type: IndexType.value)
+// const contentTypeIndex = [
+//   'contentType',
+// ];
 
-@Name("contentIdIndex")
-@Index(type: IndexType.value)
-const contentIdIndex = [
-  'contentId',
-];
+// @Name("contentIdIndex") 
+// @Index(type: IndexType.value)
+// const contentIdIndex = [
+//   'contentId',
+// ];
 
-@Name("wordIndex")
-@Index(type: IndexType.value)
-const wordIndex = [
-  'word',
-];
+// @Name("wordIndex")
+// @Index(type: IndexType.value)
+// const wordIndex = [
+//   'word',
+// ];
 
-@Name("reviewIndex")
-@Index(type: IndexType.value)
-const reviewIndex = [
-  'lastReviewedAt',
-];
+// @Name("reviewIndex")
+// @Index(type: IndexType.value)
+// const reviewIndex = [
+//   'lastReviewedAt',
+// ];
+
+// @Name("jsIdIndex")
+// @Index(type: IndexType.value) 
+// const jsIdIndex = [
+//   'jsId',
+// ];

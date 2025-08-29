@@ -53,6 +53,7 @@ class HighlightController extends GetxController {
     required String word,
     required String selectedText,
     required TextPosition position,
+    String? jsId, // 添加JavaScript ID参数
     String? originalForm,
     HighlightColor color = HighlightColor.yellow,
     String? quickNote,
@@ -66,6 +67,7 @@ class HighlightController extends GetxController {
         word: word,
         selectedText: selectedText,
         position: position,
+        jsId: jsId, // 传递JavaScript ID
         originalForm: originalForm,
         color: color,
         quickNote: quickNote,

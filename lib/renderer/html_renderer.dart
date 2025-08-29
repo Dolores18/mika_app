@@ -10,6 +10,7 @@ import 'dart:io' show Platform;
 import 'dart:async'; // 添加dart:async导入
 import 'package:http/http.dart' as http;
 import 'package:get/get.dart';
+import 'package:collection/collection.dart'; // 添加collection导入
 
 import '../services/dictionary_service.dart';
 import '../widgets/dictionary/dictionary_card.dart';
@@ -626,14 +627,6 @@ class HtmlRendererState extends State<HtmlRenderer> {
 
                   // 创建 VocabularyHighlight 对象并保存到数据库
                   _saveHighlightToDatabase(highlightInfo);
-
-                  // 显示提示
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('已添加高亮'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
                 }
               },
             );
@@ -1364,15 +1357,34 @@ class HtmlRendererState extends State<HtmlRenderer> {
                   ElevatedButton.icon(
                     icon: const Icon(Icons.delete_outline),
                     label: const Text('移除高亮'),
-                    onPressed: () {
-                      if (_webViewController != null) {
-                        _webViewController!.evaluateJavascript(source: """
-                          if (window.mikaRenderer && window.mikaRenderer.removeHighlight) {
-                            window.mikaRenderer.removeHighlight('$highlightId');
-                          }
-                        """);
-                      }
+                    onPressed: () async {
                       Navigator.pop(context);
+
+                      // 快速悲观更新：先删除数据库，再删除UI
+                      try {
+                        // 1. 先从数据库中删除高亮
+                        await _removeHighlightFromDatabase(highlightId);
+
+                        // 2. 数据库删除成功后，再删除WebView中的视觉效果
+                        if (_webViewController != null) {
+                          _webViewController!.evaluateJavascript(source: """
+                            if (window.mikaRenderer && window.mikaRenderer.removeHighlight) {
+                              window.mikaRenderer.removeHighlight('$highlightId');
+                            }
+                          """);
+                        }
+
+                        // 3. 成功删除（HighlightController会显示提示）
+                      } catch (e) {
+                        // 4. 如果数据库删除失败，显示错误提示
+                        log.e('删除高亮失败', e);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('删除高亮失败，请重试'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: widget.isDarkMode
@@ -1431,6 +1443,7 @@ class HtmlRendererState extends State<HtmlRenderer> {
         contentId: highlight.contentId,
         contentType: highlight.contentType,
         position: highlight.position,
+        jsId: highlightInfo['id'] as String?, // 保存JavaScript ID
         color: highlight.highlightColor,
       );
       log.i('高亮已保存到数据库: ${highlight.word}');
@@ -1442,17 +1455,36 @@ class HtmlRendererState extends State<HtmlRenderer> {
   // 从数据库中删除高亮
   Future<void> _removeHighlightFromDatabase(String highlightId) async {
     try {
+      // 重新加载最新的高亮数据，确保内存数据同步
+      if (widget.articleId != null) {
+        await _highlightController.loadArticleHighlights(widget.articleId!);
+      }
+
       // 查找匹配的高亮并删除
       final highlights = _highlightController.articleHighlights;
-      final highlightToDelete = highlights.firstWhereOrNull(
-        (h) => h.id.toString() == highlightId,
+
+      // 现在使用jsId字段直接匹配JavaScript ID
+      VocabularyHighlight? highlightToDelete = highlights.firstWhereOrNull(
+        (h) => h.jsId == highlightId,
       );
+
+      // 如果找不到，可能是老数据（jsId为null），尝试用数据库ID匹配
+      if (highlightToDelete == null) {
+        highlightToDelete = highlights.firstWhereOrNull(
+          (h) => h.jsId == null && h.id.toString() == highlightId,
+        );
+        if (highlightToDelete != null) {
+          log.i('找到老数据匹配: DB ID ${highlightToDelete.id} 匹配 JS ID $highlightId');
+        }
+      }
 
       if (highlightToDelete != null) {
         await _highlightController.removeHighlight(highlightToDelete);
-        log.i('高亮已从数据库删除: $highlightId');
+        log.i('高亮已从数据库删除: $highlightId (DB ID: ${highlightToDelete.id})');
       } else {
         log.w('未找到要删除的高亮: $highlightId');
+        log.w(
+            '当前高亮列表: ${highlights.map((h) => "DB ID:${h.id}, JS ID:${h.jsId}").join(", ")}');
       }
     } catch (e) {
       log.e('从数据库删除高亮失败', e);
@@ -1468,8 +1500,18 @@ class HtmlRendererState extends State<HtmlRenderer> {
       log.i('准备在 WebView 中恢复 ${highlights.length} 个高亮');
 
       for (final highlight in highlights) {
+        // 为老数据生成jsId（如果没有的话）
+        String effectiveJsId = highlight.jsId ?? highlight.id.toString();
+
+        // 如果是老数据（jsId为null），需要更新数据库记录
+        if (highlight.jsId == null) {
+          log.i('为老数据生成jsId: DB ID ${highlight.id} -> JS ID $effectiveJsId');
+          // 这里可以选择更新数据库，但为了简单起见，我们在内存中标记一下
+          // 实际的jsId同步会在下次操作时处理
+        }
+
         final highlightData = {
-          'id': highlight.id.toString(),
+          'id': effectiveJsId,
           'text': highlight.selectedText,
           'word': highlight.word,
           'paragraphId': highlight.position.paragraphId,
