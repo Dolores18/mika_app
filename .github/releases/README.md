@@ -6,12 +6,12 @@
 
 ### 最新版本APK（固定链接）
 ```
-https://github.com/你的用户名/mika_app/raw/use_html/.github/releases/mika-app-latest.apk
+https://github.com/Dolores18/mika_app/raw/use_html/.github/releases/mika-app-latest.apk
 ```
 
 ### 版本信息API
 ```
-https://github.com/你的用户名/mika_app/raw/use_html/.github/releases/version.json
+https://github.com/Dolores18/mika_app/raw/use_html/.github/releases/version.json
 ```
 
 ## 📋 文件说明

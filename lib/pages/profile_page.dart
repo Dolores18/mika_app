@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/bookmark_controller.dart';
+import '../controllers/update_controller.dart';
 import 'bookmark_page.dart';
 import '../utils/logger.dart';
 
@@ -8,6 +9,7 @@ class ProfilePage extends StatelessWidget {
   ProfilePage({super.key});
 
   final BookmarkController bookmarkController = Get.put(BookmarkController());
+  final UpdateController updateController = Get.put(UpdateController());
 
   @override
   Widget build(BuildContext context) {
@@ -199,6 +201,11 @@ class ProfilePage extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // 应用更新
+          _buildUpdateMenuItem(),
+
+          _buildDivider(),
+
           // 设置
           _buildMenuItem(
             icon: Icons.settings,
@@ -316,6 +323,118 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
+  // 构建更新菜单项
+  Widget _buildUpdateMenuItem() {
+    return Obx(() {
+      final hasUpdate = updateController.hasUpdate;
+      final isChecking = updateController.isCheckingUpdate;
+      final isDownloading = updateController.isDownloading;
+      final currentVersion = updateController.currentVersion;
+
+      return InkWell(
+        onTap: hasUpdate
+            ? updateController.downloadAPK
+            : updateController.checkForUpdate,
+        borderRadius: BorderRadius.circular(15),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // 图标
+              Container(
+                width: 45,
+                height: 45,
+                decoration: BoxDecoration(
+                  color: hasUpdate
+                      ? Colors.orange.withOpacity(0.1)
+                      : Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  hasUpdate ? Icons.download : Icons.system_update,
+                  color: hasUpdate ? Colors.orange : Colors.green,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 15),
+
+              // 标题和副标题
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          hasUpdate ? '下载更新' : '检查更新',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        if (isChecking || isDownloading)
+                          const SizedBox(width: 8),
+                        if (isChecking)
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.green),
+                            ),
+                          ),
+                        if (isDownloading)
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.orange),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      hasUpdate
+                          ? '版本 ${updateController.updateInfo?.version ?? ''} 可用'
+                          : '当前版本：$currentVersion',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color:
+                            hasUpdate ? Colors.orange[600] : Colors.grey[600],
+                      ),
+                    ),
+                    if (isDownloading && updateController.downloadProgress > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: LinearProgressIndicator(
+                          value: updateController.downloadProgress / 100,
+                          backgroundColor: Colors.grey[200],
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                              Colors.orange),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              // 右箭头
+              Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.grey[400],
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
   // 分割线
   Widget _buildDivider() {
     return Padding(
@@ -332,15 +451,31 @@ class ProfilePage extends StatelessWidget {
     Get.dialog(
       AlertDialog(
         title: const Text('关于'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('AI 语言助手'),
-            SizedBox(height: 8),
-            Text('版本：1.0.0'),
-            SizedBox(height: 8),
-            Text('一个帮助你学习英语的智能助手应用'),
+            const Text('AI 语言助手'),
+            const SizedBox(height: 12),
+            Obx(() => Text('版本：${updateController.currentVersion}')),
+            const SizedBox(height: 12),
+            const Text('一个帮助你学习英语的智能助手应用'),
+            const SizedBox(height: 12),
+            const Text('开发者：Mika'),
+            const SizedBox(height: 8),
+            const Text('GitHub：https://github.com/Dolores18/mika_app'),
+            const SizedBox(height: 12),
+            const Text('📱 应用更新',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            const Text('• 在"我的"页面点击"检查更新"'),
+            const Text('• 或直接访问固定下载链接'),
+            const SizedBox(height: 8),
+            const Text('🔗 固定下载链接：'),
+            const Text(
+              'https://github.com/Dolores18/mika_app/raw/use_html/.github/releases/mika-app-latest.apk',
+              style: TextStyle(fontSize: 12, color: Colors.blue),
+            ),
           ],
         ),
         actions: [
