@@ -46,3 +46,4 @@ app.*.map.json
 
 # APK files - ignore for local development but allow CI to force push
 *.apk
+webview_controller.dart
