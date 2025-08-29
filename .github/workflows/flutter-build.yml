@@ -129,30 +129,87 @@ jobs:
       - name: Fix Isar namespace issue
         run: |
           echo "🔧 修复 Isar Flutter Libs namespace 问题"
-          ISAR_BUILD_FILE="$HOME/.pub-cache/hosted/pub.dev/isar_flutter_libs-3.0.5/android/build.gradle"
           
-          if [ -f "$ISAR_BUILD_FILE" ]; then
-            echo "✅ 找到 Isar build.gradle 文件: $ISAR_BUILD_FILE"
+          # 定义要修复的版本列表
+          VERSIONS_TO_FIX=(
+            "3.0.5"
+            "3.1.0+1"
+            "3.1.0"
+          )
+          
+          FIXED_COUNT=0
+          
+          for VERSION in "${VERSIONS_TO_FIX[@]}"; do
+            ISAR_BUILD_FILE="$HOME/.pub-cache/hosted/pub.dev/isar_flutter_libs-${VERSION}/android/build.gradle"
+            echo "🔍 检查版本 ${VERSION}: $ISAR_BUILD_FILE"
             
-            # 检查是否已经有 namespace
-            if grep -q "namespace" "$ISAR_BUILD_FILE"; then
-              echo "ℹ️ namespace 已存在，跳过修复"
-            else
-              echo "🔄 添加 namespace 到 build.gradle"
-              # 在 "android {" 行后添加 namespace
-              sed -i '/^android {/a\    namespace '"'"'dev.isar.isar_flutter_libs'"'"'' "$ISAR_BUILD_FILE"
-              echo "✅ Isar namespace 修复完成"
+            if [ -f "$ISAR_BUILD_FILE" ]; then
+              echo "✅ 找到版本 ${VERSION} 的 build.gradle 文件"
               
-              # 验证修复结果
-              echo "📋 修复后的 android 块内容:"
-              sed -n '/^android {/,/^}/p' "$ISAR_BUILD_FILE"
+              # 检查是否已经有 namespace
+              if grep -q "namespace" "$ISAR_BUILD_FILE"; then
+                echo "ℹ️ 版本 ${VERSION} 的 namespace 已存在，跳过修复"
+              else
+                echo "🔄 为版本 ${VERSION} 添加 namespace"
+                # 备份原文件
+                cp "$ISAR_BUILD_FILE" "$ISAR_BUILD_FILE.backup"
+                
+                # 在 "android {" 行后添加 namespace
+                sed -i '/^android {/a\    namespace "dev.isar.isar_flutter_libs"' "$ISAR_BUILD_FILE"
+                
+                # 验证修复是否成功
+                if grep -q "namespace" "$ISAR_BUILD_FILE"; then
+                  echo "✅ 版本 ${VERSION} namespace 修复完成"
+                  FIXED_COUNT=$((FIXED_COUNT + 1))
+                  
+                  # 显示修复后的内容
+                  echo "📋 版本 ${VERSION} 修复后的 android 块:"
+                  sed -n '/^android {/,/^}/p' "$ISAR_BUILD_FILE" | head -10
+                else
+                  echo "❌ 版本 ${VERSION} namespace 修复失败"
+                fi
+              fi
+            else
+              echo "⚠️ 版本 ${VERSION} 的文件不存在: $ISAR_BUILD_FILE"
             fi
+          done
+          
+          echo "📊 修复摘要:"
+          echo "   - 修复的文件数量: $FIXED_COUNT"
+          
+          # 搜索所有实际存在的 isar_flutter_libs 版本
+          echo "🔍 搜索所有 isar_flutter_libs 版本:"
+          ALL_ISAR_DIRS=$(find $HOME/.pub-cache/hosted/pub.dev/ -name "isar_flutter_libs-*" -type d 2>/dev/null | sort || true)
+          
+          if [ -z "$ALL_ISAR_DIRS" ]; then
+            echo "⚠️ 未找到任何 isar_flutter_libs 目录"
           else
-            echo "⚠️ 未找到 Isar build.gradle 文件，可能使用了不同版本"
-            echo "🔍 搜索所有 isar_flutter_libs 目录:"
-            find $HOME/.pub-cache -name "isar_flutter_libs*" -type d 2>/dev/null || true
+            echo "📁 找到的所有版本:"
+            for DIR in $ALL_ISAR_DIRS; do
+              VERSION_DIR=$(basename "$DIR")
+              BUILD_FILE="$DIR/android/build.gradle"
+              if [ -f "$BUILD_FILE" ]; then
+                if grep -q "namespace" "$BUILD_FILE"; then
+                  echo "   ✅ $VERSION_DIR (已有 namespace)"
+                else
+                  echo "   ❌ $VERSION_DIR (缺少 namespace)"
+                  
+                  # 动态修复未知版本
+                  echo "🔄 动态修复 $VERSION_DIR"
+                  cp "$BUILD_FILE" "$BUILD_FILE.backup"
+                  sed -i '/^android {/a\    namespace "dev.isar.isar_flutter_libs"' "$BUILD_FILE"
+                  
+                  if grep -q "namespace" "$BUILD_FILE"; then
+                    echo "   ✅ $VERSION_DIR 动态修复成功"
+                  else
+                    echo "   ❌ $VERSION_DIR 动态修复失败"
+                  fi
+                fi
+              else
+                echo "   ⚠️ $VERSION_DIR (无 build.gradle)"
+              fi
+            done
           fi
-        
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
         
