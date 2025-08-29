@@ -47,13 +47,12 @@ class HighlightController extends GetxController {
   }
 
   /// 添加高亮
-  Future<bool> addHighlight({
+  Future<VocabularyHighlight?> addHighlight({
     required String contentType,
     required String contentId,
     required String word,
     required String selectedText,
     required TextPosition position,
-    String? jsId, // 添加JavaScript ID参数
     String? originalForm,
     HighlightColor color = HighlightColor.yellow,
     String? quickNote,
@@ -67,7 +66,6 @@ class HighlightController extends GetxController {
         word: word,
         selectedText: selectedText,
         position: position,
-        jsId: jsId, // 传递JavaScript ID
         originalForm: originalForm,
         color: color,
         quickNote: quickNote,
@@ -83,8 +81,8 @@ class HighlightController extends GetxController {
         duration: const Duration(seconds: 2),
       );
 
-      log.i('高亮添加成功: $word');
-      return true;
+      log.i('高亮添加成功: $word, DB ID: ${highlight.id}');
+      return highlight;
     } catch (e) {
       log.e('添加高亮失败: $e');
       Get.snackbar(
@@ -92,7 +90,7 @@ class HighlightController extends GetxController {
         e.toString().contains('已存在高亮') ? '该位置已存在高亮' : '添加高亮失败',
         snackPosition: SnackPosition.BOTTOM,
       );
-      return false;
+      return null;
     }
   }
 

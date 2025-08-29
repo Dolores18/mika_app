@@ -217,7 +217,7 @@ window.mikaRenderer = {
         // 调用Flutter方法显示高亮选项
         if (window.flutter_inappwebview) {
           window.flutter_inappwebview.callHandler('onHighlightClicked', {
-            id: highlightId,
+            id: highlightEl.id, // 使用当前的ID（可能已被Flutter更新为数据库ID）
             text: text
           });
         }
@@ -302,7 +302,7 @@ window.mikaRenderer = {
       highlightEl.addEventListener('click', (e) => {
         if (window.flutter_inappwebview) {
           window.flutter_inappwebview.callHandler('onHighlightClicked', {
-            id: highlightData.id,
+            id: highlightEl.id, // 使用当前的ID（数据库ID）
             text: actualText
           });
         }
@@ -341,7 +341,36 @@ window.mikaRenderer = {
     return colors[colorName] || colors['yellow'];
   },
   
-  // 移除指定ID的高亮
+  // 更新高亮ID（Flutter主导架构）
+  updateHighlightId: function(tempId, dbId) {
+    console.log('[MIKA] 更新高亮ID: ' + tempId + ' -> ' + dbId);
+    
+    // 查找临时ID的元素
+    const highlightEl = document.getElementById(tempId);
+    if (!highlightEl) {
+      console.warn('[MIKA] 未找到临时ID为 ' + tempId + ' 的高亮元素');
+      return false;
+    }
+    
+    try {
+      // 更新DOM元素ID
+      highlightEl.id = dbId;
+      
+      // 更新内存中的记录
+      const highlightIndex = this._highlightedTexts.findIndex(item => item.id === tempId);
+      if (highlightIndex !== -1) {
+        this._highlightedTexts[highlightIndex].id = dbId;
+      }
+      
+      console.log('[MIKA] 高亮ID更新成功: ' + tempId + ' -> ' + dbId);
+      return true;
+    } catch (e) {
+      console.error('[MIKA] 更新高亮ID时出错: ', e);
+      return false;
+    }
+  },
+
+  // 移除指定ID的高亮（不再通知Flutter，由Flutter主导）
   removeHighlight: function(highlightId) {
     const highlightEl = document.getElementById(highlightId);
     if (!highlightEl) {
@@ -365,11 +394,7 @@ window.mikaRenderer = {
       // 从数组中移除高亮信息
       this._highlightedTexts = this._highlightedTexts.filter(item => item.id !== highlightId);
       
-      // 通知Flutter高亮已移除
-      if (window.flutter_inappwebview) {
-        window.flutter_inappwebview.callHandler('onHighlightRemoved', highlightId);
-      }
-      
+      // 注意：不再通知Flutter，因为删除是由Flutter发起的
       console.log('[MIKA] 移除高亮成功: ' + highlightId);
       return true;
     } catch (e) {

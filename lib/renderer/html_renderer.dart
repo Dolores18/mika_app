@@ -1413,46 +1413,49 @@ class HtmlRendererState extends State<HtmlRenderer> {
     }
   }
 
-  // 保存高亮到数据库
+  // 保存高亮到数据库（Flutter主导ID生成）
   Future<void> _saveHighlightToDatabase(
       Map<String, dynamic> highlightInfo) async {
     if (widget.articleId == null) return;
 
     try {
-      final highlight = VocabularyHighlight()
-        ..contentType = 'english_article'
-        ..contentId = widget.articleId!
-        ..word = highlightInfo['word'] ?? ''
-        ..selectedText = highlightInfo['text'] ?? ''
-        ..position = (TextPosition()
-          ..paragraphId = '' // 不再使用paragraphId，改用文本偏移
-          ..startOffset = (highlightInfo['startOffset'] as num?)?.toInt() ?? 0
-          ..endOffset = (highlightInfo['endOffset'] as num?)?.toInt() ?? 0
-          ..context = highlightInfo['context'] ?? ''
-          ..prefix = highlightInfo['prefix']
-          ..suffix = highlightInfo['suffix'])
-        ..translation = null // 暂时为空，后续可以添加翻译
-        ..highlightColor = HighlightColor.yellow // 默认黄色
-        ..reviewCount = 0
-        ..createdAt = DateTime.now()
-        ..updatedAt = DateTime.now();
+      final position = TextPosition()
+        ..paragraphId = '' // 不再使用paragraphId，改用文本偏移
+        ..startOffset = (highlightInfo['startOffset'] as num?)?.toInt() ?? 0
+        ..endOffset = (highlightInfo['endOffset'] as num?)?.toInt() ?? 0
+        ..context = highlightInfo['context'] ?? ''
+        ..prefix = highlightInfo['prefix']
+        ..suffix = highlightInfo['suffix'];
 
-      await _highlightController.addHighlight(
-        word: highlight.word,
-        selectedText: highlight.selectedText,
-        contentId: highlight.contentId,
-        contentType: highlight.contentType,
-        position: highlight.position,
-        jsId: highlightInfo['id'] as String?, // 保存JavaScript ID
-        color: highlight.highlightColor,
+      // Flutter生成ID并保存到数据库
+      final highlight = await _highlightController.addHighlight(
+        word: highlightInfo['word'] ?? '',
+        selectedText: highlightInfo['text'] ?? '',
+        contentId: widget.articleId!,
+        contentType: 'english_article',
+        position: position,
+        color: HighlightColor.yellow,
       );
-      log.i('高亮已保存到数据库: ${highlight.word}');
+
+      if (highlight != null) {
+        log.i('高亮已保存到数据库: ${highlight.word}, DB ID: ${highlight.id}');
+
+        // 通知JavaScript使用Flutter分配的ID更新DOM元素
+        if (_webViewController != null) {
+          final jsHighlightId = highlightInfo['id'] as String?;
+          _webViewController!.evaluateJavascript(source: """
+            if (window.mikaRenderer && window.mikaRenderer.updateHighlightId) {
+              window.mikaRenderer.updateHighlightId('$jsHighlightId', '${highlight.id}');
+            }
+          """);
+        }
+      }
     } catch (e) {
       log.e('保存高亮到数据库失败', e);
     }
   }
 
-  // 从数据库中删除高亮
+  // 从数据库中删除高亮（统一使用数据库ID）
   Future<void> _removeHighlightFromDatabase(String highlightId) async {
     try {
       // 重新加载最新的高亮数据，确保内存数据同步
@@ -1460,31 +1463,25 @@ class HtmlRendererState extends State<HtmlRenderer> {
         await _highlightController.loadArticleHighlights(widget.articleId!);
       }
 
-      // 查找匹配的高亮并删除
+      // 查找匹配的高亮并删除（现在统一使用数据库ID）
       final highlights = _highlightController.articleHighlights;
+      final dbId = int.tryParse(highlightId);
 
-      // 现在使用jsId字段直接匹配JavaScript ID
-      VocabularyHighlight? highlightToDelete = highlights.firstWhereOrNull(
-        (h) => h.jsId == highlightId,
-      );
-
-      // 如果找不到，可能是老数据（jsId为null），尝试用数据库ID匹配
-      if (highlightToDelete == null) {
-        highlightToDelete = highlights.firstWhereOrNull(
-          (h) => h.jsId == null && h.id.toString() == highlightId,
-        );
-        if (highlightToDelete != null) {
-          log.i('找到老数据匹配: DB ID ${highlightToDelete.id} 匹配 JS ID $highlightId');
-        }
+      if (dbId == null) {
+        log.w('无效的高亮ID: $highlightId');
+        return;
       }
+
+      final highlightToDelete = highlights.firstWhereOrNull(
+        (h) => h.id == dbId,
+      );
 
       if (highlightToDelete != null) {
         await _highlightController.removeHighlight(highlightToDelete);
-        log.i('高亮已从数据库删除: $highlightId (DB ID: ${highlightToDelete.id})');
+        log.i('高亮已从数据库删除: DB ID $highlightId');
       } else {
-        log.w('未找到要删除的高亮: $highlightId');
-        log.w(
-            '当前高亮列表: ${highlights.map((h) => "DB ID:${h.id}, JS ID:${h.jsId}").join(", ")}');
+        log.w('未找到要删除的高亮: DB ID $highlightId');
+        log.w('当前高亮列表: ${highlights.map((h) => "DB ID:${h.id}").join(", ")}');
       }
     } catch (e) {
       log.e('从数据库删除高亮失败', e);
@@ -1500,18 +1497,9 @@ class HtmlRendererState extends State<HtmlRenderer> {
       log.i('准备在 WebView 中恢复 ${highlights.length} 个高亮');
 
       for (final highlight in highlights) {
-        // 为老数据生成jsId（如果没有的话）
-        String effectiveJsId = highlight.jsId ?? highlight.id.toString();
-
-        // 如果是老数据（jsId为null），需要更新数据库记录
-        if (highlight.jsId == null) {
-          log.i('为老数据生成jsId: DB ID ${highlight.id} -> JS ID $effectiveJsId');
-          // 这里可以选择更新数据库，但为了简单起见，我们在内存中标记一下
-          // 实际的jsId同步会在下次操作时处理
-        }
-
+        // 统一使用数据库ID作为JavaScript ID
         final highlightData = {
-          'id': effectiveJsId,
+          'id': highlight.id.toString(), // 统一使用数据库ID
           'text': highlight.selectedText,
           'word': highlight.word,
           'paragraphId': highlight.position.paragraphId,
@@ -1526,6 +1514,8 @@ class HtmlRendererState extends State<HtmlRenderer> {
             window.mikaRenderer.restoreHighlight(${jsonEncode(highlightData)});
           }
         """);
+
+        log.d('恢复高亮: ${highlight.word}, DB ID: ${highlight.id}');
       }
 
       log.i('高亮恢复完成');

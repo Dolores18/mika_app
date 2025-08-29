@@ -39,59 +39,54 @@ const VocabularyHighlightSchema = CollectionSchema(
       type: IsarType.byte,
       enumMap: _VocabularyHighlighthighlightColorEnumValueMap,
     ),
-    r'jsId': PropertySchema(
-      id: 4,
-      name: r'jsId',
-      type: IsarType.string,
-    ),
     r'lastReviewedAt': PropertySchema(
-      id: 5,
+      id: 4,
       name: r'lastReviewedAt',
       type: IsarType.dateTime,
     ),
     r'originalForm': PropertySchema(
-      id: 6,
+      id: 5,
       name: r'originalForm',
       type: IsarType.string,
     ),
     r'position': PropertySchema(
-      id: 7,
+      id: 6,
       name: r'position',
       type: IsarType.object,
       target: r'TextPosition',
     ),
     r'pronunciation': PropertySchema(
-      id: 8,
+      id: 7,
       name: r'pronunciation',
       type: IsarType.string,
     ),
     r'quickNote': PropertySchema(
-      id: 9,
+      id: 8,
       name: r'quickNote',
       type: IsarType.string,
     ),
     r'reviewCount': PropertySchema(
-      id: 10,
+      id: 9,
       name: r'reviewCount',
       type: IsarType.long,
     ),
     r'selectedText': PropertySchema(
-      id: 11,
+      id: 10,
       name: r'selectedText',
       type: IsarType.string,
     ),
     r'translation': PropertySchema(
-      id: 12,
+      id: 11,
       name: r'translation',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 13,
+      id: 12,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'word': PropertySchema(
-      id: 14,
+      id: 13,
       name: r'word',
       type: IsarType.string,
     )
@@ -118,12 +113,6 @@ int _vocabularyHighlightEstimateSize(
   var bytesCount = offsets.last;
   bytesCount += 3 + object.contentId.length * 3;
   bytesCount += 3 + object.contentType.length * 3;
-  {
-    final value = object.jsId;
-    if (value != null) {
-      bytesCount += 3 + value.length * 3;
-    }
-  }
   {
     final value = object.originalForm;
     if (value != null) {
@@ -166,22 +155,21 @@ void _vocabularyHighlightSerialize(
   writer.writeString(offsets[1], object.contentType);
   writer.writeDateTime(offsets[2], object.createdAt);
   writer.writeByte(offsets[3], object.highlightColor.index);
-  writer.writeString(offsets[4], object.jsId);
-  writer.writeDateTime(offsets[5], object.lastReviewedAt);
-  writer.writeString(offsets[6], object.originalForm);
+  writer.writeDateTime(offsets[4], object.lastReviewedAt);
+  writer.writeString(offsets[5], object.originalForm);
   writer.writeObject<TextPosition>(
-    offsets[7],
+    offsets[6],
     allOffsets,
     TextPositionSchema.serialize,
     object.position,
   );
-  writer.writeString(offsets[8], object.pronunciation);
-  writer.writeString(offsets[9], object.quickNote);
-  writer.writeLong(offsets[10], object.reviewCount);
-  writer.writeString(offsets[11], object.selectedText);
-  writer.writeString(offsets[12], object.translation);
-  writer.writeDateTime(offsets[13], object.updatedAt);
-  writer.writeString(offsets[14], object.word);
+  writer.writeString(offsets[7], object.pronunciation);
+  writer.writeString(offsets[8], object.quickNote);
+  writer.writeLong(offsets[9], object.reviewCount);
+  writer.writeString(offsets[10], object.selectedText);
+  writer.writeString(offsets[11], object.translation);
+  writer.writeDateTime(offsets[12], object.updatedAt);
+  writer.writeString(offsets[13], object.word);
 }
 
 VocabularyHighlight _vocabularyHighlightDeserialize(
@@ -198,22 +186,21 @@ VocabularyHighlight _vocabularyHighlightDeserialize(
           reader.readByteOrNull(offsets[3])] ??
       HighlightColor.yellow;
   object.id = id;
-  object.jsId = reader.readStringOrNull(offsets[4]);
-  object.lastReviewedAt = reader.readDateTimeOrNull(offsets[5]);
-  object.originalForm = reader.readStringOrNull(offsets[6]);
+  object.lastReviewedAt = reader.readDateTimeOrNull(offsets[4]);
+  object.originalForm = reader.readStringOrNull(offsets[5]);
   object.position = reader.readObjectOrNull<TextPosition>(
-        offsets[7],
+        offsets[6],
         TextPositionSchema.deserialize,
         allOffsets,
       ) ??
       TextPosition();
-  object.pronunciation = reader.readStringOrNull(offsets[8]);
-  object.quickNote = reader.readStringOrNull(offsets[9]);
-  object.reviewCount = reader.readLong(offsets[10]);
-  object.selectedText = reader.readString(offsets[11]);
-  object.translation = reader.readStringOrNull(offsets[12]);
-  object.updatedAt = reader.readDateTime(offsets[13]);
-  object.word = reader.readString(offsets[14]);
+  object.pronunciation = reader.readStringOrNull(offsets[7]);
+  object.quickNote = reader.readStringOrNull(offsets[8]);
+  object.reviewCount = reader.readLong(offsets[9]);
+  object.selectedText = reader.readString(offsets[10]);
+  object.translation = reader.readStringOrNull(offsets[11]);
+  object.updatedAt = reader.readDateTime(offsets[12]);
+  object.word = reader.readString(offsets[13]);
   return object;
 }
 
@@ -235,31 +222,29 @@ P _vocabularyHighlightDeserializeProp<P>(
               reader.readByteOrNull(offset)] ??
           HighlightColor.yellow) as P;
     case 4:
-      return (reader.readStringOrNull(offset)) as P;
-    case 5:
       return (reader.readDateTimeOrNull(offset)) as P;
-    case 6:
+    case 5:
       return (reader.readStringOrNull(offset)) as P;
-    case 7:
+    case 6:
       return (reader.readObjectOrNull<TextPosition>(
             offset,
             TextPositionSchema.deserialize,
             allOffsets,
           ) ??
           TextPosition()) as P;
+    case 7:
+      return (reader.readStringOrNull(offset)) as P;
     case 8:
       return (reader.readStringOrNull(offset)) as P;
     case 9:
-      return (reader.readStringOrNull(offset)) as P;
-    case 10:
       return (reader.readLong(offset)) as P;
-    case 11:
+    case 10:
       return (reader.readString(offset)) as P;
-    case 12:
+    case 11:
       return (reader.readStringOrNull(offset)) as P;
-    case 13:
+    case 12:
       return (reader.readDateTime(offset)) as P;
-    case 14:
+    case 13:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -813,160 +798,6 @@ extension VocabularyHighlightQueryFilter on QueryBuilder<VocabularyHighlight,
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
-      ));
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterFilterCondition>
-      jsIdIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'jsId',
-      ));
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterFilterCondition>
-      jsIdIsNotNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'jsId',
-      ));
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterFilterCondition>
-      jsIdEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'jsId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterFilterCondition>
-      jsIdGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'jsId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterFilterCondition>
-      jsIdLessThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'jsId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterFilterCondition>
-      jsIdBetween(
-    String? lower,
-    String? upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'jsId',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterFilterCondition>
-      jsIdStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'jsId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterFilterCondition>
-      jsIdEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'jsId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterFilterCondition>
-      jsIdContains(String value, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'jsId',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterFilterCondition>
-      jsIdMatches(String pattern, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'jsId',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterFilterCondition>
-      jsIdIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'jsId',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterFilterCondition>
-      jsIdIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'jsId',
-        value: '',
       ));
     });
   }
@@ -2118,20 +1949,6 @@ extension VocabularyHighlightQuerySortBy
   }
 
   QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterSortBy>
-      sortByJsId() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'jsId', Sort.asc);
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterSortBy>
-      sortByJsIdDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'jsId', Sort.desc);
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterSortBy>
       sortByLastReviewedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastReviewedAt', Sort.asc);
@@ -2331,20 +2148,6 @@ extension VocabularyHighlightQuerySortThenBy
   }
 
   QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterSortBy>
-      thenByJsId() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'jsId', Sort.asc);
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterSortBy>
-      thenByJsIdDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'jsId', Sort.desc);
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QAfterSortBy>
       thenByLastReviewedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastReviewedAt', Sort.asc);
@@ -2502,13 +2305,6 @@ extension VocabularyHighlightQueryWhereDistinct
   }
 
   QueryBuilder<VocabularyHighlight, VocabularyHighlight, QDistinct>
-      distinctByJsId({bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'jsId', caseSensitive: caseSensitive);
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, VocabularyHighlight, QDistinct>
       distinctByLastReviewedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lastReviewedAt');
@@ -2606,12 +2402,6 @@ extension VocabularyHighlightQueryProperty
       highlightColorProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'highlightColor');
-    });
-  }
-
-  QueryBuilder<VocabularyHighlight, String?, QQueryOperations> jsIdProperty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'jsId');
     });
   }
 
