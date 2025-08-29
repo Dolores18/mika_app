@@ -243,9 +243,14 @@ jobs:
         run: |
           echo "🔧 修复 Android SDK 兼容性问题"
           
-          # 检查并修复项目的 build.gradle
+          # 检查并修复项目的 build.gradle（支持 .gradle 和 .kts）
           APP_BUILD_GRADLE="android/app/build.gradle"
-          if [ -f "$APP_BUILD_GRADLE" ]; then
+          APP_BUILD_GRADLE_KTS="android/app/build.gradle.kts"
+          
+          if [ -f "$APP_BUILD_GRADLE_KTS" ]; then
+            echo "📋 当前 app/build.gradle.kts 配置:"
+            grep -E "(compileSdk|targetSdk|minSdk)" "$APP_BUILD_GRADLE_KTS" || true
+          elif [ -f "$APP_BUILD_GRADLE" ]; then
             echo "📋 当前 app/build.gradle 配置:"
             grep -E "(compileSdkVersion|targetSdkVersion|minSdkVersion)" "$APP_BUILD_GRADLE" || true
             
@@ -260,12 +265,12 @@ jobs:
                 echo "📋 检查 $(basename $DIR) 的 SDK 版本:"
                 grep -E "(compileSdkVersion|minSdkVersion)" "$ISAR_BUILD_FILE" || true
                 
-                # 如果 Isar 使用的是 SDK 30，但项目使用更高版本，可能会冲突
+                # 如果 Isar 使用的是 SDK 30，升级到 35 以匹配项目配置
                 if grep -q "compileSdkVersion 30" "$ISAR_BUILD_FILE"; then
-                  echo "⚠️ Isar 使用 SDK 30，可能需要升级"
-                  # 将 Isar 的 compileSdkVersion 升级到 34
-                  sed -i 's/compileSdkVersion 30/compileSdkVersion 34/' "$ISAR_BUILD_FILE"
-                  echo "✅ 已将 Isar SDK 版本升级到 34"
+                  echo "⚠️ Isar 使用 SDK 30，升级到 35"
+                  # 将 Isar 的 compileSdkVersion 升级到 35
+                  sed -i 's/compileSdkVersion 30/compileSdkVersion 35/' "$ISAR_BUILD_FILE"
+                  echo "✅ 已将 Isar SDK 版本升级到 35"
                 fi
               fi
             done

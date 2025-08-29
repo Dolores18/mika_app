@@ -13,7 +13,7 @@ keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 
 android {
     namespace = "com.example.mika_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35  // 升级到 SDK 35 以满足插件要求
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -28,7 +28,7 @@ android {
     defaultConfig {
         applicationId = "com.example.mika_app"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 35  // 升级到 SDK 35 以满足插件要求
         versionCode = 1
         versionName = "1.0.0"
     }
