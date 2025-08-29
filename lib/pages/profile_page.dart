@@ -1,0 +1,355 @@
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../controllers/bookmark_controller.dart';
+import 'bookmark_page.dart';
+import '../utils/logger.dart';
+
+class ProfilePage extends StatelessWidget {
+  ProfilePage({super.key});
+
+  final BookmarkController bookmarkController = Get.put(BookmarkController());
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFCE4EC),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 标题
+              const Text(
+                '我的',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 30),
+
+              // 用户信息卡片
+              _buildUserInfoCard(),
+              const SizedBox(height: 20),
+
+              // 功能列表
+              _buildFunctionList(),
+              const SizedBox(height: 20),
+
+              // 设置列表
+              _buildSettingsList(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 用户信息卡片
+  Widget _buildUserInfoCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // 头像
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFF6b4bbd).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: const Icon(
+              Icons.person,
+              color: Color(0xFF6b4bbd),
+              size: 30,
+            ),
+          ),
+          const SizedBox(width: 15),
+
+          // 用户信息
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '英语学习者',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '继续你的学习之旅',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 右箭头
+          Icon(
+            Icons.arrow_forward_ios,
+            color: Colors.grey[400],
+            size: 16,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 功能列表
+  Widget _buildFunctionList() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // 我的收藏
+          Obx(() => _buildMenuItem(
+                icon: Icons.bookmark,
+                title: '我的收藏',
+                subtitle: '${bookmarkController.bookmarkCount} 篇文章',
+                color: const Color(0xFF6b4bbd),
+                onTap: () {
+                  log.i('点击我的收藏');
+                  Get.to(() => BookmarkPage());
+                },
+              )),
+
+          _buildDivider(),
+
+          // 学习统计
+          _buildMenuItem(
+            icon: Icons.bar_chart,
+            title: '学习统计',
+            subtitle: '查看学习进度',
+            color: Colors.orange,
+            onTap: () {
+              Get.snackbar(
+                '功能开发中',
+                '学习统计功能即将上线',
+                snackPosition: SnackPosition.BOTTOM,
+              );
+            },
+          ),
+
+          _buildDivider(),
+
+          // 学习记录
+          _buildMenuItem(
+            icon: Icons.history,
+            title: '学习记录',
+            subtitle: '查看学习历史',
+            color: Colors.green,
+            onTap: () {
+              Get.snackbar(
+                '功能开发中',
+                '学习记录功能即将上线',
+                snackPosition: SnackPosition.BOTTOM,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 设置列表
+  Widget _buildSettingsList() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // 设置
+          _buildMenuItem(
+            icon: Icons.settings,
+            title: '设置',
+            subtitle: '个性化设置',
+            color: Colors.grey[600]!,
+            onTap: () {
+              Get.snackbar(
+                '功能开发中',
+                '设置功能即将上线',
+                snackPosition: SnackPosition.BOTTOM,
+              );
+            },
+          ),
+
+          _buildDivider(),
+
+          // 帮助与反馈
+          _buildMenuItem(
+            icon: Icons.help_outline,
+            title: '帮助与反馈',
+            subtitle: '使用帮助和问题反馈',
+            color: Colors.blue,
+            onTap: () {
+              Get.snackbar(
+                '功能开发中',
+                '帮助与反馈功能即将上线',
+                snackPosition: SnackPosition.BOTTOM,
+              );
+            },
+          ),
+
+          _buildDivider(),
+
+          // 关于
+          _buildMenuItem(
+            icon: Icons.info_outline,
+            title: '关于',
+            subtitle: '版本信息',
+            color: Colors.teal,
+            onTap: () {
+              _showAboutDialog();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 菜单项
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(15),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // 图标
+            Container(
+              width: 45,
+              height: 45,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 15),
+
+            // 标题和副标题
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // 右箭头
+            Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.grey[400],
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 分割线
+  Widget _buildDivider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Divider(
+        color: Colors.grey[200],
+        height: 1,
+      ),
+    );
+  }
+
+  // 显示关于对话框
+  void _showAboutDialog() {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('关于'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('AI 语言助手'),
+            SizedBox(height: 8),
+            Text('版本：1.0.0'),
+            SizedBox(height: 8),
+            Text('一个帮助你学习英语的智能助手应用'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+}

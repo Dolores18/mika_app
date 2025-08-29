@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get/get.dart';
 import 'server/local_server.dart';
 import 'utils/logger.dart';
 
 import 'pages/word_lookup_page.dart';
 import 'pages/reading_page.dart';
+import 'pages/profile_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,7 +40,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       title: 'AI 语言助手',
       theme: ThemeData(
         primarySwatch: Colors.blue,
@@ -65,7 +67,7 @@ class _MainScreenState extends State<MainScreen> {
     const Center(child: Text('首页')),
     const ReadingPage(),
     const Center(child: Text('占位符')),
-    const Center(child: Text('我的')),
+    ProfilePage(),
   ];
 
   void toggleSearchState(bool isActive) {

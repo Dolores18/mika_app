@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get/get.dart';
 import '../models/article.dart';
 import '../widgets/audio_player.dart';
 import '../widgets/key_points_list.dart';
@@ -17,7 +18,7 @@ import '../models/dictionary_result.dart';
 import '../renderer/html_renderer.dart';
 import '../server/local_server.dart';
 import 'package:path/path.dart' as path;
-import 'package:flutter/foundation.dart';
+import '../controllers/bookmark_controller.dart';
 
 class ArticleDetailPage extends ConsumerStatefulWidget {
   final String articleId;
@@ -29,9 +30,11 @@ class ArticleDetailPage extends ConsumerStatefulWidget {
 }
 
 class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
-  final ScrollController _scrollController = ScrollController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   OverlayEntry? _audioPlayerOverlay;
+
+  // GetX 收藏控制器
+  final BookmarkController _bookmarkController = Get.put(BookmarkController());
 
   @override
   void initState() {
@@ -138,14 +141,22 @@ class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
                       .refreshContent();
                 },
               ),
-              IconButton(
-                icon: const Icon(Icons.bookmark_border),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('收藏功能即将上线')),
-                  );
-                },
-              ),
+              Obx(() => IconButton(
+                    icon: Icon(
+                      _bookmarkController.isBookmarked(widget.articleId)
+                          ? Icons.bookmark
+                          : Icons.bookmark_border,
+                      color: _bookmarkController.isBookmarked(widget.articleId)
+                          ? const Color(0xFF6b4bbd)
+                          : (state.isDarkMode ? Colors.white : Colors.black87),
+                    ),
+                    onPressed: () {
+                      _bookmarkController.toggleBookmark(widget.articleId);
+                    },
+                    tooltip: _bookmarkController.isBookmarked(widget.articleId)
+                        ? '取消收藏'
+                        : '收藏文章',
+                  )),
               IconButton(
                 icon: const Icon(Icons.share),
                 onPressed: () {
