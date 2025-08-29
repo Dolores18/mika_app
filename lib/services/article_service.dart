@@ -439,7 +439,9 @@ class ArticleService {
       log.i('文章请求响应码: ${response.statusCode}, 长度: ${response.body.length}');
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
+        // 使用UTF-8解码确保特殊字符正确处理
+        final String decodedBody = utf8.decode(response.bodyBytes);
+        final Map<String, dynamic> data = json.decode(decodedBody);
         log.i('文章解析成功，ID: $id, 标题: ${data['title']}');
         final article = Article.fromJson(data);
         _articleCache[id] = article; // 缓存文章
@@ -511,7 +513,8 @@ class ArticleService {
       final response =
           await http.get(Uri.parse('$_baseUrl/articles/$id/markdown'));
       if (response.statusCode == 200) {
-        return response.body;
+        // 使用UTF-8解码确保特殊字符正确处理
+        return utf8.decode(response.bodyBytes);
       } else {
         throw Exception(
             'Failed to load article content: ${response.statusCode}');
@@ -528,7 +531,9 @@ class ArticleService {
       final response =
           await http.get(Uri.parse('$_baseUrl/articles/$id/vocabulary'));
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        // 使用UTF-8解码确保特殊字符正确处理
+        final String decodedBody = utf8.decode(response.bodyBytes);
+        final List<dynamic> data = json.decode(decodedBody);
         return data.map((json) => Vocabulary.fromJson(json)).toList();
       } else {
         throw Exception('Failed to load vocabulary: ${response.statusCode}');
@@ -545,7 +550,9 @@ class ArticleService {
       final response =
           await http.get(Uri.parse('$_baseUrl/articles/$id/audio'));
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
+        // 使用UTF-8解码确保特殊字符正确处理
+        final String decodedBody = utf8.decode(response.bodyBytes);
+        final Map<String, dynamic> data = json.decode(decodedBody);
         return data['url'] as String;
       } else {
         throw Exception('Failed to load audio URL: ${response.statusCode}');
@@ -664,7 +671,9 @@ class ArticleService {
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        // 使用UTF-8解码确保特殊字符正确处理
+        final String decodedBody = utf8.decode(response.bodyBytes);
+        final data = json.decode(decodedBody);
         return ArticleListResponse(
           ids: List<String>.from(data['ids']),
           total: data['total'],
