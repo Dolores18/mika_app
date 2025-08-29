@@ -346,3 +346,64 @@ jobs:
           name: arm64-v8a-apk
           path: build/app/outputs/flutter-apk/app-${{ steps.version.outputs.version }}-arm64-v8a.apk
           retention-days: 7
+
+      # 自动推送APK到仓库，方便Android用户直接下载最新版本
+      - name: Setup releases directory
+        run: |
+          mkdir -p .github/releases
+          echo "✅ 创建releases目录"
+
+      - name: Copy APK with fixed name
+        run: |
+          # 复制APK并使用固定文件名
+          cp build/app/outputs/flutter-apk/app-${{ steps.version.outputs.version }}-arm64-v8a.apk .github/releases/mika-app-latest.apk
+          echo "✅ APK已复制为固定文件名: mika-app-latest.apk"
+          
+          # 生成版本信息JSON
+          cat > .github/releases/version.json << EOF
+          {
+            "version": "${{ steps.version.outputs.version }}",
+            "build_time": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "commit": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "download_url": "https://github.com/${{ github.repository }}/raw/${{ github.ref_name }}/.github/releases/mika-app-latest.apk"
+          }
+          EOF
+          echo "✅ 版本信息文件已生成"
+          
+          # 显示文件信息
+          ls -lh .github/releases/
+          echo "📱 APK文件大小: $(du -h .github/releases/mika-app-latest.apk | cut -f1)"
+
+      - name: Commit and push APK to repository
+        run: |
+          # 配置Git用户信息
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          
+          # 精确添加指定文件（即使被gitignore忽略）
+          git add --force .github/releases/mika-app-latest.apk
+          git add .github/releases/version.json
+          git add .github/releases/README.md
+          
+          # 检查是否有变更，避免空提交
+          if git diff --staged --quiet; then
+            echo "ℹ️ 没有检测到文件变更，跳过提交"
+          else
+            # 提交变更
+            git commit -m "🚀 Auto-update APK to v${{ steps.version.outputs.version }}
+
+          📱 Version: ${{ steps.version.outputs.version }}
+          🔗 Download: https://github.com/${{ github.repository }}/raw/${{ github.ref_name }}/.github/releases/mika-app-latest.apk
+          ⏰ Built: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+            
+            # 推送到远程仓库
+            git push
+            echo "✅ APK已成功推送到仓库"
+            echo ""
+            echo "🔗 固定下载链接:"
+            echo "   https://github.com/${{ github.repository }}/raw/${{ github.ref_name }}/.github/releases/mika-app-latest.apk"
+            echo ""
+            echo "📋 版本信息API:"
+            echo "   https://github.com/${{ github.repository }}/raw/${{ github.ref_name }}/.github/releases/version.json"
+          fi
