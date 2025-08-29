@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get/get.dart';
 import 'server/local_server.dart';
+import 'services/database_service.dart';
 import 'utils/logger.dart';
 
 import 'pages/word_lookup_page.dart';
@@ -21,6 +22,15 @@ void main() async {
     log.i('本地服务器已启动: $serverUrl');
   } catch (e) {
     log.e('启动本地服务器失败: $e');
+  }
+
+  // 初始化数据库
+  try {
+    log.i('初始化数据库');
+    await DatabaseService.instance.database;
+    log.i('数据库初始化成功');
+  } catch (e) {
+    log.e('数据库初始化失败: $e');
   }
 
   runApp(const ProviderScope(child: MyApp()));

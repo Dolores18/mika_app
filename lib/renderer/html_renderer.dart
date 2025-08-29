@@ -9,11 +9,14 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:async'; // 添加dart:async导入
 import 'package:http/http.dart' as http;
+import 'package:get/get.dart';
 
 import '../services/dictionary_service.dart';
 import '../widgets/dictionary/dictionary_card.dart';
 import '../models/dictionary_result.dart';
 import '../models/vocabulary.dart';
+import '../controllers/highlight_controller.dart';
+import '../models/highlight_models.dart';
 
 // 确保类是公开的（public）
 class HtmlRenderer extends StatefulWidget {
@@ -70,7 +73,6 @@ class HtmlRendererState extends State<HtmlRenderer> {
   bool _isLoading = true;
   String? _errorMessage;
   bool _hasLoadedContent = false;
-  bool _webViewLoaded = false;
   InAppWebViewController? _webViewController;
 
   // 注意: 刷新逻辑已移至ArticleDetailNotifier.refreshContent()方法中
@@ -90,15 +92,23 @@ class HtmlRendererState extends State<HtmlRenderer> {
 
   // 添加文本选择菜单的OverlayEntry
   OverlayEntry? _textSelectionMenuOverlay;
-  // 添加文本选择菜单的坐标数据
-  Map<String, dynamic>? _selectionCoordinates;
 
-  // 添加高亮文本列表
-  final List<Map<String, dynamic>> _highlightedTexts = [];
+  // 高亮控制器
+  late final HighlightController _highlightController;
 
   @override
   void initState() {
     super.initState();
+
+    // 初始化高亮控制器
+    _highlightController =
+        Get.put(HighlightController(), tag: widget.articleId);
+
+    // 加载文章的高亮数据
+    if (widget.articleId != null) {
+      _highlightController.loadArticleHighlights(widget.articleId!);
+    }
+
     _loadCSSFiles();
     _loadJSFiles();
 
@@ -128,8 +138,8 @@ class HtmlRendererState extends State<HtmlRenderer> {
   void dispose() {
     // 确保移除文本选择菜单
     _hideTextSelectionMenu();
-    // 清除所有高亮
-    _clearAllHighlights();
+    // 清除 WebView 中的高亮显示（不删除数据库数据）
+    _clearAllHighlightsInWebView();
     super.dispose();
   }
 
@@ -509,12 +519,16 @@ class HtmlRendererState extends State<HtmlRenderer> {
                 setState(() {
                   _isLoading = false;
                   _hasLoadedContent = true;
-                  _webViewLoaded = true;
 
                   // 更新缓存状态
                   if (widget.articleId != null) {
                     HtmlRenderer._contentLoadedCache[widget.articleId!] = true;
                   }
+                });
+
+                // 内容渲染完成后恢复高亮
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _restoreHighlightsInWebView();
                 });
               },
             );
@@ -610,9 +624,8 @@ class HtmlRendererState extends State<HtmlRenderer> {
                   final highlightInfo = args[0] as Map<String, dynamic>;
                   log.i('收到高亮创建通知: $highlightInfo');
 
-                  setState(() {
-                    _highlightedTexts.add(highlightInfo);
-                  });
+                  // 创建 VocabularyHighlight 对象并保存到数据库
+                  _saveHighlightToDatabase(highlightInfo);
 
                   // 显示提示
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -632,10 +645,8 @@ class HtmlRendererState extends State<HtmlRenderer> {
                   final highlightId = args[0];
                   log.i('收到高亮移除通知: $highlightId');
 
-                  setState(() {
-                    _highlightedTexts
-                        .removeWhere((item) => item['id'] == highlightId);
-                  });
+                  // 从数据库中删除高亮
+                  _removeHighlightFromDatabase(highlightId.toString());
                 }
               },
             );
@@ -645,9 +656,11 @@ class HtmlRendererState extends State<HtmlRenderer> {
               callback: (args) {
                 log.i('收到所有高亮移除通知');
 
-                setState(() {
-                  _highlightedTexts.clear();
-                });
+                // 从数据库中删除文章的所有高亮
+                if (widget.articleId != null) {
+                  _highlightController
+                      .deleteAllArticleHighlights(widget.articleId!);
+                }
               },
             );
 
@@ -1031,16 +1044,9 @@ class HtmlRendererState extends State<HtmlRenderer> {
     // 先移除旧菜单
     _hideTextSelectionMenu();
 
-    // 保存坐标数据
-    _selectionCoordinates = coordinates;
-
     // 获取选区坐标信息
     final double x = (coordinates['x'] as num?)?.toDouble() ?? 0.0;
     final double y = (coordinates['y'] as num?)?.toDouble() ?? 0.0;
-    final double viewportWidth =
-        (coordinates['viewportWidth'] as num?)?.toDouble() ?? 0.0;
-    final double viewportHeight =
-        (coordinates['viewportHeight'] as num?)?.toDouble() ?? 0.0;
     final String text = coordinates['text'] as String? ?? '';
 
     log.i('准备显示文本选择菜单');
@@ -1215,7 +1221,6 @@ class HtmlRendererState extends State<HtmlRenderer> {
   void _hideTextSelectionMenu() {
     _textSelectionMenuOverlay?.remove();
     _textSelectionMenuOverlay = null;
-    _selectionCoordinates = null;
   }
 
   // 复制选中的文本
@@ -1385,8 +1390,8 @@ class HtmlRendererState extends State<HtmlRenderer> {
     );
   }
 
-  // 清除所有高亮
-  void _clearAllHighlights() {
+  // 清除 WebView 中的所有高亮显示（不删除数据库数据）
+  void _clearAllHighlightsInWebView() {
     if (_webViewController != null) {
       _webViewController!.evaluateJavascript(source: """
         if (window.mikaRenderer && window.mikaRenderer.removeAllHighlights) {
@@ -1394,6 +1399,96 @@ class HtmlRendererState extends State<HtmlRenderer> {
         }
       """);
     }
-    _highlightedTexts.clear();
+  }
+
+  // 保存高亮到数据库
+  Future<void> _saveHighlightToDatabase(
+      Map<String, dynamic> highlightInfo) async {
+    if (widget.articleId == null) return;
+
+    try {
+      final highlight = VocabularyHighlight()
+        ..contentType = 'english_article'
+        ..contentId = widget.articleId!
+        ..word = highlightInfo['word'] ?? ''
+        ..selectedText = highlightInfo['text'] ?? ''
+        ..position = (TextPosition()
+          ..paragraphId = '' // 不再使用paragraphId，改用文本偏移
+          ..startOffset = (highlightInfo['startOffset'] as num?)?.toInt() ?? 0
+          ..endOffset = (highlightInfo['endOffset'] as num?)?.toInt() ?? 0
+          ..context = highlightInfo['context'] ?? ''
+          ..prefix = highlightInfo['prefix']
+          ..suffix = highlightInfo['suffix'])
+        ..translation = null // 暂时为空，后续可以添加翻译
+        ..highlightColor = HighlightColor.yellow // 默认黄色
+        ..reviewCount = 0
+        ..createdAt = DateTime.now()
+        ..updatedAt = DateTime.now();
+
+      await _highlightController.addHighlight(
+        word: highlight.word,
+        selectedText: highlight.selectedText,
+        contentId: highlight.contentId,
+        contentType: highlight.contentType,
+        position: highlight.position,
+        color: highlight.highlightColor,
+      );
+      log.i('高亮已保存到数据库: ${highlight.word}');
+    } catch (e) {
+      log.e('保存高亮到数据库失败', e);
+    }
+  }
+
+  // 从数据库中删除高亮
+  Future<void> _removeHighlightFromDatabase(String highlightId) async {
+    try {
+      // 查找匹配的高亮并删除
+      final highlights = _highlightController.articleHighlights;
+      final highlightToDelete = highlights.firstWhereOrNull(
+        (h) => h.id.toString() == highlightId,
+      );
+
+      if (highlightToDelete != null) {
+        await _highlightController.removeHighlight(highlightToDelete);
+        log.i('高亮已从数据库删除: $highlightId');
+      } else {
+        log.w('未找到要删除的高亮: $highlightId');
+      }
+    } catch (e) {
+      log.e('从数据库删除高亮失败', e);
+    }
+  }
+
+  // 在 WebView 中恢复保存的高亮
+  Future<void> _restoreHighlightsInWebView() async {
+    if (_webViewController == null || widget.articleId == null) return;
+
+    try {
+      final highlights = _highlightController.articleHighlights;
+      log.i('准备在 WebView 中恢复 ${highlights.length} 个高亮');
+
+      for (final highlight in highlights) {
+        final highlightData = {
+          'id': highlight.id.toString(),
+          'text': highlight.selectedText,
+          'word': highlight.word,
+          'paragraphId': highlight.position.paragraphId,
+          'startOffset': highlight.position.startOffset,
+          'endOffset': highlight.position.endOffset,
+          'context': highlight.position.context,
+          'color': highlight.highlightColor.name,
+        };
+
+        await _webViewController!.evaluateJavascript(source: """
+          if (window.mikaRenderer && window.mikaRenderer.restoreHighlight) {
+            window.mikaRenderer.restoreHighlight(${jsonEncode(highlightData)});
+          }
+        """);
+      }
+
+      log.i('高亮恢复完成');
+    } catch (e) {
+      log.e('恢复高亮时出错', e);
+    }
   }
 }

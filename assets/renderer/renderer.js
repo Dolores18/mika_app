@@ -93,6 +93,80 @@ window.mikaRenderer = {
     return 'mika-highlight-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
   },
   
+  // 计算文本节点在容器中的绝对偏移量
+  _getTextOffset: function(container, node, offset) {
+    let textOffset = 0;
+    const walker = document.createTreeWalker(
+      container,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+    
+    let currentNode;
+    while (currentNode = walker.nextNode()) {
+      if (currentNode === node) {
+        return textOffset + offset;
+      }
+      textOffset += currentNode.textContent.length;
+    }
+    return textOffset;
+  },
+  
+  // 获取指定位置的上下文文本
+  _getContextText: function(container, offset, length, isBefore) {
+    const allText = container.textContent;
+    if (isBefore) {
+      const start = Math.max(0, offset - length);
+      return allText.substring(start, offset);
+    } else {
+      return allText.substring(offset, offset + length);
+    }
+  },
+  
+  // 从文本偏移量恢复Range对象
+  _createRangeFromOffset: function(container, startOffset, endOffset) {
+    let currentOffset = 0;
+    const walker = document.createTreeWalker(
+      container,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+    
+    let startNode = null, startPos = 0;
+    let endNode = null, endPos = 0;
+    let currentNode;
+    
+    while (currentNode = walker.nextNode()) {
+      const nodeLength = currentNode.textContent.length;
+      
+      // 找到开始位置
+      if (!startNode && currentOffset + nodeLength >= startOffset) {
+        startNode = currentNode;
+        startPos = startOffset - currentOffset;
+      }
+      
+      // 找到结束位置
+      if (!endNode && currentOffset + nodeLength >= endOffset) {
+        endNode = currentNode;
+        endPos = endOffset - currentOffset;
+        break;
+      }
+      
+      currentOffset += nodeLength;
+    }
+    
+    if (startNode && endNode) {
+      const range = document.createRange();
+      range.setStart(startNode, startPos);
+      range.setEnd(endNode, endPos);
+      return range;
+    }
+    
+    return null;
+  },
+
   // 高亮当前选中的文本
   highlightSelection: function() {
     const selection = window.getSelection();
@@ -110,6 +184,19 @@ window.mikaRenderer = {
       
       // 获取选区范围
       const range = selection.getRangeAt(0);
+      
+      // 计算文本偏移位置
+      const container = document.body;
+      const startOffset = this._getTextOffset(container, range.startContainer, range.startOffset);
+      const endOffset = this._getTextOffset(container, range.endContainer, range.endOffset);
+      
+      // 获取上下文
+      const prefix = this._getContextText(container, startOffset, 50, true);
+      const suffix = this._getContextText(container, endOffset, 50, false);
+      
+      // 提取主要单词（简单实现）
+      const words = text.trim().split(/\s+/);
+      const mainWord = words[0] || text;
       
       // 创建高亮标识符
       const highlightId = this._createHighlightId();
@@ -143,10 +230,16 @@ window.mikaRenderer = {
       // 清除选择
       selection.removeAllRanges();
       
-      // 记录高亮信息
+      // 记录高亮信息（使用最通用的文本偏移方法）
       const highlightInfo = {
         id: highlightId,
         text: text,
+        word: mainWord,
+        startOffset: startOffset,
+        endOffset: endOffset,
+        prefix: prefix,
+        suffix: suffix,
+        context: prefix + text + suffix,
         timestamp: Date.now()
       };
       
@@ -163,6 +256,89 @@ window.mikaRenderer = {
       console.error('[MIKA] 创建高亮时出错: ', e);
       return null;
     }
+  },
+  
+  // 恢复保存的高亮
+  restoreHighlight: function(highlightData) {
+    try {
+      console.log('[MIKA] 开始恢复高亮:', highlightData);
+      
+      // 验证数据完整性
+      if (!highlightData || !highlightData.startOffset || !highlightData.endOffset) {
+        console.error('[MIKA] 高亮数据不完整:', highlightData);
+        return false;
+      }
+      
+      const container = document.body;
+      const startOffset = parseInt(highlightData.startOffset);
+      const endOffset = parseInt(highlightData.endOffset);
+      
+      // 从偏移量创建Range
+      const range = this._createRangeFromOffset(container, startOffset, endOffset);
+      if (!range) {
+        console.error('[MIKA] 无法从偏移量创建Range');
+        return false;
+      }
+      
+      // 验证文本内容是否匹配（可选，增加可靠性）
+      const actualText = range.toString();
+      if (highlightData.text && actualText !== highlightData.text) {
+        console.warn('[MIKA] 恢复的文本与保存的不匹配:', actualText, 'vs', highlightData.text);
+        // 可以选择继续或放弃恢复
+      }
+      
+      // 创建高亮元素
+      const highlightEl = document.createElement('span');
+      highlightEl.id = highlightData.id;
+      highlightEl.className = 'mika-highlight';
+      highlightEl.style.backgroundColor = this._getColorValue(highlightData.color || 'yellow');
+      highlightEl.style.borderRadius = '2px';
+      highlightEl.style.padding = '0 1px';
+      highlightEl.style.cursor = 'pointer';
+      highlightEl.dataset.mikaHighlight = 'true';
+      highlightEl.dataset.text = actualText;
+      
+      // 添加点击事件
+      highlightEl.addEventListener('click', (e) => {
+        if (window.flutter_inappwebview) {
+          window.flutter_inappwebview.callHandler('onHighlightClicked', {
+            id: highlightData.id,
+            text: actualText
+          });
+        }
+        e.stopPropagation();
+      });
+      
+      // 应用高亮
+      range.surroundContents(highlightEl);
+      
+      // 记录到内存列表
+      this._highlightedTexts.push({
+        id: highlightData.id,
+        text: actualText,
+        startOffset: startOffset,
+        endOffset: endOffset
+      });
+      
+      console.log('[MIKA] 高亮恢复成功:', highlightData.id);
+      return true;
+      
+    } catch (e) {
+      console.error('[MIKA] 恢复高亮时出错:', e);
+      return false;
+    }
+  },
+  
+  // 获取颜色值
+  _getColorValue: function(colorName) {
+    const colors = {
+      'yellow': 'rgba(255, 255, 0, 0.3)',
+      'green': 'rgba(0, 255, 0, 0.3)',
+      'blue': 'rgba(0, 0, 255, 0.3)',
+      'pink': 'rgba(255, 192, 203, 0.3)',
+      'orange': 'rgba(255, 165, 0, 0.3)'
+    };
+    return colors[colorName] || colors['yellow'];
   },
   
   // 移除指定ID的高亮

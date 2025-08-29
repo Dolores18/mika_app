@@ -91,8 +91,9 @@ class BookmarkController extends GetxController {
         await _bookmarkService.removeBookmark(articleId);
         _bookmarkedIds.remove(articleId);
         // 同时从文章详情列表中移除
-        _bookmarkedArticles
-            .removeWhere((article) => article.id.toString() == articleId);
+        _bookmarkedArticles.removeWhere(
+          (article) => article.id.toString() == articleId,
+        );
         Get.snackbar(
           '取消收藏',
           '已从收藏中移除',
