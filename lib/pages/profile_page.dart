@@ -473,7 +473,7 @@ class ProfilePage extends StatelessWidget {
             const SizedBox(height: 8),
             const Text('🔗 固定下载链接：'),
             const Text(
-              'https://github.com/Dolores18/mika_app/raw/use_html/.github/releases/mika-app-latest.apk',
+              'https://github.com/Dolores18/mika_app/releases/latest',
               style: TextStyle(fontSize: 12, color: Colors.blue),
             ),
           ],

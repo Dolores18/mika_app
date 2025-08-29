@@ -35,9 +35,9 @@ class VersionInfo {
 /// 应用更新服务
 class UpdateService {
   static const String _versionUrl =
-      'https://github.com/你的用户名/mika_app/raw/use_html/.github/releases/version.json';
+      'https://github.com/Dolores18/mika_app/releases/download/latest/version.json';
   static const String _apkUrl =
-      'https://github.com/你的用户名/mika_app/raw/use_html/.github/releases/mika-app-latest.apk';
+      'https://github.com/Dolores18/mika_app/releases/download/latest/app-{version}-arm64-v8a.apk';
 
   /// 检查是否有新版本
   Future<VersionInfo?> checkForUpdate(String currentVersion) async {
@@ -75,6 +75,19 @@ class UpdateService {
     try {
       log.i('开始下载APK文件...');
 
+      // 首先获取版本信息来构建正确的下载URL
+      final versionResponse = await http.get(Uri.parse(_versionUrl));
+      if (versionResponse.statusCode != 200) {
+        log.e('无法获取版本信息: HTTP ${versionResponse.statusCode}');
+        return null;
+      }
+
+      final versionJson = json.decode(versionResponse.body);
+      final version = versionJson['version'] as String;
+      final downloadUrl = _apkUrl.replaceAll('{version}', version);
+
+      log.i('构建下载URL: $downloadUrl');
+
       final appDir = await getApplicationDocumentsDirectory();
       final apkFile = File('${appDir.path}/mika-app-latest.apk');
 
@@ -83,7 +96,7 @@ class UpdateService {
         await apkFile.delete();
       }
 
-      final request = http.Request('GET', Uri.parse(_apkUrl));
+      final request = http.Request('GET', Uri.parse(downloadUrl));
       final response = await http.Client().send(request);
 
       if (response.statusCode == 200) {
