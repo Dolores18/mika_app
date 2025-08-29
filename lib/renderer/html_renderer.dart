@@ -1068,15 +1068,62 @@ class HtmlRendererState extends State<HtmlRenderer> {
               final Offset webviewOffset = renderBox.localToGlobal(Offset.zero);
               log.i('WebView偏移: $webviewOffset');
 
-              // 计算菜单实际位置
-              final menuX = webviewOffset.dx + x;
-              final menuY = webviewOffset.dy + y + 10; // 在文本下方10像素处显示
+              // 获取屏幕尺寸
+              final screenSize = MediaQuery.of(context).size;
+              final screenPadding = MediaQuery.of(context).padding;
 
-              log.i('菜单位置: menuX=$menuX, menuY=$menuY');
+              // 菜单尺寸估算
+              const menuWidth = 240.0; // 三个按钮 + 间距的总宽度
+              const menuHeight = 50.0; // 按钮高度 + padding
+
+              // 计算基础菜单位置
+              double baseMenuX = webviewOffset.dx + x;
+              double baseMenuY =
+                  webviewOffset.dy + y - menuHeight - 20; // 在文本上方20像素处显示
+
+              // 水平边界检测和调整
+              double finalMenuX;
+              if (baseMenuX - menuWidth / 2 < 16) {
+                // 左边界：距离左边缘至少16px
+                finalMenuX = 16;
+                log.i('🔧 菜单左边界调整: $baseMenuX → $finalMenuX');
+              } else if (baseMenuX + menuWidth / 2 > screenSize.width - 16) {
+                // 右边界：距离右边缘至少16px
+                finalMenuX = screenSize.width - menuWidth - 16;
+                log.i('🔧 菜单右边界调整: $baseMenuX → $finalMenuX');
+              } else {
+                // 正常居中
+                finalMenuX = baseMenuX - menuWidth / 2;
+              }
+
+              // 垂直边界检测和调整
+              double finalMenuY;
+              if (baseMenuY < screenPadding.top + 16) {
+                // 顶部边界：如果上方空间不足，显示在文本下方
+                finalMenuY = webviewOffset.dy + y + 20;
+                log.i('🔧 菜单下移避开顶部: $baseMenuY → $finalMenuY');
+
+                // 确保下移后不会超出底部
+                if (finalMenuY + menuHeight >
+                    screenSize.height - screenPadding.bottom - 16) {
+                  finalMenuY = screenSize.height -
+                      screenPadding.bottom -
+                      menuHeight -
+                      16;
+                  log.i('🔧 菜单再次调整避开底部: → $finalMenuY');
+                }
+              } else {
+                finalMenuY = baseMenuY;
+              }
+
+              log.i(
+                  '菜单智能定位: 原始($baseMenuX, $baseMenuY) → 调整后($finalMenuX, $finalMenuY)');
+              log.i(
+                  '屏幕尺寸: ${screenSize.width}x${screenSize.height}, 菜单尺寸: ${menuWidth}x$menuHeight');
 
               return Positioned(
-                left: menuX - 120, // 菜单宽度的一半，使菜单居中在选择位置
-                top: menuY,
+                left: finalMenuX,
+                top: finalMenuY,
                 child: Material(
                   elevation: 8.0,
                   borderRadius: BorderRadius.circular(8.0),

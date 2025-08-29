@@ -292,11 +292,26 @@ jobs:
       - name: Build APK
         run: flutter build apk --release --target-platform android-arm64 --split-per-abi
 
-      - name: Get version from pubspec
+      - name: Generate dynamic version with timestamp
         id: version
         run: |
-          VERSION=$(grep 'version:' pubspec.yaml | cut -d' ' -f2)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          # 🌟 从pubspec.yaml获取基础版本号 (major.minor.patch)
+          BASE_VERSION=$(grep 'version:' pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
+          
+          # 🕐 生成时间戳 build number (YYYYMMDD.HHMM)
+          TIMESTAMP=$(date -u +"%Y%m%d.%H%M")
+          
+          # 🔧 组合最终版本号
+          FULL_VERSION="${BASE_VERSION}+${TIMESTAMP}"
+          
+          echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
+          
+          echo "📋 版本信息:"
+          echo "   基础版本: $BASE_VERSION"
+          echo "   时间戳: $TIMESTAMP"
+          echo "   完整版本: $FULL_VERSION"
 
       - name: List APK files
         run: ls -l build/app/outputs/flutter-apk/
@@ -351,18 +366,18 @@ jobs:
             echo "apk_size=$APK_SIZE" >> $GITHUB_OUTPUT
           fi
 
-      - name: Delete existing latest release
+      - name: Delete existing releases
         continue-on-error: true
         run: |
-          # 使用GitHub CLI删除现有的latest release（如果存在）
+          # 🗑️ 删除现有的latest release（保持兼容性）
           gh release delete latest --yes --cleanup-tag || echo "ℹ️ latest release不存在或已删除"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create latest release
+      - name: Create versioned release  
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: latest
+          tag_name: "v${{ steps.version.outputs.version }}"
           name: "Latest Build v${{ steps.release_info.outputs.version }}"
           body: |
             🚀 **自动构建版本** v${{ steps.release_info.outputs.version }}
@@ -392,18 +407,50 @@ jobs:
             version.json
           prerelease: false
           draft: false
+
+      - name: Create latest alias release (for compatibility)
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: latest
+          name: "Latest Build v${{ steps.release_info.outputs.version }}"
+          body: |
+            🔗 **这是一个别名release，指向最新构建版本**
+            
+            📍 **实际版本**: v${{ steps.release_info.outputs.version }}
+            ⏰ **构建时间**: ${{ steps.release_info.outputs.build_time }}
+            
+            ## 📥 下载最新版本
+            
+            请访问 [v${{ steps.release_info.outputs.version }}](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.release_info.outputs.version }}) 获取完整信息
+            
+            - **直接下载**: [app-${{ steps.release_info.outputs.version }}-arm64-v8a.apk](https://github.com/${{ github.repository }}/releases/download/v${{ steps.release_info.outputs.version }}/app-${{ steps.release_info.outputs.version }}-arm64-v8a.apk)
+            
+            ---
+            *此别名release用于保持API兼容性*
+          files: |
+            build/app/outputs/flutter-apk/app-${{ steps.release_info.outputs.version }}-arm64-v8a.apk
+            version.json
+          prerelease: false
+          draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Display download links
         run: |
-          echo "✅ Release创建完成"
+          echo "✅ 双Release创建完成"
           echo ""
-          echo "🔗 Release页面:"
+          echo "🔗 版本化Release页面:"
+          echo "   https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}"
+          echo ""
+          echo "🔗 Latest别名页面 (兼容性):"
           echo "   https://github.com/${{ github.repository }}/releases/latest"
           echo ""
           echo "📱 APK下载链接:"
-          echo "   https://github.com/${{ github.repository }}/releases/download/latest/app-${{ steps.release_info.outputs.version }}-arm64-v8a.apk"
+          echo "   版本化: https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/app-${{ steps.release_info.outputs.version }}-arm64-v8a.apk"
+          echo "   Latest: https://github.com/${{ github.repository }}/releases/download/latest/app-${{ steps.release_info.outputs.version }}-arm64-v8a.apk"
           echo ""
           echo "📋 版本信息API:"
-          echo "   https://github.com/${{ github.repository }}/releases/download/latest/version.json"
+          echo "   版本化: https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/version.json"
+          echo "   Latest: https://github.com/${{ github.repository }}/releases/download/latest/version.json"
+          echo ""
+          echo "🌟 推荐使用版本化链接获取稳定的下载体验"
