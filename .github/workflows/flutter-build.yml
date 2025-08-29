@@ -122,7 +122,18 @@ jobs:
           pwd
           echo "Directory contents:"
           ls -la
+      - name: Clear Isar cache to avoid version conflicts
+        run: |
+          echo "🧹 清理 Isar 相关缓存以避免版本冲突"
+        
+          # 只清理 isar 相关的缓存
+          rm -rf $HOME/.pub-cache/hosted/pub.dev/isar_flutter_libs-3.1.*
+          rm -rf $HOME/.pub-cache/hosted/pub.dev/isar-3.1.*
           
+          # 删除 pubspec.lock 强制重新解析依赖
+          rm -f pubspec.lock
+          
+          echo "✅ Isar 缓存清理完成"      
       - name: Install dependencies
         run: flutter pub get
         
