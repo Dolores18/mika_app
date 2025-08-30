@@ -302,10 +302,10 @@ class UpdateService {
     try {
       if (Platform.isAndroid) {
         log.i('直接调用系统安装器: ${apkFile.path}');
-        
+
         // 直接调用系统安装Intent，让系统处理权限
         await _openAPKFile(apkFile);
-        
+
         log.i('安装Intent已发送，系统将处理权限和安装流程');
       }
     } catch (e) {
@@ -331,16 +331,17 @@ class UpdateService {
       // 获取Android版本
       final androidVersion = await _getAndroidVersion();
       log.i('Android版本: $androidVersion');
-      
+
       // 添加文件信息调试
       final fileSize = await apkFile.length();
       log.i('APK文件大小: $fileSize bytes');
-      
+
       String dataUri;
       if (androidVersion >= 24) {
         // Android 7.0+ 必须使用FileProvider
         final fileName = apkFile.path.split('/').last;
-        dataUri = 'content://com.example.mika_app.fileprovider/external_app_files/$fileName';
+        dataUri =
+            'content://com.example.mika_app.fileprovider/external_app_files/$fileName';
         log.i('使用FileProvider URI: $dataUri');
         log.i('文件名: $fileName');
         log.i('完整路径: ${apkFile.path}');
@@ -364,7 +365,6 @@ class UpdateService {
       // 启动安装Intent
       await intent.launch();
       log.i('Intent启动成功！系统应该显示安装界面');
-      
     } catch (e) {
       log.e('启动系统安装器失败: $e');
       log.i('APK文件位置: ${apkFile.path}');
