@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:pub_semver/pub_semver.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:android_intent_plus/android_intent.dart';
 import '../utils/logger.dart';
 
 /// 版本信息模型
@@ -127,6 +129,13 @@ class UpdateService {
     try {
       log.i('开始下载APK文件...');
 
+      // 检查存储权限
+      final storagePermission = await _checkStoragePermission();
+      if (!storagePermission) {
+        log.e('存储权限被拒绝');
+        return null;
+      }
+
       // 🌟 获取GitHub Release信息来获取APK下载链接
       final releaseResponse = await http.get(Uri.parse(_githubApiUrl));
       if (releaseResponse.statusCode != 200) {
@@ -145,8 +154,15 @@ class UpdateService {
 
       log.i('获取到APK下载URL: ${versionInfo.downloadUrl}');
 
-      final appDir = await getApplicationDocumentsDirectory();
-      final apkFile = File('${appDir.path}/mika-app-latest.apk');
+      // 🌟 下载到应用外部目录，系统安装器可以访问
+      final appExternalDir = await getExternalStorageDirectory();
+      if (appExternalDir == null) {
+        log.e('无法获取外部存储目录');
+        return null;
+      }
+
+      // 直接使用应用外部目录，不需要额外权限
+      final apkFile = File('${appExternalDir.path}/mika-app-latest.apk');
 
       // 如果文件已存在，先删除
       if (await apkFile.exists()) {
@@ -185,6 +201,37 @@ class UpdateService {
     }
   }
 
+  /// 检查存储权限
+  Future<bool> _checkStoragePermission() async {
+    try {
+      if (Platform.isAndroid) {
+        // 使用应用外部目录 (getExternalStorageDirectory) 不需要存储权限
+        // 这个目录在 Android/data/包名/files/ 下，应用可以直接访问
+        log.i('使用应用外部目录，无需存储权限');
+        return true;
+      }
+      return true;
+    } catch (e) {
+      log.e('检查存储权限失败: $e');
+      return false;
+    }
+  }
+
+  /// 获取Android版本
+  Future<int> _getAndroidVersion() async {
+    try {
+      if (Platform.isAndroid) {
+        final deviceInfo = DeviceInfoPlugin();
+        final androidInfo = await deviceInfo.androidInfo;
+        return androidInfo.version.sdkInt;
+      }
+      return 30;
+    } catch (e) {
+      log.e('获取Android版本失败: $e');
+      return 30; // 默认Android 11
+    }
+  }
+
   /// 检查是否有安装APK的权限
   Future<bool> canInstallAPK() async {
     if (Platform.isAndroid) {
@@ -217,10 +264,35 @@ class UpdateService {
   /// 打开应用设置页面
   Future<void> openAppSettings() async {
     try {
-      log.i('引导用户手动安装APK');
-      // 这里可以添加引导用户手动安装的逻辑
+      if (Platform.isAndroid) {
+        log.i('打开Android应用设置页面');
+        
+        // 跳转到应用的"安装未知应用"设置页面
+        final intent = AndroidIntent(
+          action: 'android.settings.MANAGE_UNKNOWN_APP_SOURCES',
+          data: 'package:com.example.mika_app',
+          flags: <int>[0x10000000], // FLAG_ACTIVITY_NEW_TASK
+        );
+        
+        await intent.launch();
+        log.i('已打开应用设置页面');
+      } else {
+        log.w('非Android平台，无法打开应用设置');
+      }
     } catch (e) {
       log.e('打开应用设置失败: $e');
+      // 如果无法打开具体设置页面，尝试打开应用信息页面
+      try {
+        log.i('尝试打开应用信息页面');
+        final intent = AndroidIntent(
+          action: 'android.settings.APPLICATION_DETAILS_SETTINGS',
+          data: 'package:com.example.mika_app',
+          flags: <int>[0x10000000], // FLAG_ACTIVITY_NEW_TASK
+        );
+        await intent.launch();
+      } catch (e2) {
+        log.e('打开应用信息页面也失败: $e2');
+      }
     }
   }
 
@@ -228,12 +300,95 @@ class UpdateService {
   Future<void> installAPK(File apkFile) async {
     try {
       if (Platform.isAndroid) {
-        log.i('APK文件已下载到: ${apkFile.path}');
-        log.i('请使用系统文件管理器打开此文件进行安装');
-        log.i('或者将文件传输到电脑上安装');
+        log.i('准备安装APK: ${apkFile.path}');
+        
+        // 使用Intent打开APK文件
+        await _openAPKFile(apkFile);
       }
     } catch (e) {
       log.e('安装APK失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 打开APK文件进行安装
+  Future<void> _openAPKFile(File apkFile) async {
+    try {
+      log.i('调用系统安装器打开APK文件: ${apkFile.path}');
+      
+      // 检查文件是否存在
+      if (!await apkFile.exists()) {
+        log.e('APK文件不存在: ${apkFile.path}');
+        throw Exception('APK文件不存在');
+      }
+
+      log.i('文件大小: ${await apkFile.length()} bytes');
+
+      if (Platform.isAndroid) {
+        // 检查Android版本，决定使用哪种URI方式
+        final androidVersion = await _getAndroidVersion();
+        
+        String dataUri;
+        if (androidVersion >= 24) {
+          // Android 7.0+ 使用 content:// URI (FileProvider)
+          final authority = 'com.example.mika_app.fileprovider';
+          // 简化路径处理，直接使用文件名
+          final fileName = apkFile.path.split('/').last;
+          dataUri = 'content://$authority/external_app_files/$fileName';
+          log.i('使用FileProvider URI: $dataUri');
+          log.i('文件名: $fileName');
+          log.i('完整路径: ${apkFile.path}');
+        } else {
+          // Android 6.0及以下使用 file:// URI
+          dataUri = 'file://${apkFile.path}';
+          log.i('使用file URI: $dataUri');
+        }
+
+        // 使用Android Intent打开APK文件
+        final intent = AndroidIntent(
+          action: 'android.intent.action.VIEW',
+          data: dataUri,
+          type: 'application/vnd.android.package-archive',
+          flags: <int>[
+            0x10000000, // FLAG_ACTIVITY_NEW_TASK
+            0x00000001, // FLAG_GRANT_READ_URI_PERMISSION
+          ],
+        );
+
+        log.i('启动Intent安装APK...');
+        try {
+          await intent.launch();
+          log.i('Intent已启动，等待用户确认安装');
+        } catch (e) {
+          log.e('FileProvider Intent失败: $e');
+          
+          // 备用方案：尝试使用file:// URI
+          if (androidVersion >= 24) {
+            log.i('尝试备用方案：使用file URI');
+            final fallbackIntent = AndroidIntent(
+              action: 'android.intent.action.VIEW',
+              data: 'file://${apkFile.path}',
+              type: 'application/vnd.android.package-archive',
+              flags: <int>[
+                0x10000000, // FLAG_ACTIVITY_NEW_TASK
+                0x00000001, // FLAG_GRANT_READ_URI_PERMISSION
+              ],
+            );
+            await fallbackIntent.launch();
+            log.i('备用Intent已启动');
+          } else {
+            rethrow;
+          }
+        }
+      } else {
+        log.w('非Android平台，无法安装APK');
+        throw Exception('当前平台不支持APK安装');
+      }
+    } catch (e) {
+      log.e('打开APK文件失败: $e');
+      // 如果Intent失败，提供备用方案
+      log.i('Intent启动失败，请手动安装APK文件');
+      log.i('APK文件位置: ${apkFile.path}');
       rethrow;
     }
   }

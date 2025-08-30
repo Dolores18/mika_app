@@ -206,6 +206,11 @@ class ProfilePage extends StatelessWidget {
 
           _buildDivider(),
 
+          // 安装权限设置
+          _buildInstallPermissionMenuItem(),
+
+          _buildDivider(),
+
           // 设置
           _buildMenuItem(
             icon: Icons.settings,
@@ -329,12 +334,40 @@ class ProfilePage extends StatelessWidget {
       final hasUpdate = updateController.hasUpdate;
       final isChecking = updateController.isCheckingUpdate;
       final isDownloading = updateController.isDownloading;
+      final downloadCompleted = updateController.downloadCompleted;
       final currentVersion = updateController.currentVersion;
 
+      // 确定显示状态
+      String title;
+      String subtitle;
+      Color iconColor;
+      IconData iconData;
+      VoidCallback? onTap;
+
+      if (downloadCompleted) {
+        title = '立即安装';
+        subtitle = 'APK已下载，点击安装';
+        iconColor = Colors.blue;
+        iconData = Icons.install_mobile;
+        onTap = updateController.installDownloadedAPK;
+      } else if (hasUpdate) {
+        title = isDownloading ? '下载中...' : '下载更新';
+        subtitle = isDownloading 
+            ? '${updateController.downloadProgress}% - ${updateController.downloadStatus}'
+            : '版本 ${updateController.updateInfo?.version ?? ''} 可用';
+        iconColor = Colors.orange;
+        iconData = Icons.download;
+        onTap = isDownloading ? null : updateController.downloadAPK;
+      } else {
+        title = isChecking ? '检查中...' : '检查更新';
+        subtitle = '当前版本：$currentVersion';
+        iconColor = Colors.green;
+        iconData = Icons.system_update;
+        onTap = isChecking ? null : updateController.checkForUpdate;
+      }
+
       return InkWell(
-        onTap: hasUpdate
-            ? updateController.downloadAPK
-            : updateController.checkForUpdate,
+        onTap: onTap,
         borderRadius: BorderRadius.circular(15),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -345,14 +378,12 @@ class ProfilePage extends StatelessWidget {
                 width: 45,
                 height: 45,
                 decoration: BoxDecoration(
-                  color: hasUpdate
-                      ? Colors.orange.withOpacity(0.1)
-                      : Colors.green.withOpacity(0.1),
+                  color: iconColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
-                  hasUpdate ? Icons.download : Icons.system_update,
-                  color: hasUpdate ? Colors.orange : Colors.green,
+                  iconData,
+                  color: iconColor,
                   size: 24,
                 ),
               ),
@@ -366,7 +397,7 @@ class ProfilePage extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          hasUpdate ? '下载更新' : '检查更新',
+                          title,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -376,36 +407,37 @@ class ProfilePage extends StatelessWidget {
                         if (isChecking || isDownloading)
                           const SizedBox(width: 8),
                         if (isChecking)
-                          const SizedBox(
+                          SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.green),
+                                  AlwaysStoppedAnimation<Color>(iconColor),
                             ),
                           ),
                         if (isDownloading)
-                          const SizedBox(
+                          SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.orange),
+                                  AlwaysStoppedAnimation<Color>(iconColor),
                             ),
                           ),
                       ],
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      hasUpdate
-                          ? '版本 ${updateController.updateInfo?.version ?? ''} 可用'
-                          : '当前版本：$currentVersion',
+                      subtitle,
                       style: TextStyle(
                         fontSize: 13,
-                        color:
-                            hasUpdate ? Colors.orange[600] : Colors.grey[600],
+                        color: downloadCompleted 
+                            ? Colors.blue[600]
+                            : hasUpdate 
+                                ? Colors.orange[600] 
+                                : Colors.grey[600],
                       ),
                     ),
                     if (isDownloading && updateController.downloadProgress > 0)
@@ -414,23 +446,84 @@ class ProfilePage extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: updateController.downloadProgress / 100,
                           backgroundColor: Colors.grey[200],
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                              Colors.orange),
+                          valueColor: AlwaysStoppedAnimation<Color>(iconColor),
                         ),
                       ),
                   ],
                 ),
               ),
 
-              // 右箭头
-              Icon(
-                Icons.arrow_forward_ios,
-                color: Colors.grey[400],
-                size: 16,
-              ),
+              // 右箭头或状态图标
+              if (downloadCompleted)
+                Icon(
+                  Icons.play_arrow,
+                  color: Colors.blue[600],
+                  size: 20,
+                )
+              else
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.grey[400],
+                  size: 16,
+                ),
             ],
           ),
         ),
+      );
+    });
+  }
+
+  // 构建安装权限菜单项
+  Widget _buildInstallPermissionMenuItem() {
+    return Obx(() {
+      final canInstall = updateController.canInstall;
+      
+      return _buildMenuItem(
+        icon: Icons.security,
+        title: '安装权限',
+        subtitle: canInstall ? '已开启安装未知应用权限' : '需要开启安装未知应用权限',
+        color: canInstall ? Colors.green : Colors.orange,
+        onTap: () {
+          if (canInstall) {
+            Get.snackbar(
+              '权限状态',
+              '安装权限已开启，可以正常安装APK',
+              snackPosition: SnackPosition.BOTTOM,
+            );
+          } else {
+            Get.dialog(
+              AlertDialog(
+                title: const Text('安装权限设置'),
+                content: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('当前未开启"安装未知应用"权限'),
+                    SizedBox(height: 12),
+                    Text('开启后可以：'),
+                    Text('• 直接安装应用更新'),
+                    Text('• 无需每次手动操作'),
+                    SizedBox(height: 12),
+                    Text('是否现在去设置？'),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Get.back(),
+                    child: const Text('取消'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Get.back();
+                      updateController.openAppSettings();
+                    },
+                    child: const Text('去设置'),
+                  ),
+                ],
+              ),
+            );
+          }
+        },
       );
     });
   }

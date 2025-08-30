@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'dart:io';
 import '../services/update_service.dart';
@@ -12,6 +13,7 @@ class UpdateController extends GetxController {
   final RxBool _isDownloading = false.obs;
   final RxBool _hasUpdate = false.obs;
   final RxBool _canInstall = false.obs;
+  final RxBool _downloadCompleted = false.obs;
 
   // 更新信息
   final Rx<VersionInfo?> _updateInfo = Rx<VersionInfo?>(null);
@@ -20,16 +22,19 @@ class UpdateController extends GetxController {
   // 下载进度
   final RxInt _downloadProgress = 0.obs;
   final RxString _downloadStatus = ''.obs;
+  final Rx<File?> _downloadedFile = Rx<File?>(null);
 
   // Getter
   bool get isCheckingUpdate => _isCheckingUpdate.value;
   bool get isDownloading => _isDownloading.value;
   bool get hasUpdate => _hasUpdate.value;
   bool get canInstall => _canInstall.value;
+  bool get downloadCompleted => _downloadCompleted.value;
   VersionInfo? get updateInfo => _updateInfo.value;
   String get currentVersion => _currentVersion.value;
   int get downloadProgress => _downloadProgress.value;
   String get downloadStatus => _downloadStatus.value;
+  File? get downloadedFile => _downloadedFile.value;
 
   @override
   void onInit() {
@@ -124,15 +129,17 @@ class UpdateController extends GetxController {
 
       if (apkFile != null) {
         _downloadStatus.value = '下载完成';
+        _downloadCompleted.value = true;
+        _downloadedFile.value = apkFile;
         log.i('APK下载完成: ${apkFile.path}');
 
-        // 下载完成后，尝试安装
-        await _installAPK(apkFile);
+        // 显示安装引导
+        _showInstallGuide(apkFile);
       } else {
         _downloadStatus.value = '下载失败';
         Get.snackbar(
           '下载失败',
-          'APK文件下载失败',
+          'APK文件下载失败，请检查网络连接',
           snackPosition: SnackPosition.TOP,
           duration: const Duration(seconds: 3),
         );
@@ -162,12 +169,7 @@ class UpdateController extends GetxController {
 
           if (!granted) {
             log.w('用户拒绝安装权限');
-            Get.snackbar(
-              '安装提示',
-              'APK文件已下载完成，请手动安装',
-              snackPosition: SnackPosition.TOP,
-              duration: const Duration(seconds: 5),
-            );
+            _showPermissionGuide(apkFile);
             return;
           }
 
@@ -179,8 +181,8 @@ class UpdateController extends GetxController {
         await _updateService.installAPK(apkFile);
 
         Get.snackbar(
-          '安装提示',
-          'APK文件已准备就绪，请按照系统提示完成安装',
+          '安装启动',
+          '正在启动系统安装器，请按照提示完成安装',
           snackPosition: SnackPosition.TOP,
           duration: const Duration(seconds: 5),
         );
@@ -233,12 +235,112 @@ class UpdateController extends GetxController {
     }
   }
 
+  /// 显示权限引导对话框
+  void _showPermissionGuide(File apkFile) {
+    Get.dialog(
+      AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.security, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('需要开启安装权限'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('安装失败，可能需要手动开启安装权限'),
+            SizedBox(height: 12),
+            Text('📱 解决方法：', style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            Text('1. 点击"去设置"打开权限页面'),
+            Text('2. 找到并开启"允许安装未知应用"'),
+            Text('3. 返回应用重新尝试安装'),
+            SizedBox(height: 12),
+            Text('💡 提示：开启后可直接安装，无需重复设置',
+                 style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('稍后设置'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              openAppSettings();
+            },
+            child: const Text('去设置'),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+  }
+
+  /// 显示安装引导
+  void _showInstallGuide(File apkFile) {
+    Get.dialog(
+      AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.download_done, color: Colors.green),
+            SizedBox(width: 8),
+            Text('下载完成'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('APK文件已下载完成！'),
+            const SizedBox(height: 12),
+            const Text('📱 安装步骤：', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text('1. 点击"立即安装"按钮'),
+            const Text('2. 系统会自动请求安装权限'),
+            const Text('3. 允许权限后按提示完成安装'),
+            const SizedBox(height: 12),
+            Text('📁 文件位置：\n${apkFile.path}', 
+                 style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('稍后安装'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              installDownloadedAPK();
+            },
+            child: const Text('立即安装'),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+  }
+
+  /// 安装已下载的APK
+  Future<void> installDownloadedAPK() async {
+    final apkFile = _downloadedFile.value;
+    if (apkFile != null) {
+      await _installAPK(apkFile);
+    }
+  }
+
   /// 重置状态
   void resetState() {
     _isCheckingUpdate.value = false;
     _isDownloading.value = false;
     _hasUpdate.value = false;
+    _downloadCompleted.value = false;
     _downloadProgress.value = 0;
     _downloadStatus.value = '';
+    _downloadedFile.value = null;
   }
 }
