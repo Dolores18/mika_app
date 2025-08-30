@@ -266,14 +266,14 @@ class UpdateService {
     try {
       if (Platform.isAndroid) {
         log.i('打开Android应用设置页面');
-        
+
         // 跳转到应用的"安装未知应用"设置页面
         final intent = AndroidIntent(
           action: 'android.settings.MANAGE_UNKNOWN_APP_SOURCES',
           data: 'package:com.example.mika_app',
           flags: <int>[0x10000000], // FLAG_ACTIVITY_NEW_TASK
         );
-        
+
         await intent.launch();
         log.i('已打开应用设置页面');
       } else {
@@ -301,7 +301,7 @@ class UpdateService {
     try {
       if (Platform.isAndroid) {
         log.i('准备安装APK: ${apkFile.path}');
-        
+
         // 使用Intent打开APK文件
         await _openAPKFile(apkFile);
       }
@@ -315,7 +315,7 @@ class UpdateService {
   Future<void> _openAPKFile(File apkFile) async {
     try {
       log.i('调用系统安装器打开APK文件: ${apkFile.path}');
-      
+
       // 检查文件是否存在
       if (!await apkFile.exists()) {
         log.e('APK文件不存在: ${apkFile.path}');
@@ -327,7 +327,7 @@ class UpdateService {
       if (Platform.isAndroid) {
         // 检查Android版本，决定使用哪种URI方式
         final androidVersion = await _getAndroidVersion();
-        
+
         String dataUri;
         if (androidVersion >= 24) {
           // Android 7.0+ 使用 content:// URI (FileProvider)
@@ -361,7 +361,7 @@ class UpdateService {
           log.i('Intent已启动，等待用户确认安装');
         } catch (e) {
           log.e('FileProvider Intent失败: $e');
-          
+
           // 备用方案：尝试使用file:// URI
           if (androidVersion >= 24) {
             log.i('尝试备用方案：使用file URI');

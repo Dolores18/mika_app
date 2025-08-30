@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
 import '../services/update_service.dart';
 import '../utils/logger.dart';
@@ -259,7 +260,7 @@ class UpdateController extends GetxController {
             Text('3. 返回应用重新尝试安装'),
             SizedBox(height: 12),
             Text('💡 提示：开启后可直接安装，无需重复设置',
-                 style: TextStyle(fontSize: 12, color: Colors.grey)),
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
         actions: [
@@ -297,14 +298,15 @@ class UpdateController extends GetxController {
           children: [
             const Text('APK文件已下载完成！'),
             const SizedBox(height: 12),
-            const Text('📱 安装步骤：', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('📱 安装步骤：',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const Text('1. 点击"立即安装"按钮'),
             const Text('2. 系统会自动请求安装权限'),
             const Text('3. 允许权限后按提示完成安装'),
             const SizedBox(height: 12),
-            Text('📁 文件位置：\n${apkFile.path}', 
-                 style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text('📁 文件位置：\n${apkFile.path}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
         actions: [
@@ -330,6 +332,59 @@ class UpdateController extends GetxController {
     final apkFile = _downloadedFile.value;
     if (apkFile != null) {
       await _installAPK(apkFile);
+    }
+  }
+
+  /// 打开GitHub Release页面
+  Future<void> openGitHubRelease() async {
+    const url = 'https://github.com/Dolores18/mika_app/releases';
+    await _openUrl(url, '打开GitHub Release页面');
+  }
+
+  /// 打开GitHub项目主页
+  Future<void> openGitHubRepo() async {
+    const url = 'https://github.com/Dolores18/mika_app';
+    await _openUrl(url, '打开GitHub项目页面');
+  }
+
+  /// 发送反馈邮件
+  Future<void> sendFeedbackEmail() async {
+    const url =
+        'mailto:aimer8073@gmail.com?subject=Mika App 反馈&body=请在此输入您的反馈内容...';
+    await _openUrl(url, '打开邮件客户端');
+  }
+
+  /// 通用URL打开方法
+  Future<void> _openUrl(String url, String description) async {
+    try {
+      log.i('尝试$description: $url');
+
+      final uri = Uri.parse(url);
+      final canLaunch = await canLaunchUrl(uri);
+
+      if (canLaunch) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication, // 使用外部应用打开
+        );
+        log.i('$description成功');
+      } else {
+        log.w('无法$description');
+        Get.snackbar(
+          '打开失败',
+          '无法打开链接，请检查是否安装了相应的应用',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 3),
+        );
+      }
+    } catch (e) {
+      log.e('$description失败: $e');
+      Get.snackbar(
+        '操作失败',
+        '打开链接时出现错误',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
+      );
     }
   }
 

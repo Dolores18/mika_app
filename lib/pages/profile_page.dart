@@ -235,11 +235,7 @@ class ProfilePage extends StatelessWidget {
             subtitle: '使用帮助和问题反馈',
             color: Colors.blue,
             onTap: () {
-              Get.snackbar(
-                '功能开发中',
-                '帮助与反馈功能即将上线',
-                snackPosition: SnackPosition.BOTTOM,
-              );
+              _showFeedbackDialog();
             },
           ),
 
@@ -352,7 +348,7 @@ class ProfilePage extends StatelessWidget {
         onTap = updateController.installDownloadedAPK;
       } else if (hasUpdate) {
         title = isDownloading ? '下载中...' : '下载更新';
-        subtitle = isDownloading 
+        subtitle = isDownloading
             ? '${updateController.downloadProgress}% - ${updateController.downloadStatus}'
             : '版本 ${updateController.updateInfo?.version ?? ''} 可用';
         iconColor = Colors.orange;
@@ -433,10 +429,10 @@ class ProfilePage extends StatelessWidget {
                       subtitle,
                       style: TextStyle(
                         fontSize: 13,
-                        color: downloadCompleted 
+                        color: downloadCompleted
                             ? Colors.blue[600]
-                            : hasUpdate 
-                                ? Colors.orange[600] 
+                            : hasUpdate
+                                ? Colors.orange[600]
                                 : Colors.grey[600],
                       ),
                     ),
@@ -477,7 +473,7 @@ class ProfilePage extends StatelessWidget {
   Widget _buildInstallPermissionMenuItem() {
     return Obx(() {
       final canInstall = updateController.canInstall;
-      
+
       return _buildMenuItem(
         icon: Icons.security,
         title: '安装权限',
@@ -539,6 +535,74 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
+  // 显示反馈对话框
+  void _showFeedbackDialog() {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('帮助与反馈'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('遇到问题或有建议？'),
+            const SizedBox(height: 12),
+
+            // 邮件反馈
+            InkWell(
+              onTap: () {
+                Get.back();
+                updateController.sendFeedbackEmail();
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.email, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Text('发送邮件反馈', style: TextStyle(color: Colors.blue)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // GitHub Issues
+            InkWell(
+              onTap: () {
+                Get.back();
+                updateController.openGitHubRepo();
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.bug_report, color: Colors.grey),
+                    SizedBox(width: 8),
+                    Text('GitHub Issues'),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // 显示关于对话框
   void _showAboutDialog() {
     Get.dialog(
@@ -556,18 +620,44 @@ class ProfilePage extends StatelessWidget {
             const SizedBox(height: 12),
             const Text('开发者：Mika'),
             const SizedBox(height: 8),
-            const Text('GitHub：https://github.com/Dolores18/mika_app'),
+
+            // GitHub项目链接
+            InkWell(
+              onTap: updateController.openGitHubRepo,
+              child: const Text(
+                'GitHub：https://github.com/Dolores18/mika_app',
+                style: TextStyle(
+                  color: Colors.blue,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
+
             const Text('📱 应用更新',
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             const Text('• 在"我的"页面点击"检查更新"'),
             const Text('• 或访问GitHub Release页面'),
             const SizedBox(height: 8),
-            const Text('🔗 Release页面：'),
-            const Text(
-              'https://github.com/Dolores18/mika_app/releases',
-              style: TextStyle(fontSize: 12, color: Colors.blue),
+
+            // Release页面链接
+            Row(
+              children: [
+                const Text('🔗 Release页面：'),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: updateController.openGitHubRelease,
+                  child: const Text(
+                    '点击访问',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      decoration: TextDecoration.underline,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
