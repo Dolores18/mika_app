@@ -7,7 +7,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <!-- 注意：REQUEST_INSTALL_PACKAGES 权限对自签名应用无效，移除 -->
+    <!-- 安装APK权限 - 虽然对自签名应用需要用户手动授权，但Intent处理需要此权限 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <application
         android:label="mika_app"
         android:name="${applicationName}"
