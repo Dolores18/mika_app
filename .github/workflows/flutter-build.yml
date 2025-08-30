@@ -388,9 +388,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: "v${{ steps.release_info.outputs.build_identifier }}"
-          name: "Latest Build v${{ steps.release_info.outputs.apk_version }}"
+          name: "Latest Build v${{ steps.release_info.outputs.build_identifier }}"
           body: |
-            🚀 **自动构建版本** v${{ steps.release_info.outputs.apk_version }}
+            🚀 **自动构建版本** v${{ steps.release_info.outputs.build_identifier }}
             
             📱 **APK版本**: ${{ steps.release_info.outputs.apk_version }} (支持覆盖安装，保留用户数据)
             🏗️ **构建标识**: ${{ steps.release_info.outputs.build_identifier }}
@@ -424,7 +424,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: latest
-          name: "Latest Build v${{ steps.release_info.outputs.apk_version }}"
+          name: "Latest Build v${{ steps.release_info.outputs.build_identifier }}"
           body: |
             🔗 **这是一个别名release，指向最新构建版本**
             

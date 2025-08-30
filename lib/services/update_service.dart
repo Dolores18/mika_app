@@ -105,10 +105,9 @@ class UpdateService {
           publishedAt: versionInfo.publishedAt,
         );
 
-        // 比较版本号
-        if (_compareVersions(standardizedVersionInfo.version, currentVersion) >
-            0) {
-          log.i('发现新版本: ${standardizedVersionInfo.version}');
+        // 比较版本号 - 只要版本不同就提示更新
+        if (standardizedVersionInfo.version != currentVersion) {
+          log.i('发现新版本: ${standardizedVersionInfo.version} (当前: $currentVersion)');
           return standardizedVersionInfo;
         } else {
           log.i('当前已是最新版本');
