@@ -292,35 +292,42 @@ jobs:
       - name: Build APK
         run: flutter build apk --release --target-platform android-arm64 --split-per-abi
 
-      - name: Generate dynamic version with timestamp
+      - name: Generate build identifier (not affecting APK version)
         id: version
         run: |
-          # 🌟 从pubspec.yaml获取基础版本号 (major.minor.patch)
-          BASE_VERSION=$(grep 'version:' pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
+          # 🌟 从pubspec.yaml获取实际版本号 (保持不变)
+          ACTUAL_VERSION=$(grep 'version:' pubspec.yaml | cut -d' ' -f2)
+          BASE_VERSION=$(echo $ACTUAL_VERSION | cut -d'+' -f1)
+          BUILD_NUMBER=$(echo $ACTUAL_VERSION | cut -d'+' -f2)
           
-          # 🕐 生成时间戳 build number (YYYYMMDD.HHMM)
+          # 🕐 生成时间戳用于构建标识 (仅用于文件命名和Release标识)
           TIMESTAMP=$(date -u +"%Y%m%d.%H%M")
           
-          # 🔧 组合最终版本号
-          FULL_VERSION="${BASE_VERSION}+${TIMESTAMP}"
+          # 🔧 APK使用原始版本号，构建标识仅用于区分
+          APK_VERSION="$ACTUAL_VERSION"  # 保持pubspec.yaml中的版本不变
+          BUILD_IDENTIFIER="${BASE_VERSION}+${TIMESTAMP}"  # 仅用于构建标识
           
+          echo "actual_version=$ACTUAL_VERSION" >> $GITHUB_OUTPUT
           echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
           echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
-          echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
+          echo "apk_version=$APK_VERSION" >> $GITHUB_OUTPUT
+          echo "build_identifier=$BUILD_IDENTIFIER" >> $GITHUB_OUTPUT
           
           echo "📋 版本信息:"
-          echo "   基础版本: $BASE_VERSION"
+          echo "   APK实际版本: $APK_VERSION (不变，保持覆盖安装)"
+          echo "   构建标识: $BUILD_IDENTIFIER (仅用于区分构建)"
           echo "   时间戳: $TIMESTAMP"
-          echo "   完整版本: $FULL_VERSION"
 
       - name: List APK files
         run: ls -l build/app/outputs/flutter-apk/
 
-      - name: Rename APK with version
+      - name: Rename APK with build identifier
         run: |
           cd build/app/outputs/flutter-apk/
           if [ -f "app-arm64-v8a-release.apk" ]; then
-            mv "app-arm64-v8a-release.apk" "app-${{ steps.version.outputs.version }}-arm64-v8a.apk"
+            # 使用构建标识重命名文件，但APK内部版本号保持不变
+            mv "app-arm64-v8a-release.apk" "app-${{ steps.version.outputs.build_identifier }}-arm64-v8a.apk"
           fi
 
       - name: Upload Release Asset
@@ -328,26 +335,28 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            build/app/outputs/flutter-apk/app-${{ steps.version.outputs.version }}-arm64-v8a.apk
+            build/app/outputs/flutter-apk/app-${{ steps.version.outputs.build_identifier }}-arm64-v8a.apk
           
       - name: Upload Artifact for Debug
         uses: actions/upload-artifact@v4
         with:
           name: arm64-v8a-apk
-          path: build/app/outputs/flutter-apk/app-${{ steps.version.outputs.version }}-arm64-v8a.apk
+          path: build/app/outputs/flutter-apk/app-${{ steps.version.outputs.build_identifier }}-arm64-v8a.apk
           retention-days: 7
 
       # 创建或更新GitHub Release，提供固定下载链接
       - name: Generate release info
         id: release_info
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          APK_VERSION="${{ steps.version.outputs.apk_version }}"
+          BUILD_IDENTIFIER="${{ steps.version.outputs.build_identifier }}"
           BUILD_TIME="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
           
-          # 生成版本信息JSON
+          # 生成版本信息JSON - 使用APK实际版本号
           cat > version.json << EOF
           {
-            "version": "$VERSION",
+            "version": "$APK_VERSION",
+            "build_identifier": "$BUILD_IDENTIFIER",
             "build_time": "$BUILD_TIME",
             "commit": "${{ github.sha }}",
             "branch": "${{ github.ref_name }}",
@@ -355,11 +364,12 @@ jobs:
           }
           EOF
           
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "apk_version=$APK_VERSION" >> $GITHUB_OUTPUT
+          echo "build_identifier=$BUILD_IDENTIFIER" >> $GITHUB_OUTPUT
           echo "build_time=$BUILD_TIME" >> $GITHUB_OUTPUT
           
           # 显示APK文件信息
-          APK_FILE="build/app/outputs/flutter-apk/app-$VERSION-arm64-v8a.apk"
+          APK_FILE="build/app/outputs/flutter-apk/app-$BUILD_IDENTIFIER-arm64-v8a.apk"
           if [ -f "$APK_FILE" ]; then
             APK_SIZE=$(du -h "$APK_FILE" | cut -f1)
             echo "📱 APK文件大小: $APK_SIZE"
@@ -377,12 +387,14 @@ jobs:
       - name: Create versioned release  
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: "v${{ steps.version.outputs.version }}"
-          name: "Latest Build v${{ steps.release_info.outputs.version }}"
+          tag_name: "v${{ steps.release_info.outputs.build_identifier }}"
+          name: "Latest Build v${{ steps.release_info.outputs.apk_version }}"
           body: |
-            🚀 **自动构建版本** v${{ steps.release_info.outputs.version }}
+            🚀 **自动构建版本** v${{ steps.release_info.outputs.apk_version }}
             
-            📱 **APK大小**: ${{ steps.release_info.outputs.apk_size }}
+            📱 **APK版本**: ${{ steps.release_info.outputs.apk_version }} (支持覆盖安装，保留用户数据)
+            🏗️ **构建标识**: ${{ steps.release_info.outputs.build_identifier }}
+            � **A交PK大小**: ${{ steps.release_info.outputs.apk_size }}
             ⏰ **构建时间**: ${{ steps.release_info.outputs.build_time }}
             🔗 **提交**: [`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
             🌿 **分支**: `${{ github.ref_name }}`
@@ -396,14 +408,14 @@ jobs:
             
             1. 下载APK文件到你的Android设备
             2. 在设置中启用"未知来源"应用安装
-            3. 点击APK文件进行安装
+            3. 点击APK文件进行安装（支持直接覆盖，无需卸载）
             
-            > ⚠️ 这是开发版本，可能包含未测试的功能。建议在测试环境中使用。
+            > ✅ 此版本支持覆盖安装，不会丢失用户配置和数据
             
             ---
             *此版本由GitHub Actions自动构建和发布*
           files: |
-            build/app/outputs/flutter-apk/app-${{ steps.release_info.outputs.version }}-arm64-v8a.apk
+            build/app/outputs/flutter-apk/app-${{ steps.release_info.outputs.build_identifier }}-arm64-v8a.apk
             version.json
           prerelease: false
           draft: false
@@ -412,23 +424,26 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: latest
-          name: "Latest Build v${{ steps.release_info.outputs.version }}"
+          name: "Latest Build v${{ steps.release_info.outputs.apk_version }}"
           body: |
             🔗 **这是一个别名release，指向最新构建版本**
             
-            📍 **实际版本**: v${{ steps.release_info.outputs.version }}
+            📍 **APK版本**: v${{ steps.release_info.outputs.apk_version }}
+            🏗️ **构建标识**: v${{ steps.release_info.outputs.build_identifier }}
             ⏰ **构建时间**: ${{ steps.release_info.outputs.build_time }}
             
             ## 📥 下载最新版本
             
-            请访问 [v${{ steps.release_info.outputs.version }}](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.release_info.outputs.version }}) 获取完整信息
+            请访问 [v${{ steps.release_info.outputs.build_identifier }}](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.release_info.outputs.build_identifier }}) 获取完整信息
             
-            - **直接下载**: [app-${{ steps.release_info.outputs.version }}-arm64-v8a.apk](https://github.com/${{ github.repository }}/releases/download/v${{ steps.release_info.outputs.version }}/app-${{ steps.release_info.outputs.version }}-arm64-v8a.apk)
+            - **直接下载**: [app-${{ steps.release_info.outputs.build_identifier }}-arm64-v8a.apk](https://github.com/${{ github.repository }}/releases/download/v${{ steps.release_info.outputs.build_identifier }}/app-${{ steps.release_info.outputs.build_identifier }}-arm64-v8a.apk)
+            
+            > ✅ 支持覆盖安装，保留用户数据和配置
             
             ---
             *此别名release用于保持API兼容性*
           files: |
-            build/app/outputs/flutter-apk/app-${{ steps.release_info.outputs.version }}-arm64-v8a.apk
+            build/app/outputs/flutter-apk/app-${{ steps.release_info.outputs.build_identifier }}-arm64-v8a.apk
             version.json
           prerelease: false
           draft: false
@@ -439,18 +454,22 @@ jobs:
         run: |
           echo "✅ 双Release创建完成"
           echo ""
+          echo "� AP化K版本信息:"
+          echo "   实际版本: ${{ steps.release_info.outputs.apk_version }} (支持覆盖安装)"
+          echo "   构建标识: ${{ steps.release_info.outputs.build_identifier }}"
+          echo ""
           echo "🔗 版本化Release页面:"
-          echo "   https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}"
+          echo "   https://github.com/${{ github.repository }}/releases/tag/v${{ steps.release_info.outputs.build_identifier }}"
           echo ""
           echo "🔗 Latest别名页面 (兼容性):"
           echo "   https://github.com/${{ github.repository }}/releases/latest"
           echo ""
-          echo "📱 APK下载链接:"
-          echo "   版本化: https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/app-${{ steps.release_info.outputs.version }}-arm64-v8a.apk"
-          echo "   Latest: https://github.com/${{ github.repository }}/releases/download/latest/app-${{ steps.release_info.outputs.version }}-arm64-v8a.apk"
+          echo "� A本PK下载链接:"
+          echo "   版本化: https://github.com/${{ github.repository }}/releases/download/v${{ steps.release_info.outputs.build_identifier }}/app-${{ steps.release_info.outputs.build_identifier }}-arm64-v8a.apk"
+          echo "   Latest: https://github.com/${{ github.repository }}/releases/download/latest/app-${{ steps.release_info.outputs.build_identifier }}-arm64-v8a.apk"
           echo ""
           echo "📋 版本信息API:"
-          echo "   版本化: https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/version.json"
+          echo "   版本化: https://github.com/${{ github.repository }}/releases/download/v${{ steps.release_info.outputs.build_identifier }}/version.json"
           echo "   Latest: https://github.com/${{ github.repository }}/releases/download/latest/version.json"
           echo ""
-          echo "🌟 推荐使用版本化链接获取稳定的下载体验"
+          echo "🌟 现在支持覆盖安装，用户数据不会丢失！"
