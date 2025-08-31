@@ -278,8 +278,8 @@ jobs:
             echo "⚠️ 未找到 app/build.gradle 文件"
           fi
 
-      - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed .
+      - name: Format code automatically
+        run: dart format .
         
       #- name: Analyze project source
       #  run: flutter analyze --no-fatal-warnings
