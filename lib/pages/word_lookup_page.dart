@@ -609,9 +609,13 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                     iframeAllow: "camera; microphone",
                     iframeAllowFullscreen: true,
                     disableContextMenu: false,
-                    supportZoom: true,
+                    // 禁用用户手势缩放，但保留CSS缩放能力
+                    supportZoom: false,
                     builtInZoomControls: false,
                     displayZoomControls: false,
+                    // 隐藏滚动条但保持滚动功能
+                    verticalScrollBarEnabled: false,
+                    horizontalScrollBarEnabled: false,
                     clearCache: false,
                     cacheMode: CacheMode.LOAD_DEFAULT,
                     // 优化日语字体显示
@@ -643,6 +647,32 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                       // 优化移动端显示
                       document.body.style.margin = '0';
                       document.body.style.padding = '8px';
+                      
+                      // 隐藏滚动条但保持滚动功能
+                      var style = document.createElement('style');
+                      style.textContent = `
+                        ::-webkit-scrollbar {
+                          display: none;
+                        }
+                        * {
+                          -ms-overflow-style: none;
+                          scrollbar-width: none;
+                        }
+                        html, body {
+                          overflow-x: hidden;
+                        }
+                      `;
+                      document.head.appendChild(style);
+                      
+                      // 禁用双击缩放，但保留CSS响应式能力
+                      var lastTouchEnd = 0;
+                      document.addEventListener('touchend', function(e) {
+                        var now = (new Date()).getTime();
+                        if (now - lastTouchEnd <= 300) {
+                          e.preventDefault();
+                        }
+                        lastTouchEnd = now;
+                      }, false);
                       
                       // 确保图片能正常显示
                       document.querySelectorAll('img').forEach(function(img) {
