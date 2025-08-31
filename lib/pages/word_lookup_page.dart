@@ -11,6 +11,7 @@ import '../providers/word_lookup/word_lookup_notifier.dart';
 import '../providers/word_lookup/word_lookup_state.dart';
 import '../utils/logger.dart';
 import 'dart:math';
+import 'word_search_page.dart';
 
 class WordLookupPage extends ConsumerStatefulWidget {
   final Function(bool)? onSearchStateChanged;
@@ -76,6 +77,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
     // 延迟执行，确保不在构建过程中调用
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _notifySearchStateChange();
+      _checkJapaneseNavigation();
     });
   }
 
@@ -91,6 +93,32 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
     }
   }
 
+  // 检查是否需要导航到日语词典页面
+  void _checkJapaneseNavigation() {
+    if (!mounted) return;
+
+    final state = ref.read(wordLookupProvider);
+
+    // 如果显示结果且是日语模式，直接导航
+    if (state.showResults &&
+        state.selectedLanguage == SearchLanguage.japanese &&
+        state.searchedWord.isNotEmpty) {
+      log.i('检测到日语模式，立即导航到词典页面: ${state.searchedWord}');
+
+      // 立即导航，使用 push 而不是 pushReplacement
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => WordSearchPage(
+              word: state.searchedWord,
+              title: '日语词典',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     log.i('销毁WordLookupPage');
@@ -103,6 +131,21 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
       overlays: SystemUiOverlay.values,
     );
     super.dispose();
+  }
+
+  // 处理日语查询 - 标准做法：在查询成功后直接导航
+  void _handleJapaneseSearch(String word) {
+    log.i('处理日语查询: $word');
+
+    // 直接导航，不改变状态
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => WordSearchPage(
+          word: word,
+          title: '日语词典',
+        ),
+      ),
+    );
   }
 
   // 在数据更新时滚动到底部
@@ -170,12 +213,12 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                 const SizedBox(height: 16),
                 if (state.isAiMode) ...[
                   _buildAIContent(state),
+                ] else if (state.selectedLanguage ==
+                    SearchLanguage.japanese) ...[
+                  // 日语模式下不显示任何内容，直接触发导航
+                  const SizedBox.shrink(),
                 ] else ...[
-                  if (state.selectedLanguage == SearchLanguage.japanese && state.htmlContent != null) ...[
-                    _buildJapaneseWebViewContent(state),
-                  ] else ...[
-                    _buildDictionaryContent(state),
-                  ],
+                  _buildDictionaryContent(state),
                 ],
               ],
             ],
@@ -205,7 +248,8 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 230),
                     borderRadius: BorderRadius.circular(20),
@@ -222,7 +266,8 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                     child: DropdownButton<SearchLanguage>(
                       value: selectedLanguage,
                       isDense: true,
-                      style: const TextStyle(fontSize: 13, color: Colors.black87),
+                      style:
+                          const TextStyle(fontSize: 13, color: Colors.black87),
                       items: SearchLanguage.values.map((language) {
                         return DropdownMenuItem<SearchLanguage>(
                           value: language,
@@ -267,12 +312,14 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                         child: TextField(
                           controller: _wordController,
                           decoration: InputDecoration(
-                            hintText: selectedLanguage == SearchLanguage.japanese 
-                                ? '输入日语单词' 
-                                : '输入英语单词',
+                            hintText:
+                                selectedLanguage == SearchLanguage.japanese
+                                    ? '输入日语单词'
+                                    : '输入英语单词',
                             border: InputBorder.none,
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 4),
                             isCollapsed: false,
                           ),
                           style: const TextStyle(fontSize: 13),
@@ -287,21 +334,30 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                           },
                           onSubmitted: (value) {
                             if (value.trim().isNotEmpty) {
-                              notifier.clearSuggestions();
-                              notifier.searchWord(value.trim());
-                              _wordController.clear(); // 清空输入框
+                              // 日语模式下直接导航，不改变状态
+                              if (selectedLanguage == SearchLanguage.japanese) {
+                                _handleJapaneseSearch(value.trim());
+                                notifier.clearSuggestions();
+                                _wordController.clear(); // 清空输入框
+                              } else {
+                                // 其他语言正常查询
+                                notifier.clearSuggestions();
+                                notifier.searchWord(value.trim());
+                                _wordController.clear(); // 清空输入框
+                              }
                             }
                           },
                           onTap: () {
                             // 点击输入框时，如果是日语且有内容，显示建议
-                            if (selectedLanguage == SearchLanguage.japanese && 
+                            if (selectedLanguage == SearchLanguage.japanese &&
                                 _wordController.text.trim().isNotEmpty) {
-                              notifier.searchSuggestions(_wordController.text.trim());
+                              notifier.searchSuggestions(
+                                  _wordController.text.trim());
                             }
                           },
                         ),
                       ),
-                      
+
                       // 清理按钮
                       ValueListenableBuilder<TextEditingValue>(
                         valueListenable: _wordController,
@@ -337,7 +393,8 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                         onPressed: () => notifier.toggleAiMode(),
                         icon: Icon(
                           Icons.auto_awesome,
-                          color: isAiMode ? const Color(0xFF6b4bbd) : Colors.grey,
+                          color:
+                              isAiMode ? const Color(0xFF6b4bbd) : Colors.grey,
                           size: 18,
                         ),
                         tooltip: isAiMode ? 'AI模式已开启' : 'AI模式已关闭',
@@ -351,7 +408,14 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                         onPressed: () {
                           final word = _wordController.text.trim();
                           if (word.isNotEmpty) {
-                            notifier.searchWord(word);
+                            // 日语模式下直接导航，不改变状态
+                            if (selectedLanguage == SearchLanguage.japanese) {
+                              _handleJapaneseSearch(word);
+                              _wordController.clear(); // 清空输入框
+                            } else {
+                              // 其他语言正常查询
+                              notifier.searchWord(word);
+                            }
                           }
                         },
                         color: Colors.transparent,
@@ -424,7 +488,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: state.selectedLanguage == SearchLanguage.japanese 
+                    color: state.selectedLanguage == SearchLanguage.japanese
                         ? Colors.orange.withOpacity(0.1)
                         : Colors.blue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -433,7 +497,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                     state.selectedLanguage.displayName,
                     style: TextStyle(
                       fontSize: 12,
-                      color: state.selectedLanguage == SearchLanguage.japanese 
+                      color: state.selectedLanguage == SearchLanguage.japanese
                           ? Colors.orange[700]
                           : Colors.blue[700],
                       fontWeight: FontWeight.bold,
@@ -578,142 +642,6 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
             ],
           ],
         ),
-      ),
-    );
-  }
-
-  // 日语WebView内容UI
-  Widget _buildJapaneseWebViewContent(WordLookupState state) {
-    return Expanded(
-      child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: state.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: InAppWebView(
-                  initialData: InAppWebViewInitialData(
-                    data: state.htmlContent!,
-                    baseUrl: WebUri('https://language.3049589.xyz/'),
-                  ),
-                  initialSettings: InAppWebViewSettings(
-                    javaScriptEnabled: true,
-                    useShouldOverrideUrlLoading: true,
-                    mediaPlaybackRequiresUserGesture: false,
-                    allowsInlineMediaPlayback: true,
-                    iframeAllow: "camera; microphone",
-                    iframeAllowFullscreen: true,
-                    disableContextMenu: false,
-                    // 允许缩放以保证滚动功能，但隐藏缩放控件
-                    supportZoom: true,
-                    builtInZoomControls: true,
-                    displayZoomControls: false,
-                    // 隐藏滚动条但保持滚动功能
-                    verticalScrollBarEnabled: false,
-                    horizontalScrollBarEnabled: false,
-                    clearCache: false,
-                    cacheMode: CacheMode.LOAD_DEFAULT,
-                    // 优化日语字体显示
-                    minimumFontSize: 12,
-                    defaultFontSize: 16,
-                    defaultFixedFontSize: 14,
-                    // 禁用WebView的强制深色模式，让CSS自己控制
-                    forceDark: ForceDark.OFF,
-                    // 允许文件访问以加载CSS和图片
-                    allowFileAccessFromFileURLs: true,
-                    allowUniversalAccessFromFileURLs: true,
-                  ),
-                  onWebViewCreated: (controller) {
-                    log.i('日语词典WebView已创建');
-                  },
-                  onLoadStart: (controller, url) {
-                    log.i('日语词典WebView开始加载: $url');
-                  },
-                  onLoadStop: (controller, url) {
-                    log.i('日语词典WebView加载完成: $url');
-                    
-                    // 注入一些优化脚本
-                    controller.evaluateJavascript(source: """
-                      // 添加viewport meta标签，禁用用户缩放但保持滚动
-                      var viewport = document.querySelector('meta[name="viewport"]');
-                      if (!viewport) {
-                        viewport = document.createElement('meta');
-                        viewport.name = 'viewport';
-                        document.head.appendChild(viewport);
-                      }
-                      viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-                      
-                      // 禁用页面滚动到顶部的链接
-                      document.querySelectorAll('a[href*="search-page"]').forEach(function(link) {
-                        link.style.display = 'none';
-                      });
-                      
-                      // 优化移动端显示
-                      document.body.style.margin = '0';
-                      document.body.style.padding = '8px';
-                      
-                      // 隐藏滚动条但保持滚动功能
-                      var style = document.createElement('style');
-                      style.textContent = `
-                        ::-webkit-scrollbar {
-                          display: none;
-                        }
-                        * {
-                          -ms-overflow-style: none;
-                          scrollbar-width: none;
-                        }
-                        html, body {
-                          overflow-x: hidden;
-                          -webkit-text-size-adjust: 100%;
-                        }
-                        body {
-                          touch-action: pan-y;
-                        }
-                      `;
-                      document.head.appendChild(style);
-                      
-                      // 禁用双击缩放和多点触控缩放
-                      document.addEventListener('touchstart', function(e) {
-                        if (e.touches.length > 1) {
-                          e.preventDefault();
-                        }
-                      }, { passive: false });
-                      
-                      var lastTouchEnd = 0;
-                      document.addEventListener('touchend', function(e) {
-                        var now = (new Date()).getTime();
-                        if (now - lastTouchEnd <= 300) {
-                          e.preventDefault();
-                        }
-                        lastTouchEnd = now;
-                      }, { passive: false });
-                      
-                      // 确保图片能正常显示
-                      document.querySelectorAll('img').forEach(function(img) {
-                        img.style.maxWidth = '100%';
-                        img.style.height = 'auto';
-                      });
-                    """);
-                  },
-                  onReceivedError: (controller, request, error) {
-                    log.e('日语词典WebView错误: ${error.description}');
-                  },
-                  shouldOverrideUrlLoading: (controller, navigationAction) async {
-                    // 阻止导航到外部链接
-                    final url = navigationAction.request.url.toString();
-                    if (url.contains('search-page') || url.startsWith('http')) {
-                      log.i('阻止导航到: $url');
-                      return NavigationActionPolicy.CANCEL;
-                    }
-                    return NavigationActionPolicy.ALLOW;
-                  },
-                ),
-              ),
       ),
     );
   }
@@ -864,8 +792,10 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
       ),
     );
   }
+
   // 构建搜索建议列表
-  Widget _buildSearchSuggestions(WordLookupState state, WordLookupNotifier notifier) {
+  Widget _buildSearchSuggestions(
+      WordLookupState state, WordLookupNotifier notifier) {
     // 只在日语模式下显示建议
     if (state.selectedLanguage != SearchLanguage.japanese) {
       return const SizedBox.shrink();
@@ -917,14 +847,22 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                 onTap: () {
                   final queryText = suggestion['query_text'] ?? '';
                   log.i('点击建议: ${suggestion['headword']}, 查询文本: $queryText');
-                  
+
                   notifier.clearSuggestions();
-                  notifier.searchWord(queryText);
+
+                  // 日语模式下直接导航，不改变状态
+                  if (state.selectedLanguage == SearchLanguage.japanese) {
+                    _handleJapaneseSearch(queryText);
+                  } else {
+                    notifier.searchWord(queryText);
+                  }
+
                   _wordController.clear(); // 直接清空输入框
                 },
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
@@ -965,7 +903,8 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                 onTap: () => notifier.clearSuggestions(),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: const Text(
                     '收起建议',
                     style: TextStyle(
