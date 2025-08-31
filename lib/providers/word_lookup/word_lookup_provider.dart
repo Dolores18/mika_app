@@ -41,3 +41,8 @@ final explanationProvider = Provider<String>((ref) {
 final dictResultProvider = Provider<DictionaryResult?>((ref) {
   return ref.watch(wordLookupProvider).dictResult;
 });
+
+// 便捷的语言选择器
+final selectedLanguageProvider = Provider<SearchLanguage>((ref) {
+  return ref.watch(wordLookupProvider).selectedLanguage;
+});

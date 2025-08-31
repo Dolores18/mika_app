@@ -18,6 +18,7 @@ import '../models/dictionary_result.dart';
 import '../models/vocabulary.dart';
 import '../controllers/highlight_controller.dart';
 import '../models/highlight_models.dart';
+import '../providers/word_lookup/word_lookup_state.dart';
 
 // 确保类是公开的（public）
 class HtmlRenderer extends StatefulWidget {
@@ -885,7 +886,8 @@ class HtmlRendererState extends State<HtmlRenderer> {
       Future.delayed(const Duration(milliseconds: 100), () {
         log.i('再次短暂延迟后开始API调用，时间: ${DateTime.now().toString()}');
 
-        dictionaryService.lookupWord(cleanText).then((result) {
+        dictionaryService.lookupWord(cleanText, SearchLanguage.english).then((response) {
+          final result = response['result'] as DictionaryResult?;
           // 计算API调用耗时
           final endTime = DateTime.now();
           final duration = endTime.difference(startTime);

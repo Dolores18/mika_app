@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:markdown/markdown.dart' as md;
 import '../models/dictionary_result.dart';
 import '../providers/word_lookup/word_lookup_provider.dart';
@@ -170,7 +171,11 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                 if (state.isAiMode) ...[
                   _buildAIContent(state),
                 ] else ...[
-                  _buildDictionaryContent(state),
+                  if (state.selectedLanguage == SearchLanguage.japanese && state.htmlContent != null) ...[
+                    _buildJapaneseWebViewContent(state),
+                  ] else ...[
+                    _buildDictionaryContent(state),
+                  ],
                 ],
               ],
             ],
@@ -183,96 +188,199 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
   // 搜索栏UI
   Widget _buildSearchBar(WordLookupNotifier notifier) {
     final isAiMode = ref.watch(isAiModeProvider);
+    final selectedLanguage = ref.watch(selectedLanguageProvider);
 
     return Container(
       margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16, top: 30),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: Container(
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 230),
-                borderRadius: BorderRadius.circular(36),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withValues(alpha: 30),
-                    spreadRadius: 0,
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 10),
-                  const Icon(Icons.search, color: Colors.grey, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _wordController,
-                      decoration: const InputDecoration(
-                        hintText: '输入单词',
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(vertical: 4),
-                        isCollapsed: false,
+          // 语言选择下拉框
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                const Text(
+                  '选择语言：',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 230),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withValues(alpha: 30),
+                        spreadRadius: 0,
+                        blurRadius: 2,
+                        offset: const Offset(0, 1),
                       ),
-                      style: const TextStyle(fontSize: 13),
-                      textAlignVertical: TextAlignVertical.center,
-                      onSubmitted: (value) {
-                        if (value.trim().isNotEmpty) {
-                          notifier.searchWord(value.trim());
+                    ],
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<SearchLanguage>(
+                      value: selectedLanguage,
+                      isDense: true,
+                      style: const TextStyle(fontSize: 13, color: Colors.black87),
+                      items: SearchLanguage.values.map((language) {
+                        return DropdownMenuItem<SearchLanguage>(
+                          value: language,
+                          child: Text(language.displayName),
+                        );
+                      }).toList(),
+                      onChanged: (SearchLanguage? newLanguage) {
+                        if (newLanguage != null) {
+                          notifier.changeLanguage(newLanguage);
                         }
                       },
                     ),
                   ),
-
-                  // AI模式切换按钮
-                  IconButton(
-                    onPressed: () => notifier.toggleAiMode(),
-                    icon: Icon(
-                      Icons.auto_awesome,
-                      color: isAiMode ? const Color(0xFF6b4bbd) : Colors.grey,
-                      size: 18,
-                    ),
-                    tooltip: isAiMode ? 'AI模式已开启' : 'AI模式已关闭',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    splashRadius: 16,
-                  ),
-
-                  // 查询按钮
-                  MaterialButton(
-                    onPressed: () {
-                      final word = _wordController.text.trim();
-                      if (word.isNotEmpty) {
-                        notifier.searchWord(word);
-                      }
-                    },
-                    color: Colors.transparent,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(36),
-                    ),
-                    padding: EdgeInsets.zero,
-                    minWidth: 60,
-                    height: 28,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    child: const Text(
-                      '查询',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF6b4bbd),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
+          // 搜索框
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 230),
+                    borderRadius: BorderRadius.circular(36),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withValues(alpha: 30),
+                        spreadRadius: 0,
+                        blurRadius: 2,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 10),
+                      const Icon(Icons.search, color: Colors.grey, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _wordController,
+                          decoration: InputDecoration(
+                            hintText: selectedLanguage == SearchLanguage.japanese 
+                                ? '输入日语单词' 
+                                : '输入英语单词',
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                            isCollapsed: false,
+                          ),
+                          style: const TextStyle(fontSize: 13),
+                          textAlignVertical: TextAlignVertical.center,
+                          onChanged: (value) {
+                            // 实时搜索建议（仅日语）
+                            if (selectedLanguage == SearchLanguage.japanese) {
+                              notifier.searchSuggestions(value.trim());
+                            }
+                            // 触发UI更新以显示/隐藏清理按钮
+                            setState(() {});
+                          },
+                          onSubmitted: (value) {
+                            if (value.trim().isNotEmpty) {
+                              notifier.clearSuggestions();
+                              notifier.searchWord(value.trim());
+                              _wordController.clear(); // 清空输入框
+                            }
+                          },
+                          onTap: () {
+                            // 点击输入框时，如果是日语且有内容，显示建议
+                            if (selectedLanguage == SearchLanguage.japanese && 
+                                _wordController.text.trim().isNotEmpty) {
+                              notifier.searchSuggestions(_wordController.text.trim());
+                            }
+                          },
+                        ),
+                      ),
+                      
+                      // 清理按钮
+                      ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _wordController,
+                        builder: (context, value, child) {
+                          if (value.text.isNotEmpty) {
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    _wordController.clear();
+                                    notifier.clearSuggestions();
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    child: const Icon(
+                                      Icons.clear,
+                                      color: Colors.grey,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                              ],
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+
+                      // AI模式切换按钮
+                      IconButton(
+                        onPressed: () => notifier.toggleAiMode(),
+                        icon: Icon(
+                          Icons.auto_awesome,
+                          color: isAiMode ? const Color(0xFF6b4bbd) : Colors.grey,
+                          size: 18,
+                        ),
+                        tooltip: isAiMode ? 'AI模式已开启' : 'AI模式已关闭',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        splashRadius: 16,
+                      ),
+
+                      // 查询按钮
+                      MaterialButton(
+                        onPressed: () {
+                          final word = _wordController.text.trim();
+                          if (word.isNotEmpty) {
+                            notifier.searchWord(word);
+                          }
+                        },
+                        color: Colors.transparent,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(36),
+                        ),
+                        padding: EdgeInsets.zero,
+                        minWidth: 60,
+                        height: 28,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        child: const Text(
+                          '查询',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF6b4bbd),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // 搜索建议列表
+          _buildSearchSuggestions(ref.watch(wordLookupProvider), notifier),
         ],
       ),
     );
@@ -309,6 +417,30 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(width: 8),
+                // 语言标签
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: state.selectedLanguage == SearchLanguage.japanese 
+                        ? Colors.orange.withOpacity(0.1)
+                        : Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    state.selectedLanguage.displayName,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: state.selectedLanguage == SearchLanguage.japanese 
+                          ? Colors.orange[700]
+                          : Colors.blue[700],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
                 if (state.isAiMode)
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -446,6 +578,93 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  // 日语WebView内容UI
+  Widget _buildJapaneseWebViewContent(WordLookupState state) {
+    return Expanded(
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: state.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: InAppWebView(
+                  initialData: InAppWebViewInitialData(
+                    data: state.htmlContent!,
+                    baseUrl: WebUri('https://language.3049589.xyz/'),
+                  ),
+                  initialSettings: InAppWebViewSettings(
+                    javaScriptEnabled: true,
+                    useShouldOverrideUrlLoading: true,
+                    mediaPlaybackRequiresUserGesture: false,
+                    allowsInlineMediaPlayback: true,
+                    iframeAllow: "camera; microphone",
+                    iframeAllowFullscreen: true,
+                    disableContextMenu: false,
+                    supportZoom: true,
+                    builtInZoomControls: false,
+                    displayZoomControls: false,
+                    clearCache: false,
+                    cacheMode: CacheMode.LOAD_DEFAULT,
+                    // 优化日语字体显示
+                    minimumFontSize: 12,
+                    defaultFontSize: 16,
+                    defaultFixedFontSize: 14,
+                    // 禁用WebView的强制深色模式，让CSS自己控制
+                    forceDark: ForceDark.OFF,
+                    // 允许文件访问以加载CSS和图片
+                    allowFileAccessFromFileURLs: true,
+                    allowUniversalAccessFromFileURLs: true,
+                  ),
+                  onWebViewCreated: (controller) {
+                    log.i('日语词典WebView已创建');
+                  },
+                  onLoadStart: (controller, url) {
+                    log.i('日语词典WebView开始加载: $url');
+                  },
+                  onLoadStop: (controller, url) {
+                    log.i('日语词典WebView加载完成: $url');
+                    
+                    // 注入一些优化脚本
+                    controller.evaluateJavascript(source: """
+                      // 禁用页面滚动到顶部的链接
+                      document.querySelectorAll('a[href*="search-page"]').forEach(function(link) {
+                        link.style.display = 'none';
+                      });
+                      
+                      // 优化移动端显示
+                      document.body.style.margin = '0';
+                      document.body.style.padding = '8px';
+                      
+                      // 确保图片能正常显示
+                      document.querySelectorAll('img').forEach(function(img) {
+                        img.style.maxWidth = '100%';
+                        img.style.height = 'auto';
+                      });
+                    """);
+                  },
+                  onReceivedError: (controller, request, error) {
+                    log.e('日语词典WebView错误: ${error.description}');
+                  },
+                  shouldOverrideUrlLoading: (controller, navigationAction) async {
+                    // 阻止导航到外部链接
+                    final url = navigationAction.request.url.toString();
+                    if (url.contains('search-page') || url.startsWith('http')) {
+                      log.i('阻止导航到: $url');
+                      return NavigationActionPolicy.CANCEL;
+                    }
+                    return NavigationActionPolicy.ALLOW;
+                  },
+                ),
+              ),
       ),
     );
   }
@@ -592,6 +811,124 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
               ],
             ],
           ),
+        ],
+      ),
+    );
+  }
+  // 构建搜索建议列表
+  Widget _buildSearchSuggestions(WordLookupState state, WordLookupNotifier notifier) {
+    // 只在日语模式下显示建议
+    if (state.selectedLanguage != SearchLanguage.japanese) {
+      return const SizedBox.shrink();
+    }
+
+    // 如果没有建议且不在加载中，不显示
+    if (state.searchSuggestions.isEmpty && !state.isLoadingSuggestions) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 240),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 30),
+            spreadRadius: 0,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (state.isLoadingSuggestions) ...[
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    '搜索中...',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            ...state.searchSuggestions.map((suggestion) {
+              return InkWell(
+                onTap: () {
+                  final queryText = suggestion['query_text'] ?? '';
+                  log.i('点击建议: ${suggestion['headword']}, 查询文本: $queryText');
+                  
+                  notifier.clearSuggestions();
+                  notifier.searchWord(queryText);
+                  _wordController.clear(); // 直接清空输入框
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Colors.grey.withValues(alpha: 20),
+                        width: 0.5,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.search,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          suggestion['headword'] ?? '',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.north_west,
+                        size: 14,
+                        color: Colors.grey,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+            if (state.searchSuggestions.isNotEmpty) ...[
+              InkWell(
+                onTap: () => notifier.clearSuggestions(),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: const Text(
+                    '收起建议',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ],
       ),
     );

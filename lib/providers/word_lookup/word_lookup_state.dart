@@ -2,6 +2,16 @@
 import 'package:flutter/foundation.dart';
 import '../../models/dictionary_result.dart';
 
+// 语言枚举
+enum SearchLanguage {
+  english('英语', 'en'),
+  japanese('日语', 'ja');
+
+  const SearchLanguage(this.displayName, this.code);
+  final String displayName;
+  final String code;
+}
+
 // 使用不可变类表示状态
 @immutable
 class WordLookupState {
@@ -12,6 +22,10 @@ class WordLookupState {
   final String explanation;
   final DictionaryResult? dictResult;
   final bool contentUpdated;
+  final SearchLanguage selectedLanguage;
+  final String? htmlContent; // 用于日语词典的HTML内容
+  final List<Map<String, dynamic>> searchSuggestions; // 搜索建议列表
+  final bool isLoadingSuggestions; // 是否正在加载建议
 
   // 构造函数，所有字段都是不可变的
   const WordLookupState({
@@ -22,6 +36,10 @@ class WordLookupState {
     required this.explanation,
     this.dictResult,
     this.contentUpdated = false,
+    this.selectedLanguage = SearchLanguage.english,
+    this.htmlContent,
+    this.searchSuggestions = const [],
+    this.isLoadingSuggestions = false,
   });
 
   // 创建初始状态的工厂方法
@@ -33,6 +51,10 @@ class WordLookupState {
         explanation: '',
         dictResult: null,
         contentUpdated: false,
+        selectedLanguage: SearchLanguage.english,
+        htmlContent: null,
+        searchSuggestions: [],
+        isLoadingSuggestions: false,
       );
 
   // copyWith方法用于创建状态的不可变拷贝
@@ -45,6 +67,11 @@ class WordLookupState {
     DictionaryResult? dictResult,
     bool clearDictResult = false,
     bool? contentUpdated,
+    SearchLanguage? selectedLanguage,
+    String? htmlContent,
+    bool clearHtmlContent = false,
+    List<Map<String, dynamic>>? searchSuggestions,
+    bool? isLoadingSuggestions,
   }) {
     return WordLookupState(
       isLoading: isLoading ?? this.isLoading,
@@ -54,6 +81,10 @@ class WordLookupState {
       explanation: explanation ?? this.explanation,
       dictResult: clearDictResult ? null : (dictResult ?? this.dictResult),
       contentUpdated: contentUpdated ?? false,
+      selectedLanguage: selectedLanguage ?? this.selectedLanguage,
+      htmlContent: clearHtmlContent ? null : (htmlContent ?? this.htmlContent),
+      searchSuggestions: searchSuggestions ?? this.searchSuggestions,
+      isLoadingSuggestions: isLoadingSuggestions ?? this.isLoadingSuggestions,
     );
   }
 
@@ -63,7 +94,10 @@ class WordLookupState {
     return 'WordLookupState{isLoading: $isLoading, showResults: $showResults, '
         'isAiMode: $isAiMode, searchedWord: $searchedWord, '
         'hasExplanation: ${explanation.isNotEmpty}, '
-        'hasDictResult: ${dictResult != null}}';
+        'hasDictResult: ${dictResult != null}, '
+        'selectedLanguage: ${selectedLanguage.displayName}, '
+        'hasHtmlContent: ${htmlContent != null}, '
+        'suggestionsCount: ${searchSuggestions.length}}';
   }
 
   // 用于比较的equals方法和hashCode
@@ -77,7 +111,11 @@ class WordLookupState {
         other.searchedWord == searchedWord &&
         other.explanation == explanation &&
         other.contentUpdated == contentUpdated &&
-        other.dictResult == dictResult;
+        other.dictResult == dictResult &&
+        other.selectedLanguage == selectedLanguage &&
+        other.htmlContent == htmlContent &&
+        other.searchSuggestions.length == searchSuggestions.length &&
+        other.isLoadingSuggestions == isLoadingSuggestions;
   }
 
   @override
@@ -89,5 +127,9 @@ class WordLookupState {
         explanation,
         dictResult,
         contentUpdated,
+        selectedLanguage,
+        htmlContent,
+        searchSuggestions.length,
+        isLoadingSuggestions,
       );
 }
