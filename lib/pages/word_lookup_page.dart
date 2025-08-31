@@ -609,8 +609,8 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                     iframeAllow: "camera; microphone",
                     iframeAllowFullscreen: true,
                     disableContextMenu: false,
-                    // 禁用用户手势缩放，但保留CSS缩放能力
-                    supportZoom: false,
+                    // 允许缩放以保证滚动功能，但隐藏缩放控件
+                    supportZoom: true,
                     builtInZoomControls: false,
                     displayZoomControls: false,
                     // 隐藏滚动条但保持滚动功能
@@ -639,6 +639,15 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                     
                     // 注入一些优化脚本
                     controller.evaluateJavascript(source: """
+                      // 添加viewport meta标签，禁用用户缩放但保持滚动
+                      var viewport = document.querySelector('meta[name="viewport"]');
+                      if (!viewport) {
+                        viewport = document.createElement('meta');
+                        viewport.name = 'viewport';
+                        document.head.appendChild(viewport);
+                      }
+                      viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+                      
                       // 禁用页面滚动到顶部的链接
                       document.querySelectorAll('a[href*="search-page"]').forEach(function(link) {
                         link.style.display = 'none';
@@ -660,11 +669,21 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                         }
                         html, body {
                           overflow-x: hidden;
+                          -webkit-text-size-adjust: 100%;
+                        }
+                        body {
+                          touch-action: pan-y;
                         }
                       `;
                       document.head.appendChild(style);
                       
-                      // 禁用双击缩放，但保留CSS响应式能力
+                      // 禁用双击缩放和多点触控缩放
+                      document.addEventListener('touchstart', function(e) {
+                        if (e.touches.length > 1) {
+                          e.preventDefault();
+                        }
+                      }, { passive: false });
+                      
                       var lastTouchEnd = 0;
                       document.addEventListener('touchend', function(e) {
                         var now = (new Date()).getTime();
@@ -672,7 +691,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                           e.preventDefault();
                         }
                         lastTouchEnd = now;
-                      }, false);
+                      }, { passive: false });
                       
                       // 确保图片能正常显示
                       document.querySelectorAll('img').forEach(function(img) {
