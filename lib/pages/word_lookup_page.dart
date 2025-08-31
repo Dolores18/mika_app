@@ -611,7 +611,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                     disableContextMenu: false,
                     // 允许缩放以保证滚动功能，但隐藏缩放控件
                     supportZoom: true,
-                    builtInZoomControls: false,
+                    builtInZoomControls: true,
                     displayZoomControls: false,
                     // 隐藏滚动条但保持滚动功能
                     verticalScrollBarEnabled: false,
