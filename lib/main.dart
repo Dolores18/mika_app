@@ -53,10 +53,28 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       title: 'AI 语言助手',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.pink,
         visualDensity: VisualDensity.adaptivePlatformDensity,
         scaffoldBackgroundColor: const Color(0xFFFCE4EC), // 淡粉色
+        colorScheme: ColorScheme.fromSwatch(
+          primarySwatch: Colors.pink,
+          accentColor: const Color(0xFF6b4bbd),
+          backgroundColor: const Color(0xFFFCE4EC),
+          brightness: Brightness.light,
+        ),
       ),
+      darkTheme: ThemeData(
+        primarySwatch: Colors.pink,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+        scaffoldBackgroundColor: const Color(0xFF121212), // 标准的深色主题背景
+        colorScheme: ColorScheme.fromSwatch(
+          primarySwatch: Colors.pink,
+          accentColor: const Color(0xFF9D82E8), // 稍亮的紫色以提高对比度
+          backgroundColor: const Color(0xFF121212),
+          brightness: Brightness.dark,
+        ),
+      ),
+      themeMode: ThemeMode.system, // 跟随系统设置
       home: const MainScreen(),
     );
   }
@@ -111,9 +129,9 @@ class _MainScreenState extends State<MainScreen> {
             _currentIndex = index;
           });
         },
-        selectedItemColor: const Color(0xFF6b4bbd),
+        selectedItemColor: Theme.of(context).colorScheme.secondary,
         unselectedItemColor: Colors.grey[600],
-        backgroundColor: const Color(0xFFFCE4EC),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 8,
         showSelectedLabels: true,
         showUnselectedLabels: true,

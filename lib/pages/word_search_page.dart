@@ -1,7 +1,9 @@
 // lib/pages/word_search_page.dart
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:http/http.dart' as http;
 import '../utils/logger.dart';
 
 class WordSearchPage extends StatefulWidget {
@@ -22,27 +24,85 @@ class _WordSearchPageState extends State<WordSearchPage> {
   InAppWebViewController? _webViewController;
   bool _isLoading = true;
   String? _error;
+  String? _preparedHtml;
 
   @override
   void initState() {
     super.initState();
     log.i('初始化WordSearchPage，查询单词: ${widget.word}');
+    _loadAndPrepareContent();
+  }
 
-    // 设置全屏模式，让内容延伸到挖孔区域
+  Future<void> _loadAndPrepareContent() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // 1. 获取远程HTML
+      final url = Uri.parse(
+          'https://language.3049589.xyz/api/japanese/html/${Uri.encodeComponent(widget.word)}');
+      final response = await http.get(url);
+
+      if (response.statusCode != 200) {
+        throw http.ClientException(
+            'Failed to load HTML: ${response.statusCode}');
+      }
+      String originalHtml = utf8.decode(response.bodyBytes);
+
+      // 2. 加载本地CSS
+      final localCss =
+          await rootBundle.loadString('assets/dict/ja/gystyle.css');
+
+      // 3. 修改HTML：移除远程CSS链接，并内联本地CSS
+      String modifiedHtml = originalHtml.replaceAll(
+          '<link rel="stylesheet" href="/static/obunsha/gystyle.css">', '');
+
+      modifiedHtml = modifiedHtml.replaceFirst(
+        '</head>',
+        '<style>$localCss</style></head>',
+      );
+
+      setState(() {
+        _preparedHtml = modifiedHtml;
+        // HTML准备好后，WebView会加载，但我们仍然认为加载中，直到onLoadStop触发
+      });
+    } catch (e) {
+      log.e('准备WebView内容失败: $e');
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateSystemUIOverlayStyle();
+  }
+
+  void _updateSystemUIOverlayStyle() {
+    final theme = Theme.of(context);
+    final brightness = theme.brightness;
+
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.edgeToEdge,
       overlays: [SystemUiOverlay.top],
     );
 
-    // 设置系统UI透明
     SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
+      SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarIconBrightness: Brightness.dark,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
+        systemNavigationBarIconBrightness:
+            brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        statusBarIconBrightness:
+            brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        statusBarBrightness:
+            brightness == Brightness.dark ? Brightness.dark : Brightness.light,
       ),
     );
   }
@@ -50,18 +110,14 @@ class _WordSearchPageState extends State<WordSearchPage> {
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFCE4EC),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Column(
         children: [
-          // 顶部状态栏占位
           SizedBox(height: topPadding),
-
-          // 页面头部
           _buildHeader(),
-
-          // WebView内容区域
           Expanded(
             child: _buildWebViewContent(),
           ),
@@ -70,12 +126,12 @@ class _WordSearchPageState extends State<WordSearchPage> {
     );
   }
 
-  // 构建页面头部
   Widget _buildHeader() {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: theme.scaffoldBackgroundColor.withOpacity(0.9),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(16),
           bottomRight: Radius.circular(16),
@@ -91,19 +147,16 @@ class _WordSearchPageState extends State<WordSearchPage> {
       ),
       child: Row(
         children: [
-          // 返回按钮
           IconButton(
-            icon: const Icon(Icons.arrow_back_ios, size: 20),
+            icon: Icon(Icons.arrow_back_ios,
+                size: 20, color: theme.colorScheme.onSurface),
             onPressed: () => Navigator.of(context).pop(),
             tooltip: '返回',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             splashRadius: 20,
           ),
-
           const SizedBox(width: 8),
-
-          // 标题和单词
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,52 +164,62 @@ class _WordSearchPageState extends State<WordSearchPage> {
               children: [
                 Text(
                   widget.title ?? '日语词典',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: Colors.grey,
+                    color: Colors.grey[500],
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   widget.word,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF6b4bbd),
+                    color: theme.colorScheme.secondary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-
-          // 加载状态指示器
           if (_isLoading)
-            const SizedBox(
+            SizedBox(
               width: 20,
               height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor:
+                    AlwaysStoppedAnimation<Color>(theme.colorScheme.secondary),
+              ),
             ),
         ],
       ),
     );
   }
 
-  // 构建WebView内容
   Widget _buildWebViewContent() {
     if (_error != null) {
       return _buildErrorContent();
     }
 
+    final theme = Theme.of(context);
+    final bgColor = theme.scaffoldBackgroundColor;
+    final bgColorHex =
+        '#${bgColor.value.toRadixString(16).padLeft(8, '0').substring(2)}';
+    final textColorHex =
+        theme.brightness == Brightness.dark ? '#E0E0E0' : '#212121';
+    final linkColorHex =
+        theme.brightness == Brightness.dark ? '#9D82E8' : '#6b4bbd';
+
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.05),
             spreadRadius: 0,
             blurRadius: 8,
             offset: const Offset(0, 2),
@@ -165,128 +228,93 @@ class _WordSearchPageState extends State<WordSearchPage> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: InAppWebView(
-          initialUrlRequest: URLRequest(
-            url: WebUri(
-                'https://language.3049589.xyz/api/japanese/html/${Uri.encodeComponent(widget.word)}'),
-          ),
-          initialSettings: InAppWebViewSettings(
-            javaScriptEnabled: true,
-            // 稳定性优化
-            supportZoom: false,
-            verticalScrollBarEnabled: false,
-            horizontalScrollBarEnabled: false,
-            // 内存和性能优化 - 参考 html_renderer.dart 的设置
-            cacheMode: CacheMode.LOAD_CACHE_ELSE_NETWORK,
-            forceDark: ForceDark.OFF,
-            clearCache: false, // 关键：不清除缓存
-            // 内存管理 - 参考 html_renderer.dart 的设置
-            allowFileAccess: true,
-            allowContentAccess: true,
-            allowFileAccessFromFileURLs: true,
-            allowUniversalAccessFromFileURLs: true,
-            // 滚动优化
-            scrollBarDefaultDelayBeforeFade: 0,
-            scrollBarFadeDuration: 0,
-            // 性能优化
-            loadWithOverviewMode: true,
-            useWideViewPort: true,
-            // 其他稳定性设置
-            domStorageEnabled: true,
-            useOnLoadResource: true,
-            disableDefaultErrorPage: true,
-            algorithmicDarkeningAllowed: true,
-          ),
-          onWebViewCreated: (controller) {
-            log.i('日语词典WebView已创建');
-            _webViewController = controller;
+        child: _preparedHtml == null
+            ? const Center(
+                child: CircularProgressIndicator(),
+              )
+            : InAppWebView(
+                initialData: InAppWebViewInitialData(data: _preparedHtml!),
+                initialSettings: InAppWebViewSettings(
+                  javaScriptEnabled: true,
+                  supportZoom: false,
+                  verticalScrollBarEnabled: false,
+                  horizontalScrollBarEnabled: false,
+                  forceDark: ForceDark.OFF,
+                  algorithmicDarkeningAllowed: false,
+                  // 其他优化设置
+                  allowFileAccess: true,
+                  loadWithOverviewMode: true,
+                  useWideViewPort: true,
+                  domStorageEnabled: true,
+                  disableDefaultErrorPage: true,
+                ),
+                onWebViewCreated: (controller) {
+                  log.i('日语词典WebView已创建');
+                  _webViewController = controller;
+                },
+                onLoadStop: (controller, url) {
+                  log.i('日语词典WebView加载完成: $url');
+                  setState(() {
+                    _isLoading = false;
+                  });
 
-            // 设置WebView错误处理
-            controller.addJavaScriptHandler(
-              handlerName: 'errorHandler',
-              callback: (args) {
-                log.e('JavaScript错误: $args');
-              },
-            );
-          },
-          onLoadStart: (controller, url) {
-            log.i('日语词典WebView开始加载: $url');
-            setState(() {
-              _isLoading = true;
-              _error = null;
-            });
-          },
-          onLoadStop: (controller, url) {
-            log.i('日语词典WebView加载完成: $url');
-            setState(() {
-              _isLoading = false;
-            });
-
-            // 注入优化脚本 - 参考 html_renderer.dart 的方式
-            controller.evaluateJavascript(source: """
-              try {
-                // 隐藏滚动条
-                var style = document.createElement('style');
-                style.id = 'mika-scrollbar-style';
-                style.textContent = '::-webkit-scrollbar { display: none; } * { scrollbar-width: none; }';
-                document.head.appendChild(style);
-                
-                // 优化触摸体验
-                document.body.style.webkitTouchCallout = 'none';
-                document.body.style.webkitUserSelect = 'none';
-                document.body.style.touchAction = 'manipulation';
-                
-                // 允许文本选择
-                var textElements = document.querySelectorAll('p, span, div');
-                for (var i = 0; i < textElements.length; i++) {
-                  textElements[i].style.webkitUserSelect = 'text';
+                  // HTML已包含基础样式，这里只注入动态的主题颜色
+                  controller.evaluateJavascript(source: '''
+              (function() {
+                try {
+                  var themeStyle = document.createElement('style');
+                  themeStyle.id = 'mika-theme-style';
+                  themeStyle.innerHTML = `
+                    :root {
+                      --mika-bg-color: ${bgColorHex};
+                      --mika-text-color: ${textColorHex};
+                      --mika-link-color: ${linkColorHex};
+                    }
+                    body, .main, .wrap, #main, #wrap, .container {
+                      background-color: var(--mika-bg-color) !important;
+                    }
+                    * {
+                       color: var(--mika-text-color) !important;
+                    }
+                    a, a * {
+                      color: var(--mika-link-color) !important;
+                      text-decoration: none !important;
+                    }
+                  `;
+                  document.head.appendChild(themeStyle);
+                  console.log('主题样式已注入');
+                } catch (e) {
+                  console.error('注入主题脚本失败:', e);
                 }
-                
-                // 设置初始样式使内容可见
-                document.body.style.opacity = '1';
-                
-                console.log('日语WebView优化完成');
-              } catch (e) {
-                console.error('优化脚本执行失败:', e);
-                // 发送错误到Flutter
-                if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
-                  window.flutter_inappwebview.callHandler('errorHandler', e.message);
-                }
-              }
-            """);
-          },
-          onReceivedError: (controller, request, error) {
-            log.e('日语词典WebView错误: ${error.description}');
-            setState(() {
-              _isLoading = false;
-              _error = error.description;
-            });
-          },
-          shouldOverrideUrlLoading: (controller, navigationAction) async {
-            // 阻止导航到外部链接
-            final url = navigationAction.request.url.toString();
-            if (url.contains('search-page') || url.startsWith('http')) {
-              log.i('阻止导航到: $url');
-              return NavigationActionPolicy.CANCEL;
-            }
-            return NavigationActionPolicy.ALLOW;
-          },
-        ),
+              })();
+            ''');
+                },
+                onReceivedError: (controller, request, error) {
+                  log.e('日语词典WebView错误: ${error.description}');
+                  setState(() {
+                    _isLoading = false;
+                    _error = error.description;
+                  });
+                },
+                shouldOverrideUrlLoading: (controller, navigationAction) async {
+                  return NavigationActionPolicy.CANCEL;
+                },
+              ),
       ),
     );
   }
 
-  // 构建错误内容
   Widget _buildErrorContent() {
+    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.05),
             spreadRadius: 0,
             blurRadius: 8,
             offset: const Offset(0, 2),
@@ -307,7 +335,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.grey[700],
+              color: theme.textTheme.bodyLarge?.color,
             ),
           ),
           const SizedBox(height: 8),
@@ -315,23 +343,16 @@ class _WordSearchPageState extends State<WordSearchPage> {
             _error ?? '未知错误',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[600],
+              color: theme.textTheme.bodyMedium?.color,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _error = null;
-                _isLoading = true;
-              });
-              // 重新加载
-              _webViewController?.reload();
-            },
+            onPressed: _loadAndPrepareContent,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6b4bbd),
-              foregroundColor: Colors.white,
+              backgroundColor: theme.colorScheme.secondary,
+              foregroundColor: theme.colorScheme.onSecondary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
               ),
@@ -345,10 +366,6 @@ class _WordSearchPageState extends State<WordSearchPage> {
 
   @override
   void dispose() {
-    // 清理WebView资源 - 不清除缓存，参考 html_renderer.dart
-    _webViewController?.dispose();
-
-    // 恢复系统UI设置
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual,
       overlays: SystemUiOverlay.values,

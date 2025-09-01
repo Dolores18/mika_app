@@ -1,0 +1,1750 @@
+/*===== 本文内検索 =====*/
+.FindItem{
+	font-weight:bold;
+	color:black;
+
+	border: 1px solid #FFCC66;
+	padding:1px;
+	background-color:#FFCC66;
+	-webkit-border-radius: 0.2em;
+	-webkit-box-shadow: 2px 2px 1px #666666;
+}
+.FindItem2{
+	font-weight:bold;
+	color:black;
+
+	border: 1px solid #CCCCCC;
+	padding:1px;
+	background-color:#FFFFFF;
+	-webkit-box-shadow: 1px 1px 1px #888888;
+}
+/* add */
+ .container {
+    display: flex;
+    flex-direction: column;
+  }
+  .left-column {
+    flex-grow: 1;
+  }
+  .middle_column {
+    width: 50px;
+  }
+    .right-column {
+    width: 20px; 
+  }
+
+@font-face {
+	font-family:'Myfont';
+	src:url('/static/obunsha/mdd_extracted/ipamp.ttf');
+	font-display: swap;
+}
+@font-face {
+	font-family:'Mygothic';
+	src:url('/static/obunsha/mdd_extracted/ipaexm.ttf');
+	font-display: swap;
+}
+@font-face {
+	font-family:'Myruby';
+	src:url('/static/obunsha/mdd_extracted/ipam.ttf');
+	font-display: swap;
+}
+/*===== 本文 =====*/
+html {
+	-ms-writing-mode:var(--ms_writing_mode);
+	-webkit-writing-mode:var(--webkit_writing_mode);
+	writing-mode:var(--writing_mode);
+}
+body {
+    font-family:'Myfont', Serif;
+    line-height:15px;
+	font-size:1em;
+	color:Navy;
+	background-color:white;
+}
+i+.kg_icon_pmb {
+    margin-top:0.5em;
+}
+a {
+	text-decoration:none;
+}
+a[href] {
+	color:var(--a_color);
+}
+
+.head_ryaku {
+}
+.head_gojuon {
+}
+.head_waka {
+}
+.head_koyu {
+}
+.head_kanyo {
+    margin-right:0.5em;
+}
+.head_hyojun {
+}
+.head_hasei {
+    margin-right:0.5em;
+}
+.head_kanji {
+}
+.item {
+}
+.item_hyoron {
+}
+.item_ryaku {
+}
+.item_gojuon {
+}
+.item_wakahaiku {
+}
+.item_wakatanka {
+}
+.item_koyusonota {
+}
+.item_koyujinmei {
+}
+.item_koyusakuhinmei {
+}
+.item_koyuchimei {
+}
+.item_kanyo {
+}
+.item_hyojun {
+}
+.item_hasei {
+}
+.item_haseijinmei {
+}
+.item_haseisakuhinmei {
+}
+.item_haseichimei {
+}
+.item_kanji {
+}
+.item_hyoron_kaisetsu {
+}
+.item_hyoron_kihonngi {
+}
+.item_hyoron_jibunkokoro {
+}
+.item_hyoron_bunkashukyo {
+}
+.item_hyoron_tetugakusisou {
+}
+.item_hyoron_kagaku {
+}
+.item_hyoron_shakai {
+}
+.item_hyoron_seijikeizai {
+}
+.item_hyoron_gijutu {
+}
+.item_hyoron_kyosei {
+}
+.item_hyoron_gengohyougen {
+}
+.item_hyoron_geijutu {
+}
+.item_hyoron_kaisetsu .headword_kana,
+.item_hyoron_kaisetsu .ka_hyoki{
+    display: none;
+}
+.item_hyoron_kaisetsu .headword_hyouki {
+    font-size: 1.2em;
+    font-weight: bold;
+    font-family:Mygothic;
+    padding: 0.05em;
+    margin-bottom: 0.2em;
+    border: 1px solid #ed028c;
+}
+.item_hyoron_kaisetsu .mean_normal {
+    padding-right: 1em;
+}
+.item_hyoron .ex_text {
+    padding-top: 1em;
+    display: inline-block;
+}
+
+.head {
+	padding-left:0.2em;
+	margin-left:0.2em;
+    background-color: var(--midashi_background_color);
+    color: var(--midashi_color);
+    border-left: 1px solid #cccccc;
+}
+.item_ryaku .head {
+    padding-left:0;
+    margin-left:0;
+    padding-bottom:0.2em;
+    margin-bottom:0.2em;
+    border-left:none;
+    border-bottom: 1px solid #cccccc;
+}
+.headword_kana {
+	font-size:1.2em;
+	font-weight:bold;
+    font-family: Mygothic;
+}
+.headword_ryaku {
+    font-family: Mygothic;
+}
+.headword_ryakutuzuri {
+    display: block;
+}
+.headword_gen {
+}
+.headword_gen:before {
+    content:"〈";
+}
+.headword_gen:after {
+    content:"〉";
+}
+.headword_waka {
+	font-size:1.2em;
+	font-weight:bold;
+}
+    .item_wakahaiku .headword_waka:after {
+        content:'俳句';
+    }
+    .item_wakatanka .headword_waka:after {
+        content:'和歌';
+    }
+    .headword_waka:after{
+        display:inline-block;
+        padding:0.02em;
+        margin-bottom:0.2em;
+        border:1px solid #ed028c;
+        border-radius:0.35em;
+        line-height:1em;
+        font-size:0.75em;
+        font-weight:normal;
+        color:#ed028c;
+        white-space:nowrap;
+        font-family:Mygothic;
+    }
+
+.headword_koyuhyoki {
+}
+.headword_kanyo {
+    padding-top:0.5em;
+    font-weight:bold;
+    font-family:Mygothic;
+}
+.headword_rekishikana {
+}
+.headword_gendaikana {
+}
+.headword_kanjihyouki_jinmei {
+	font-size:1.8em;
+    line-height: 1.0em;
+}
+.headword_kanjihyouki_joyo {
+	font-size:1.8em;
+    line-height: 1.0em;
+}
+.headword_kanjihyouki_joyohyogaion {
+	font-size:1.8em;
+    line-height: 1.0em;
+}
+.headword_kanjihyouki_kyuji {
+    font-size:1.3em;
+}
+.headword_kanjihyouki_kyujijinmei {
+    font-size:1.3em;
+}
+.headword_kanjihyouki_kyoyotai {
+    font-size:1.3em;
+}
+.headword_hyouki {
+	display:inline-block;
+	line-height:1.0em;
+	font-size: 1.1em;
+}
+.headword_jikunjoyo {
+	/*display:table-row;*/
+	line-height:1.0em;
+	font-size: 0.8em;
+}
+.headword_jikunhyogai {
+	/*display:table-row;*/
+	line-height:1.0em;
+	font-size: 0.8em;
+}
+.headword_onkunjoyo {
+	/*display:table-row;*/
+	line-height:1.0em;
+	font-size: 0.8em;
+}
+.headword_onkunhyogai {
+	/*display:table-row;*/
+	line-height:1.0em;
+	font-size: 0.8em;
+}
+.headword_onkunyomi_area {
+    display:inline-table;
+    padding-top:0.1em;
+    vertical-align:-webkit-baseline-middle;
+}
+.headword_haitogakunen {
+	display:inline-block;
+	padding:0 0.5em;
+	font-family:Mygothic;
+    font-size: 0.8em;
+    line-height: 1.1em;
+    -ms-writing-mode:lr-tb;
+	-webkit-writing-mode:horizontal-tb;
+	writing-mode:horizontal-tb;
+	border:1px solid white;
+	border-radius:0.8em;
+}
+
+.headword_kana +.headword_rekishikana {
+    padding-top: 0.5em;
+}
+
+.head_kanji_data {
+    display:inline-block;
+	border:1px solid var(--midashi_color);
+	white-space:nowrap;
+	line-height:1.1em;
+	padding:0.1em 0;
+}
+.head_kaku {
+    display:inline-block;
+    padding:0 0.4em;
+	-ms-writing-mode:lr-tb;
+	-webkit-writing-mode:horizontal-tb;
+	writing-mode:horizontal-tb;
+	font-size:0.7em;
+	white-space:nowrap;
+	line-height:1.1em;
+	border-bottom:1px dashed var(--midashi_color);
+}
+.head_bushu_data {
+	-ms-writing-mode:lr-tb;
+	-webkit-writing-mode:horizontal-tb;
+	writing-mode:horizontal-tb;
+	font-size:0.7em;
+	line-height:1.1em;
+	white-space:nowrap;
+}
+.head_bushu {
+}
+.head_bushu_kaku {
+}
+
+.jigi {
+    padding-top:1em;
+}
+.jigi_kakko {
+    font-weight:bold;
+}
+.jigi .mean_normal{ /* 20240313 FB82 */
+    padding-top:0em;
+}
+
+.mean_hajimari {
+    padding-top:1em;
+}
+    .mean_hajimari:before {
+        content:'はじまり';
+        display:inline-block;
+        padding:0.1em;
+        margin-bottom:0.2em;
+        border:1px solid #ed028c;
+        border-radius:0.35em;
+        line-height:1em;
+        font-size:0.7em;
+        color:#ed028c;
+        white-space:nowrap;
+	    font-family:Mygothic;
+    }
+.mean_column_honmon {
+    padding-top:1em;
+}
+.mean_chusingi {
+    padding-top:1em;
+	font-weight:bold;
+}
+    .mean_chusingi:before {
+        content:'｟';
+        color:#ec008d;
+    }
+    .mean_chusingi:after {
+        content:'｠';
+        color:#ec008d;
+    }
+.mean_jinmei {
+    padding-top:1em;
+}
+    .mean_jinmei:before {
+        content:'人名';
+    }
+.mean_sanko {
+    padding-top:1em;
+}
+    .mean_sanko:before {
+        content:'参考';
+    }
+.mean_yoho {
+    padding-top:1em;
+}
+    .mean_yoho:before {
+        content:'用法';
+    }
+.mean_nandoku {
+    padding-top:1em;
+}
+    .mean_nandoku:before {
+        content:'難読';
+    }
+.mean_wakazenbun {
+    padding-top:1em;
+}
+    .mean_jinmei:before,
+    .mean_sanko:before,
+    .mean_yoho:before,
+    .mean_nandoku:before{
+        display:inline-block;
+        padding:0.02em;
+        margin-bottom:0.2em;
+        border:1px solid #ed028c;
+        border-radius:0.35em;
+        line-height:1em;
+        font-size:0.75em;
+        color:#ed028c;
+        white-space:nowrap;
+        font-family:Mygothic;
+    }
+.mean_sansho {
+    padding-top:1em;
+}
+.mean_wakasakusha {
+    padding-top:1em;
+}
+    .mean_wakasakusha:before {
+        content:'〈';
+    }
+    .mean_wakasakusha:after {
+        content:'〉';
+    }
+.mean_wakakaishaku {
+    padding-top:1em;
+}
+.mean_hensen {
+    padding-top:1em;
+}
+    .mean_hensen:before {
+        content:'【変遷】';
+        color:#ec008d;
+    }
+.mean_koji {
+    padding-top:1em;
+}
+    .mean_koji:before {
+        content:'【故事】';
+        color:#ec008d;
+    }
+    .mean_hensen:before,
+    .mean_koji:before {
+        font-webkit:bold;
+        font-family:Mygothic;
+    }
+.mean_katuyo {
+    padding-top:1em;
+}
+
+.mean_gogen {
+    margin-top: 1em;
+    padding: 0 0.5em 0 0.5em;
+    position: relative;
+}
+.mean_gogen_waku {
+    /*display: inline-block;*/
+    position:absolute;
+    right: 0.3em;
+    /*padding: 0.1em;*/
+    /*margin-bottom: 0.2em;*/
+    border: 1px solid #ec008d;
+    border-radius: 0.35em;
+    /*line-height: 1.2em;*/
+    font-size: 0.8em;
+    color: #ed028c;
+    background-color:var(--body_background_color);
+    white-space: nowrap;
+    font-family: Mygothic;
+}
+    .mean_gogen_waku:before {
+        content: '語源';
+    }
+.mean_gogen_line {
+    /*position: absolute;*/
+    margin: 0.2em 0.0em 0em 0em;
+    padding: 0.6em 1.0em 0 0;
+    background-image: linear-gradient(to right, #ec008d 2px, transparent 2px);
+    background-size: 3px 0.4em;
+    background-repeat: repeat-x;
+ }
+.mean_gogen_line_del {
+    /*position: absolute;*/
+    margin: 0.2em 0.0em 0em 0em;
+    padding: 0.6em 1.0em 0 0;
+ }
+.mean_gogen_line_del .mean_gogen_content {
+    margin-top: -0.7em;
+    text-indent: 2em;
+}
+.mean_gogen_content {
+     margin-right: -1.2em;
+     /*margin-top: 0.4em;*/
+     text-indent: 1.5em;
+     /*line-height: 1.4em;*/
+}
+.mean_gogen_content .gj_kkaeri { /*20240227 FB.34*/
+    text-indent: 0.0em;
+}
+.mean_ruigo {
+    padding-top:1em;
+}
+    .mean_ruigo:before {
+        content:'類語';
+
+        display: inline-block;
+        padding: 0.02em;
+        margin-bottom: 0.2em;
+        border: 1px solid #ec008d;
+        border-radius: 0.35em;
+        line-height: 1em;
+        font-size: 0.75em;
+        color: white;
+        background-color: #ec008d;
+        white-space: nowrap;
+        font-family: Mygothic;
+    }
+.mean_kanrengo {
+    padding:1em 1em;
+}
+.mean_normal {
+    padding-top:1em;
+}
+
+.mean_lv_1 {
+    padding-top:1em;
+}
+.mean_lv_2 {
+    padding-top:1em;
+}
+.mean_lv_1~.mean_lv_2 {
+	padding-top:1.0em;
+}
+.jigi .mean_lv_2 {
+    padding-top: 0em;
+}
+.mean_no_gothic {
+    font-family: Mygothic;
+}
+.mean_no_1 {
+}
+.mean_no_2 {
+}
+.mean_no_3 {
+}
+.mean_no_4 {
+}
+.mean_no_5 {
+}
+.mean_no_6 {
+}
+.mean_no_7 {
+}
+.mean_no_8 {
+}
+.mean_no_9 {
+}
+.mean_no_10 {
+}
+.mean_no_11 {
+}
+.mean_no_12 {
+}
+.mean_no_13 {
+}
+.mean_no_14 {
+}
+.mean_no_15 {
+}
+.mean_no_16 {
+}
+.mean_no_17 {
+}
+.mean_no_18 {
+}
+.mean_no_19 {
+}
+.mean_no_20 {
+}
+.mean_no_21 {
+}
+.hidden {
+	display:none;
+}
+
+.img_hyo {
+	display:inline-block;
+	height:90vh;
+	/* 白黒反転使ってみる */
+	filter:invert(var(--img_filter_invert));
+}
+.img_table {
+}
+.img_tablekeigo {
+}
+.img_tablehyogenruigo {
+}
+
+.img_mj {
+	display:inline-block;
+	filter:invert(var(--img_filter_invert));
+	height:1em;
+}
+
+.img_hitsujun {
+	height:18em;
+	max-width:5em;
+	filter:invert(var(--img_filter_invert));
+	border: solid 1px aliceblue;
+}
+.img_sashie {
+	display:inline-block;
+	margin-top:1em;
+	height:16em;
+	filter:invert(var(--img_filter_invert));
+}
+
+/* katsuyo = 折り畳みルビ調整クラス */
+.katsuyo {
+	display:inline-block;
+	font-size:0.5em;
+	line-height:1em;
+	/*font-family:"Myruby";*/
+	text-indent:0;
+	white-space:normal;
+	vertical-align:-webkit-baseline-middle;
+}
+.katsuyo_11, .katsuyo_12 {
+	height:6.7em;
+}
+.katsuyo_13, .katsuyo_14 {
+	height:7.8em;
+}
+.katsuyo_15, .katsuyo_16 {
+	height:8.9em;
+}
+.katsuyo_17, .katsuyo_18 {
+	height:9.9em;
+}
+.katsuyo_19, .katsuyo_20 {
+	height:10.9em;
+}
+.katsuyo_21, .katsuyo_22 {
+	height:11.9em;
+}
+.katsuyo_23, .katsuyo_24 {
+	height:12.9em;
+}
+.katsuyo_25, .katsuyo_26 {
+	height:13.9em;
+}
+.katsuyo_27, .katsuyo_28 {
+	height:14.9em;
+}
+.katsuyo_29, .katsuyo_30 {
+	height:15.9em;
+}
+.katsuyo_31, .katsuyo_32 {
+	height:16.9em;
+}
+.katsuyo_33, .katsuyo_34 {
+	height:17.9em;
+}
+.katsuyo_35, .katsuyo_36 {
+	height:14.9em;
+}
+
+/* ka = 括弧調整クラス */
+.ka_rayaku {
+}
+.ka_koyuhyoki {
+}
+.ka_kanjijinmei {
+}
+.ka_kanjijoyo {
+}
+.ka_kanjijoyohyogaion {
+}
+.ka_kanjikyuji {
+}
+.ka_kanjikyujijinmei {
+}
+.ka_kanjikyoyotai {
+}
+.ka_hyoki {
+}
+.ka_kanrengo {
+    color: #ed028c;
+    padding: 0.2em;
+}
+
+/* mj = 文字調整クラス */
+.mj_kaku {
+}
+.mj_sup {
+	position:relative;
+	left:0.2em;
+	bottom:0.5em;
+	font-size:0.5em;
+}
+.mj_num_sup {
+	position:relative;
+	left:0.15em;
+	bottom:0.8em;
+	font-size:0.5em;
+}
+.mj_num_sub {
+	position:relative;
+	/*left:0.45em;
+	bottom:0.05em;*/
+	font-size:0.5em;
+}
+.mj_hyphen {
+    position:relative;
+    right:0.0em;
+    margin:0.1em 0;
+}
+.mj_minus {
+    padding:0.2em 0;
+    /* 縦書き半角文字のため、シャドウはY軸にずらして-を延長します */
+    text-shadow:0 0.2em var(--body_color);
+}
+.mj_equal {
+    position: relative;
+    right: -0.05em;
+}
+.mj_double_paren {
+    position: relative;
+    right: -0.1em;
+}
+.mj_inflec {
+    letter-spacing:0;
+}
+.mj_nowrap {
+    white-space:nowrap;
+}
+.mj_toon {
+    margin-top: 0.5em
+}
+.mj_dakuten {
+    position: relative;
+    left: 0.6em;
+}
+.mj_italic { /*20240229 FB32*/
+    font-style: italic;
+}
+
+/* gj = 文字外字調整クラス */
+.gj {
+    display:inline-block;
+    height:0.9em;
+    width:0.9em;
+    /* 外字ベース色:#ed028c; filter:彩度0％ コントラスト500% 色反転（0% or 100%）により黒 or 白に色変更 */
+    filter:saturate(0%) contrast(500%) invert(var(--img_filter_invert));
+}
+.gj svg {
+    height:0.9em;
+    width:0.9em;
+}
+.gj_s {
+    font-size: 0.7em;
+}
+.gj_half {
+    display:inline-block;
+    margin:-0.1em 0;
+    width:1.0em;
+    /* 外字ベース色:#ed028c; filter:彩度0％ コントラスト500% 色反転（0% or 100%）により黒 or 白に色変更 */
+    filter:saturate(0%) contrast(500%) invert(var(--img_filter_invert));
+    vertical-align:bottom;
+}
+.gj_half svg {
+    width:1.0em;
+}
+.head_bushu .gj svg {
+    position:relative;
+    top:0.1em;
+}
+.gj_trans_rotate45 {
+    transform: rotate( 45deg );
+    display:inline-block;
+    font-size:0.8em;
+}
+.gj_trans_rotate_reflect {
+    /*transform: scale(-1, 1);*/
+    display:inline-block;
+    font-size:1.0em;
+}
+.gj_lvSubdot {
+    position: relative;
+    top: -0.3em;
+    left: -0.0em;
+    letter-spacing: -0.5em;
+}
+.gj_kkaeri {
+    position: relative;
+    left: -0.5em;
+    /* top: -1em; */
+    display: inline-block;
+    font-size: 0.5em;
+    line-height: 1em;
+    /*font-family: "Myruby";*/
+}
+.gj_pr {
+    font-size:0.9em;
+}
+
+/* kg_ = 記号外字調整クラス */
+.kg_red {
+    color:#ed028c;
+}
+.kg_hor {
+    -ms-writing-mode:lr-tb;
+    -webkit-writing-mode:horizontal-tb;
+    -writing-mode:horizontal-tb;
+}
+/* bsk ブラック・スクエア・漢（数）字 */
+.kg_bsk {
+	/*display:inline-block;*/
+	padding:0.05em;
+	background-color:var(--body_color);
+	color:var(--body_background_color);
+	border-radius:0.15em;
+	line-height:1em;
+	font-size:0.9em;
+	font-family:Mygothic;
+}
+/* bsk ホワイト・スクエア・漢（数）字 */
+.kg_wsk {
+	/*display:inline-block;*/
+	padding:0 0.05em;
+	margin-bottom:0.1em;
+	border:1px solid var(--body_color);
+	border-radius:0.15em;
+	line-height:1em;
+	font-size:0.9em;
+	font-family:Mygothic;
+}
+.kg_circle {
+	display:inline-block;
+	padding:0.25em 0.15em 0 0.15em;
+	height:1.1em;
+	-ms-writing-mode:lr-tb;
+	-webkit-writing-mode:vertical-rl;
+	writing-mode:lr-tb;
+	line-height:0.9em;
+	font-size:0.73em;
+	font-weight:normal;
+	border:1px solid var(--body_color);
+	border-radius:1em;
+}
+.kg_circle_number_double_w {
+    font-family: Mygothic;
+    display: inline-block;
+    border:1px solid var(--body_color);
+    border-radius: 1.0em;
+    color: var(--body_color);
+    /*line-height: 1.0em;*/
+    padding: 0.3em 0.2em 0.3em 0.2em;
+    margin: -0.3em -0.3em -0.3em -0.3em;
+    transform: scale(0.6);
+}
+/* pgb ピンク・ゴシック・ボーダー */
+.kg_icon_pgb {
+	display:inline-block;
+	padding:0.02em;
+	margin-bottom:0.2em;
+	border:1px solid #ed028c;
+	border-radius:0.35em;
+	line-height:1em;
+	font-size:0.75em;
+	color:#ed028c;
+	white-space:nowrap;
+	font-family:Mygothic;
+}
+/* pmb ピンク・明朝・ボーダー */
+.kg_icon_pmb {
+	display:inline-block;
+	padding:0.02em;
+	margin-bottom:0.2em;
+	border:1px solid #ed028c;
+	border-radius:0.2em;
+	line-height:1em;
+	font-size:0.75em;
+	color:#ed028c;
+	white-space:nowrap;
+}
+/* bgb ブラック・ゴシック・ボーダー */
+.kg_icon_bgb {
+    display:inline-block;
+	padding:0.02em;
+	margin-bottom:0.2em;
+	border:1px solid var(--body_color);
+	border-radius:0.35em;
+	line-height:1em;
+	font-size:0.75em;
+	color:var(--body_color);
+	white-space:nowrap;
+	font-family:Mygothic;
+}
+/* bgs ブラック・ゴシック・スクエア（角括弧） */
+.kg_icon_bgs {
+    display:inline-block;
+	padding:0.02em;
+	margin-bottom:0.2em;
+	line-height:1em;
+	font-size:0.9em;
+	color:var(--body_color);
+	white-space:nowrap;
+	font-family:Mygothic;
+}
+.kg_icon_bgs:before {
+    content:'［';
+    font-size:0.9em;
+    color:var(--body_color);
+    font-family:Mygothic;
+    font-weight:bold;
+}
+.kg_icon_bgs:after {
+    content:'］';
+    font-size:0.9em;
+    color:var(--body_color);
+    font-family:Mygothic;
+    font-weight:bold;
+}
+/* bgr ブラック・ゴシック・ラウンド（丸括弧） */
+.kg_icon_bgr {
+    display:inline-block;
+	padding:0.02em;
+	margin-bottom:0.2em;
+	line-height:1em;
+	font-size:0.9em;
+	color:var(--body_color);
+	white-space:nowrap;
+	font-family:Mygothic;
+}
+.kg_icon_bgr:before {
+    content:'｟';
+    font-size:0.9em;
+    color:var(--body_color);
+    font-family:Mygothic;
+}
+.kg_icon_bgr:after {
+    content:'｠';
+    font-size:0.9em;
+    color:var(--body_color);
+    font-family:Mygothic;
+}
+.kg_bc21 {
+	display:inline-block;
+	padding:0.1em 0.25em 0.1em 0.15em;
+    -ms-writing-mode:lr-tb;
+ 	-webkit-writing-mode:horizontal-tb;
+ 	writing-mode:horizontal-tb;
+	line-height:1em;
+	font-size:0.7em;
+	letter-spacing:-0.2em;
+	color:var(--body_background_color);
+	background-color:var(--body_color);
+	border-radius:1em;
+	white-space:nowrap;
+}
+.kg_dbw, .kg_dwb {
+	display:inline-block;
+	margin-bottom:0.5em;
+	white-space:nowrap;
+	font-size:0.7em;
+	letter-spacing:-0.28em;
+}
+.kg_eq {
+}
+.kg_prime {
+	display:inline-block;
+	padding:0.25em 0.15em 0 0.15em;
+	height:1.1em;
+	-ms-writing-mode:lr-tb;
+	-webkit-writing-mode:vertical-rl;
+	writing-mode:lr-tb;
+	line-height:0.9em;
+	font-size:1.0em;
+	font-weight:normal;
+}
+.kg_kuji {
+	white-space:nowrap;
+}
+.kg_kuji_daku {
+	white-space:nowrap;
+}
+.kg_double_dash {
+}
+.kg {
+    display:inline-block;
+    height:0.9em;
+    width:0.9em;
+    text-indent:0;
+}
+.kg_line_1 {
+    display:inline-block;
+    white-space:nowrap;
+}
+.kg_line_1 svg {
+    display:inline-block;
+    margin:0 0 0.15em 0;
+    height:1.0em;
+    /* 外字ベース色:#ed028c; filter:彩度0％ コントラスト500% 色反転（0% or 100%）により黒 or 白に色変更 */
+    filter:saturate(0%) contrast(500%) invert(var(--img_filter_invert));
+    vertical-align:baseline;
+}
+.kg_line_2 {
+    display:inline-block;
+    white-space:nowrap;
+}
+.kg_line_2 svg {
+    display:inline-block;
+    margin:0;
+    height:1.0em;
+    /* 外字ベース色:#ed028c; filter:彩度0％ コントラスト500% 色反転（0% or 100%）により黒 or 白に色変更 */
+    filter:saturate(0%) contrast(500%) invert(var(--img_filter_invert));
+    vertical-align:baseline;
+}
+.kg_ref {
+}
+.kg_reten {
+}
+.kg_ryaku_ya {
+}
+.kg_wasei {
+}
+[class*="kg_0"] svg, [class*="kg_1"] svg, [class*="kg_2"] svg, [class*="kg_3"] svg,
+[class*="kg_4"] svg, [class*="kg_5"] svg {
+    display:inline-block;
+    height:0.9em;
+    width:0.9em;
+    /* 外字ベース色:#ed028c; filter:彩度0％ コントラスト500% 色反転（0% or 100%）により黒 or 白に色変更 */
+    filter:saturate(0%) contrast(500%) invert(var(--img_filter_invert)) !important;
+}
+.kg_dkkr_ratete { /* FB 77 */
+	display: inline-block;
+    transform: rotate(90deg);
+    vertical-align: text-top;
+}
+.kg_rep_rotate { /* FB 77 */
+	display: inline-block;
+    transform: rotate(90deg);
+    vertical-align: text-top;
+}
+.kg_ne_rotate {
+}
+.kg_minus_rotate {
+}
+.kg_minus_no_rotate {
+	display: inline-block;
+    transform: rotate(90deg);
+}
+.kg_colon_rotate {
+	display: inline-block;
+    transform: rotate(90deg);
+}
+.kg_01 {
+}
+.kg_02 {
+}
+.kg_03 {
+}
+.kg_04 {
+}
+.kg_04_3 {
+}
+.kg_05 {
+}
+.kg_05_2 {
+}
+.kg_05_1 {
+}
+.kg_05_3 {
+}
+.kg_06 {
+}
+.kg_07 {
+}
+.kg_07_1 {
+}
+.kg_08 {
+}
+.kg_09 {
+}
+.kg_10 {
+}
+.kg_11 {
+}
+.kg_12 {
+}
+.kg_13 {
+}
+.kg_14 {
+}
+.kg_15 {
+    margin:0.3em 0;
+    height:0.5em;
+    width:0.5em;
+}
+.kg_15 svg {
+    position:relative;
+    right:-0.25em;
+    height:0.5em;
+    width:0.5em;
+}
+.kg_16 {
+    margin:0.3em 0;
+    height:0.5em;
+    width:0.5em;
+}
+.kg_16 svg {
+    height:0.5em;
+    width:0.5em;
+}
+.kg_17 {
+}
+.kg_18 {
+}
+.kg_19 {
+}
+.kg_20 {
+}
+.kg_21 {
+}
+.kg_22 {
+}
+.kg_23 {
+}
+.kg_24 {
+}
+.kg_25 {
+}
+.kg_26 {
+}
+.kg_27 {
+}
+.kg_28 {
+}
+.kg_29 {
+}
+.kg_30 {
+}
+.kg_31 {
+}
+.kg_32 {
+}
+.kg_33 {
+}
+.kg_34 {
+}
+.kg_35 {
+}
+.kg_36 {
+}
+.kg_37 {
+}
+.kg_38 {
+}
+.kg_39 {
+}
+.kg_40 {
+}
+.kg_41 {
+}
+.kg_42 {
+}
+.kg_43 {
+}
+.kg_44 {
+}
+.kg_45 {
+}
+.kg_46 {
+}
+.kg_47 {
+}
+.kg_48 {
+}
+.kg_49 {
+}
+.kg_50 {
+}
+.kg_51 {
+}
+.kg_52 {
+}
+.lang {
+	display:inline-block;
+	padding-bottom:0.2em;
+	font-size:0.75em;
+}
+.link {
+}
+/* mlg = 折り畳みルビ調整クラス */
+.mlg {
+	display:inline-block;
+	font-size:0.5em;
+	line-height:1em;
+	/*font-family:"Myruby";*/
+	text-indent:0;
+	white-space:normal;
+	vertical-align:-webkit-baseline-middle;
+}
+.mlg_1 {
+	height:1.2em;
+	vertical-align:middle;
+}
+.mlg_2 {
+	height:2.3em;
+	vertical-align:middle;
+}
+.mlg_3, .mlg_4  {
+	height:2.3em;
+}
+.mlg_5, .mlg_6 {
+	height:3.4em;
+}
+.mlg_7, .mlg_8 {
+	height:4.5em;
+}
+.mlg_9, .mlg_10 {
+	height:5.6em;
+}
+.mlg_11, .mlg_12 {
+	height:6.7em;
+}
+.mlg_13, .mlg_14 {
+	height:7.8em;
+}
+.mlg_15, .mlg_16 {
+	height:8.9em;
+}
+.mlg_17 {
+	height:9.9em;
+}
+
+.pos {
+    display:inline-block;
+    line-height:1em;
+    padding:0.05em;
+    border:1px solid var(--body_color);
+    border-radius:0.25em;
+    color:var(--body_color);
+    font-size:0.8em;
+}
+.pos_s {
+}
+    .pos_s:before {
+        content:'（';
+        font-weight:bold;
+    }
+    .pos_s:after {
+        content:'）';
+        font-weight:bold;
+    }
+
+.pr {
+}
+
+.slabel {
+}
+    .slabel:before {
+        content:'〘';
+    }
+    .slabel:after {
+        content:'〙';
+    }
+.span_shuten {
+}
+    .span_shuten:before {
+        content:'〈';
+    }
+    .span_shuten:after {
+        content:'〉';
+    }
+.span_gengo {
+}
+    .span_gengo:before {
+        content:'〈';
+    }
+    .span_gengo:after {
+        content:'〉';
+    }
+.span_hyoki {
+}
+    .span_hyoki:before {
+        content:'【';
+    }
+    .span_hyoki:after {
+        content:'】';
+    }
+.span_rekikana {
+	display:inline-block;
+	font-size:0.5em;
+	line-height:1em;
+	/*font-family:"Myruby";*/
+	text-indent:0;
+	white-space:normal;
+	vertical-align:-webkit-baseline-middle;
+}
+.span_rekikana_2 {
+	height:2.3em;
+	vertical-align:middle;
+}
+.span_rekikana_4  {
+	height:2.3em;
+}
+
+
+.table {
+	margin-right:1em;
+}
+.table_keigo {
+	border-collapse:collapse;
+}
+.table_keigo th {
+	padding:0.4em 0;
+	border:1px solid #ed028c;
+	background-color:#ffdddd;
+	color:#000000;
+	font-family:Mygothic;
+}
+.table_keigo td {
+	border:1px solid #ed028c;
+	vertical-align:top;
+	padding:0.3em 0;
+}
+
+
+.column {
+	margin-right:1em;
+}
+.col_tigai_waku {
+	border:1px solid #ec008d;
+	height:93%;
+	margin-top: 0.5em;
+    padding: 0.5em;
+}
+    .col_tigai_waku:before {
+        content:'ちがい';
+    }
+    .col_tigai_waku:before,
+    .col_hyogen_waku:before {
+        display: inline-block;
+        padding: 0.02em;
+        margin-top: 0.2em;
+        margin-bottom: 0.2em;
+        border: 1px solid #ec008d;
+        border-radius: 0.35em;
+        line-height: 1em;
+        font-size: 0.75em;
+        color: white;
+        background-color: #ec008d;
+        white-space: nowrap;
+        font-family: Mygothic;
+    }
+.col_hyogen_waku {
+    padding-top: 1em;
+/*	border:1px solid #ec008d;
+	height:100%;*/
+}
+    .col_hyogen_waku:before {
+        content:'表現';
+    }
+.col_hyogen_waku .col_hyougen_title:before {
+    content:'〈';
+}
+.col_hyogen_waku .col_hyougen_title:after {
+    content:'〉';
+}
+.col_hyogen_waku .mean_column_honmon {
+    padding-top: 0em;
+    display: inline;
+}
+
+.col_simosetugo_waku {
+	height:100%;
+}
+    .col_simosetugo_waku:before {
+        content:'▼';
+        color:#ec008d;
+    }
+.col_tukaiwake_waku {
+	border: 1px solid #ec008d;
+    height: 93%;
+    margin-top: 0.5em;
+    padding: 0.5em;
+}
+    .col_tukaiwake_waku:before {
+        content:'使い分け';
+    }
+    .col_tukaiwake_waku:before {
+        display:inline-block;
+        padding:0.02em;
+        margin-bottom:0.2em;
+        border:1px solid #ed028c;
+        border-radius:0.35em;
+        line-height:1em;
+        font-size:0.75em;
+        color:#ed028c;
+        white-space:nowrap;
+        font-family:Mygothic;
+    }
+.col_tukaiwake_waku .mean_column_honmon {
+    padding-top: 0em;
+   /* display: inline; 20240309 KH FB No.39で再指摘 他の場所の対応のはず とりあえず消してみる */
+}
+.col_tukaiwake_waku b {
+    font-family: Mygothic;
+}
+
+.col_title {
+    font-weight:bold;
+    font-family: Mygothic;
+}
+
+.img_col_kaimei {
+	display:block;
+	margin-right:1em;
+	height:calc(30em);
+	background-color:#ffffff;
+}
+.xref {
+}
+
+.glabel:before {
+    content:'｟';
+}
+.glabel:after {
+    content:'｠';
+}
+.glabel_ryakugo {
+    font-size:0.9em;
+}
+
+.ymd {
+	display:inline-block;
+	font-size:0.5em;
+	line-height:1em;
+	/*font-family:"Myruby";*/
+	text-indent:0;
+	white-space:normal;
+	vertical-align:-webkit-baseline-middle;
+}
+.ymd_mama {
+}
+.em {
+	border-right:1px solid var(--body_color);
+}
+
+.ex_text {
+}
+.ex_text:before {
+	content:'「';
+	font-weight: bold;
+}
+.ex_text:after {
+	content:'」';
+	font-weight: bold;
+}
+.item_hyoron .ex_text::before {
+    content: "";
+}
+.item_hyoron .ex_text::after {
+    content: "";
+}
+.full_form {
+	margin-bottom:0.2em;
+}
+.item_ryaku .full_form {
+    margin-bottom:0;
+    margin-right:0.2em;
+}
+.item_ryaku .full_form:before {
+    content:"[";
+}
+.item_ryaku .full_form:after {
+    content:"]";
+}
+.tateyoko {
+ 	-ms-writing-mode:lr-tb;
+ 	-webkit-writing-mode:horizontal-tb;
+ 	writing-mode:horizontal-tb;
+}
+.tatenakakaiten {
+}
+
+.tatenakakaiten .mj_num_sup {
+	position:relative;
+	left:0.55em;
+	bottom:0.0em;
+}
+.tatenakakaiten .mj_num_sub {
+	position:relative;
+	left: -0.8em;
+}
+
+.item_ryaku b {
+    /*color:#ff0000;*/
+    font-family:Mygothic;
+}
+.item_ryaku .mlg {
+    vertical-align: baseline;
+}
+
+u {
+	text-decoration:none;
+	border-left:1px solid var(--body_color);
+}
+
+.table_yoten_vertical {
+}
+.table_yoten_horizontal {
+ 	-ms-writing-mode:lr-tb;
+ 	-webkit-writing-mode:horizontal-tb;
+ 	writing-mode:horizontal-tb;
+}
+.table_yoten_horizontal .mlg {
+    text-align:left;
+    vertical-align:baseline;
+    height:1em;
+}
+.table_yoten_vertical,
+.table_yoten_horizontal {
+	border-collapse:collapse;
+}
+.table_yoten_vertical td,
+.table_yoten_horizontal td {
+	white-space:nowrap;
+}
+.table_yoten_vertical td:last-child,
+.table_yoten_horizontal td:last-child {
+	white-space:normal;
+}
+
+/* ===== 响应式设计优化 ===== */
+
+/* 移动端适配 */
+@media screen and (max-width: 768px) {
+    .container {
+        flex-direction: column;
+        height: auto;
+    }
+    
+    .left-column {
+        flex-grow: 1;
+        margin-bottom: 20px;
+    }
+    
+    .middle-column {
+        width: 100%;
+        text-align: center;
+        margin: 10px 0;
+    }
+    
+    .right-column {
+        width: 100%;
+    }
+    
+    /* 调整字体大小 */
+    .headword_kana {
+        font-size: 1.2em !important;
+    }
+    
+    .headword_kanjihyouki_joyo {
+        font-size: 1.4em !important;
+    }
+    
+    /* 优化表格显示 */
+    table {
+        width: 100% !important;
+        font-size: 0.9em;
+    }
+    
+    /* 优化图片显示 */
+    .img_hitsujun {
+        max-width: 100%;
+        height: auto;
+    }
+}
+
+/* 平板设备适配 */
+@media screen and (min-width: 769px) and (max-width: 1024px) {
+    .container {
+        padding: 15px;
+    }
+    
+    .middle-column {
+        width: 80px;
+    }
+    
+    .right-column {
+        width: 30px;
+    }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+    /* 增加触摸目标大小 */
+    a, button {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 8px 12px;
+    }
+    
+    /* 优化文本选择 */
+    .mean_lv_2, .ex_text {
+        -webkit-user-select: text;
+        user-select: text;
+    }
+}
+
+/* 高分辨率屏幕优化 */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    /* 优化字体渲染 */
+    body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #1a1a1a;
+        color: #e0e0e0;
+    }
+    
+    .container {
+        background-color: #2d2d2d;
+        border: 1px solid #404040;
+    }
+    
+    .headword_kana {
+        color: #87ceeb !important;
+    }
+    
+    .headword_kanjihyouki_joyo {
+        color: #ffd700 !important;
+    }
+    
+    .mean_no_gothic {
+        color: #ff6b6b !important;
+    }
+    
+    .ex_text {
+        color: #90ee90 !important;
+    }
+    
+    .FindItem {
+        background-color: #ffa500;
+        border-color: #ffa500;
+        color: #000;
+    }
+}
+
+/* 打印样式优化 */
+@media print {
+    .container {
+        box-shadow: none;
+        border: none;
+        background: white;
+    }
+    
+    .middle-column img {
+        max-width: 100px;
+        height: auto;
+    }
+    
+    /* 隐藏不必要的元素 */
+    .navigation, .back-to-search {
+        display: none;
+    }
+    
+    /* 优化文本显示 */
+    body {
+        font-size: 12pt;
+        line-height: 1.4;
+    }
+    
+    .headword_kana, .headword_kanjihyouki_joyo {
+        font-size: 14pt;
+    }
+}
+
+/* 可访问性优化 */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* 高对比度模式 */
+@media (prefers-contrast: high) {
+    .headword_kana {
+        color: #0000ff !important;
+        font-weight: bold;
+    }
+    
+    .headword_kanjihyouki_joyo {
+        color: #000000 !important;
+        font-weight: bold;
+    }
+    
+    .mean_no_gothic {
+        color: #ff0000 !important;
+        font-weight: bold;
+    }
+    
+    .ex_text {
+        color: #008000 !important;
+        font-weight: bold;
+    }
+}
+
+/* 字体加载失败回退 */
+.font-fallback {
+    font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Meiryo', 'MS Gothic', sans-serif;
+}
+
+/* 性能优化 */
+.img_hitsujun {
+    will-change: auto;
+    transform: translateZ(0);
+}
+
+/* 内容优化 */
+.mean_lv_2 {
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+.ex_text {
+    word-break: keep-all;
+    overflow-wrap: break-word;
+}
+.entry:last-child {
+    margin-bottom: 0;
+}
