@@ -237,54 +237,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
       margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16, top: 30),
       child: Column(
         children: [
-          // 语言选择下拉框
-          Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              children: [
-                const Text(
-                  '选择语言：',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 230),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withValues(alpha: 30),
-                        spreadRadius: 0,
-                        blurRadius: 2,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<SearchLanguage>(
-                      value: selectedLanguage,
-                      isDense: true,
-                      style:
-                          const TextStyle(fontSize: 13, color: Colors.black87),
-                      items: SearchLanguage.values.map((language) {
-                        return DropdownMenuItem<SearchLanguage>(
-                          value: language,
-                          child: Text(language.displayName),
-                        );
-                      }).toList(),
-                      onChanged: (SearchLanguage? newLanguage) {
-                        if (newLanguage != null) {
-                          notifier.changeLanguage(newLanguage);
-                        }
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+ 
           // 搜索框
           Row(
             children: [
@@ -305,9 +258,28 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                   ),
                   child: Row(
                     children: [
-                      const SizedBox(width: 10),
-                      const Icon(Icons.search, color: Colors.grey, size: 16),
-                      const SizedBox(width: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 12.0, right: 4.0),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<SearchLanguage>(
+                            value: selectedLanguage,
+                            isDense: true,
+                            items: SearchLanguage.values.map((language) {
+                              return DropdownMenuItem<SearchLanguage>(
+                                value: language,
+                                child: Text(language == SearchLanguage.japanese
+                                    ? "日🔍"
+                                    : "英🔍"),
+                              );
+                            }).toList(),
+                            onChanged: (SearchLanguage? newLanguage) {
+                              if (newLanguage != null) {
+                                notifier.changeLanguage(newLanguage);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
                       Expanded(
                         child: TextField(
                           controller: _wordController,
