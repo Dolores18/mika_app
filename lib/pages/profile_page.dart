@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import '../controllers/bookmark_controller.dart';
 import '../controllers/update_controller.dart';
@@ -13,8 +14,9 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFFCE4EC),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -22,26 +24,49 @@ class ProfilePage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 标题
-              const Text(
-                '我的',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '我的',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: theme.textTheme.headlineSmall?.color,
+                    ),
+                  ),
+                  IconButton(
+                    icon: SvgPicture.asset(
+                      Get.isDarkMode
+                          ? 'assets/icons/sun.svg'
+                          : 'assets/icons/moon.svg',
+                      width: 24,
+                      height: 24,
+                      colorFilter: ColorFilter.mode(
+                        theme.colorScheme.onSurface,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    onPressed: () {
+                      Get.changeThemeMode(
+                        Get.isDarkMode ? ThemeMode.light : ThemeMode.dark,
+                      );
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: 30),
 
               // 用户信息卡片
-              _buildUserInfoCard(),
+              _buildUserInfoCard(context),
               const SizedBox(height: 20),
 
               // 功能列表
-              _buildFunctionList(),
+              _buildFunctionList(context),
               const SizedBox(height: 20),
 
               // 设置列表
-              _buildSettingsList(),
+              _buildSettingsList(context),
             ],
           ),
         ),
@@ -50,16 +75,17 @@ class ProfilePage extends StatelessWidget {
   }
 
   // 用户信息卡片
-  Widget _buildUserInfoCard() {
+  Widget _buildUserInfoCard(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: theme.cardColor.withOpacity(0.9),
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: theme.shadowColor.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -72,12 +98,12 @@ class ProfilePage extends StatelessWidget {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: const Color(0xFF6b4bbd).withOpacity(0.2),
+              color: theme.colorScheme.secondary.withOpacity(0.2),
               borderRadius: BorderRadius.circular(30),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.person,
-              color: Color(0xFF6b4bbd),
+              color: theme.colorScheme.secondary,
               size: 30,
             ),
           ),
@@ -88,12 +114,12 @@ class ProfilePage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   '英语学习者',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: theme.textTheme.titleMedium?.color,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -101,7 +127,7 @@ class ProfilePage extends StatelessWidget {
                   '继续你的学习之旅',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.grey[600],
+                    color: theme.textTheme.bodyMedium?.color,
                   ),
                 ),
               ],
@@ -111,7 +137,7 @@ class ProfilePage extends StatelessWidget {
           // 右箭头
           Icon(
             Icons.arrow_forward_ios,
-            color: Colors.grey[400],
+            color: theme.colorScheme.onSurface.withOpacity(0.4),
             size: 16,
           ),
         ],
@@ -120,14 +146,15 @@ class ProfilePage extends StatelessWidget {
   }
 
   // 功能列表
-  Widget _buildFunctionList() {
+  Widget _buildFunctionList(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: theme.cardColor.withOpacity(0.9),
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: theme.shadowColor.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -137,20 +164,22 @@ class ProfilePage extends StatelessWidget {
         children: [
           // 我的收藏
           Obx(() => _buildMenuItem(
+                context,
                 icon: Icons.bookmark,
                 title: '我的收藏',
                 subtitle: '${bookmarkController.bookmarkCount} 篇文章',
-                color: const Color(0xFF6b4bbd),
+                color: theme.colorScheme.secondary,
                 onTap: () {
                   log.i('点击我的收藏');
                   Get.to(() => BookmarkPage());
                 },
               )),
 
-          _buildDivider(),
+          _buildDivider(context),
 
           // 学习统计
           _buildMenuItem(
+            context,
             icon: Icons.bar_chart,
             title: '学习统计',
             subtitle: '查看学习进度',
@@ -164,10 +193,11 @@ class ProfilePage extends StatelessWidget {
             },
           ),
 
-          _buildDivider(),
+          _buildDivider(context),
 
           // 学习记录
           _buildMenuItem(
+            context,
             icon: Icons.history,
             title: '学习记录',
             subtitle: '查看学习历史',
@@ -186,14 +216,15 @@ class ProfilePage extends StatelessWidget {
   }
 
   // 设置列表
-  Widget _buildSettingsList() {
+  Widget _buildSettingsList(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: theme.cardColor.withOpacity(0.9),
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: theme.shadowColor.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -202,21 +233,22 @@ class ProfilePage extends StatelessWidget {
       child: Column(
         children: [
           // 应用更新
-          _buildUpdateMenuItem(),
+          _buildUpdateMenuItem(context),
 
-          _buildDivider(),
+          _buildDivider(context),
 
           // 安装权限设置
-          _buildInstallPermissionMenuItem(),
+          _buildInstallPermissionMenuItem(context),
 
-          _buildDivider(),
+          _buildDivider(context),
 
           // 设置
           _buildMenuItem(
+            context,
             icon: Icons.settings,
             title: '设置',
             subtitle: '个性化设置',
-            color: Colors.grey[600]!,
+            color: theme.colorScheme.onSurface.withOpacity(0.6),
             onTap: () {
               Get.snackbar(
                 '功能开发中',
@@ -226,29 +258,31 @@ class ProfilePage extends StatelessWidget {
             },
           ),
 
-          _buildDivider(),
+          _buildDivider(context),
 
           // 帮助与反馈
           _buildMenuItem(
+            context,
             icon: Icons.help_outline,
             title: '帮助与反馈',
             subtitle: '使用帮助和问题反馈',
             color: Colors.blue,
             onTap: () {
-              _showFeedbackDialog();
+              _showFeedbackDialog(context);
             },
           ),
 
-          _buildDivider(),
+          _buildDivider(context),
 
           // 关于
           _buildMenuItem(
+            context,
             icon: Icons.info_outline,
             title: '关于',
             subtitle: '版本信息',
             color: Colors.teal,
             onTap: () {
-              _showAboutDialog();
+              _showAboutDialog(context);
             },
           ),
         ],
@@ -257,13 +291,14 @@ class ProfilePage extends StatelessWidget {
   }
 
   // 菜单项
-  Widget _buildMenuItem({
+  Widget _buildMenuItem(BuildContext context, {
     required IconData icon,
     required String title,
     required String subtitle,
     required Color color,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(15),
@@ -294,10 +329,10 @@ class ProfilePage extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                      color: theme.textTheme.titleMedium?.color,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -305,7 +340,7 @@ class ProfilePage extends StatelessWidget {
                     subtitle,
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey[600],
+                      color: theme.textTheme.bodyMedium?.color,
                     ),
                   ),
                 ],
@@ -315,7 +350,7 @@ class ProfilePage extends StatelessWidget {
             // 右箭头
             Icon(
               Icons.arrow_forward_ios,
-              color: Colors.grey[400],
+              color: theme.colorScheme.onSurface.withOpacity(0.4),
               size: 16,
             ),
           ],
@@ -325,7 +360,8 @@ class ProfilePage extends StatelessWidget {
   }
 
   // 构建更新菜单项
-  Widget _buildUpdateMenuItem() {
+  Widget _buildUpdateMenuItem(BuildContext context) {
+    final theme = Theme.of(context);
     return Obx(() {
       final hasUpdate = updateController.hasUpdate;
       final isChecking = updateController.isCheckingUpdate;
@@ -394,10 +430,10 @@ class ProfilePage extends StatelessWidget {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black87,
+                            color: theme.textTheme.titleMedium?.color,
                           ),
                         ),
                         if (isChecking || isDownloading)
@@ -441,7 +477,7 @@ class ProfilePage extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 4),
                         child: LinearProgressIndicator(
                           value: updateController.downloadProgress / 100,
-                          backgroundColor: Colors.grey[200],
+                          backgroundColor: theme.colorScheme.surfaceVariant,
                           valueColor: AlwaysStoppedAnimation<Color>(iconColor),
                         ),
                       ),
@@ -459,7 +495,7 @@ class ProfilePage extends StatelessWidget {
               else
                 Icon(
                   Icons.arrow_forward_ios,
-                  color: Colors.grey[400],
+                  color: theme.colorScheme.onSurface.withOpacity(0.4),
                   size: 16,
                 ),
             ],
@@ -470,11 +506,12 @@ class ProfilePage extends StatelessWidget {
   }
 
   // 构建安装权限菜单项
-  Widget _buildInstallPermissionMenuItem() {
+  Widget _buildInstallPermissionMenuItem(BuildContext context) {
     return Obx(() {
       final canInstall = updateController.canInstall;
 
       return _buildMenuItem(
+        context,
         icon: Icons.security,
         title: '安装权限',
         subtitle: canInstall ? '已开启安装未知应用权限' : '需要开启安装未知应用权限',
@@ -525,18 +562,20 @@ class ProfilePage extends StatelessWidget {
   }
 
   // 分割线
-  Widget _buildDivider() {
+  Widget _buildDivider(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Divider(
-        color: Colors.grey[200],
+        color: theme.dividerColor,
         height: 1,
       ),
     );
   }
 
   // 显示反馈对话框
-  void _showFeedbackDialog() {
+  void _showFeedbackDialog(BuildContext context) {
+    final theme = Theme.of(context);
     Get.dialog(
       AlertDialog(
         title: const Text('帮助与反馈'),
@@ -579,14 +618,14 @@ class ProfilePage extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.1),
+                  color: theme.colorScheme.surfaceVariant,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.bug_report, color: Colors.grey),
-                    SizedBox(width: 8),
-                    Text('GitHub Issues'),
+                    Icon(Icons.bug_report, color: theme.colorScheme.onSurface),
+                    const SizedBox(width: 8),
+                    const Text('GitHub Issues'),
                   ],
                 ),
               ),
@@ -604,7 +643,8 @@ class ProfilePage extends StatelessWidget {
   }
 
   // 显示关于对话框
-  void _showAboutDialog() {
+  void _showAboutDialog(BuildContext context) {
+    final theme = Theme.of(context);
     Get.dialog(
       AlertDialog(
         title: const Text('关于'),
@@ -624,10 +664,10 @@ class ProfilePage extends StatelessWidget {
             // GitHub项目链接
             InkWell(
               onTap: updateController.openGitHubRepo,
-              child: const Text(
+              child: Text(
                 'GitHub：https://github.com/Dolores18/mika_app',
                 style: TextStyle(
-                  color: Colors.blue,
+                  color: theme.colorScheme.primary,
                   decoration: TextDecoration.underline,
                 ),
               ),
@@ -648,10 +688,10 @@ class ProfilePage extends StatelessWidget {
                 const SizedBox(width: 4),
                 InkWell(
                   onTap: updateController.openGitHubRelease,
-                  child: const Text(
+                  child: Text(
                     '点击访问',
                     style: TextStyle(
-                      color: Colors.blue,
+                      color: theme.colorScheme.primary,
                       decoration: TextDecoration.underline,
                       fontWeight: FontWeight.w500,
                     ),

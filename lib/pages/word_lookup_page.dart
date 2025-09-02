@@ -38,24 +38,6 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
     super.initState();
     log.i('初始化WordLookupPage');
 
-    // 设置全屏模式，让内容延伸到挖孔区域
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.edgeToEdge,
-      overlays: [SystemUiOverlay.top],
-    );
-
-    // 设置系统UI透明
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarIconBrightness: Brightness.dark,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
-      ),
-    );
-
     // 如果传入了待查询的单词，自动进行查询
     if (widget.wordToLookup != null && widget.wordToLookup!.isNotEmpty) {
       log.i('传入单词自动查询: ${widget.wordToLookup}');
@@ -73,6 +55,27 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    final theme = Theme.of(context);
+    final brightness = theme.brightness;
+
+    // 设置全屏模式，让内容延伸到挖孔区域
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+      overlays: [SystemUiOverlay.top],
+    );
+
+    // 设置系统UI透明
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        statusBarIconBrightness: brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: brightness == Brightness.dark ? Brightness.dark : Brightness.light,
+      ),
+    );
 
     // 延迟执行，确保不在构建过程中调用
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -199,7 +202,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
           }
         },
         child: Scaffold(
-          backgroundColor: const Color(0xFFFCE4EC), // 使用淡粉红色作为背景色
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           // 移除SafeArea，使用自定义padding来适配挖孔屏
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -232,6 +235,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
   Widget _buildSearchBar(WordLookupNotifier notifier) {
     final isAiMode = ref.watch(isAiModeProvider);
     final selectedLanguage = ref.watch(selectedLanguageProvider);
+    final theme = Theme.of(context);
 
     return Container(
       margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16, top: 30),
@@ -245,11 +249,11 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                 child: Container(
                   height: 36,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 230),
+                    color: theme.cardColor.withAlpha(230),
                     borderRadius: BorderRadius.circular(36),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withValues(alpha: 30),
+                        color: theme.shadowColor.withAlpha(30),
                         spreadRadius: 0,
                         blurRadius: 2,
                         offset: const Offset(0, 1),
@@ -345,9 +349,9 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.all(4),
-                                    child: const Icon(
+                                    child: Icon(
                                       Icons.clear,
-                                      color: Colors.grey,
+                                      color: theme.colorScheme.onSurface.withOpacity(0.6),
                                       size: 16,
                                     ),
                                   ),
@@ -366,7 +370,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                         icon: Icon(
                           Icons.auto_awesome,
                           color:
-                              isAiMode ? const Color(0xFF6b4bbd) : Colors.grey,
+                              isAiMode ? theme.colorScheme.secondary : Colors.grey,
                           size: 18,
                         ),
                         tooltip: isAiMode ? 'AI模式已开启' : 'AI模式已关闭',
@@ -399,12 +403,12 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                         minWidth: 60,
                         height: 28,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        child: const Text(
+                        child: Text(
                           '查询',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF6b4bbd),
+                            color: theme.colorScheme.secondary,
                           ),
                         ),
                       ),
@@ -427,6 +431,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
     WordLookupState state,
     WordLookupNotifier notifier,
   ) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 16, top: 8),
       child: Row(
@@ -484,7 +489,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6b4bbd).withOpacity(0.1),
+                      color: theme.colorScheme.secondary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Row(
@@ -493,14 +498,14 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                         Icon(
                           Icons.auto_awesome,
                           size: 12,
-                          color: const Color(0xFF6b4bbd),
+                          color: theme.colorScheme.secondary,
                         ),
                         const SizedBox(width: 2),
                         Text(
                           'AI',
                           style: TextStyle(
                             fontSize: 12,
-                            color: const Color(0xFF6b4bbd),
+                            color: theme.colorScheme.secondary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -513,7 +518,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
           IconButton(
             icon: Icon(
               Icons.auto_awesome,
-              color: state.isAiMode ? const Color(0xFF6b4bbd) : Colors.grey,
+              color: state.isAiMode ? theme.colorScheme.secondary : Colors.grey,
             ),
             onPressed: () => notifier.toggleAiMode(),
             tooltip: state.isAiMode ? '切换为普通模式' : '切换为AI模式',
@@ -525,6 +530,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
 
   // AI内容UI
   Widget _buildAIContent(WordLookupState state) {
+    final theme = Theme.of(context);
     return Expanded(
       child: Container(
         width: double.infinity,
@@ -548,47 +554,47 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                             data: state.explanation,
                             selectable: true,
                             styleSheet: MarkdownStyleSheet(
-                              h1: const TextStyle(
+                              h1: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: theme.textTheme.bodyLarge?.color,
                               ),
-                              h2: const TextStyle(
+                              h2: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: theme.textTheme.bodyLarge?.color,
                               ),
-                              h3: const TextStyle(
+                              h3: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: theme.textTheme.bodyLarge?.color,
                               ),
-                              p: const TextStyle(
+                              p: TextStyle(
                                 fontSize: 14,
                                 height: 1.5,
-                                color: Colors.black87,
+                                color: theme.textTheme.bodyLarge?.color,
                               ),
                               code: TextStyle(
                                 fontSize: 12,
-                                backgroundColor: Colors.grey[200],
+                                backgroundColor: theme.colorScheme.surfaceVariant,
                                 fontFamily: 'monospace',
                               ),
                               codeblockDecoration: BoxDecoration(
-                                color: Colors.grey[200],
+                                color: theme.colorScheme.surfaceVariant,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              blockquote: const TextStyle(
+                              blockquote: TextStyle(
                                 fontSize: 14,
                                 height: 1.5,
-                                color: Colors.black54,
+                                color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
                                 fontStyle: FontStyle.italic,
                               ),
                               blockquoteDecoration: BoxDecoration(
-                                color: Colors.grey[100],
+                                color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border(
                                   left: BorderSide(
-                                    color: Colors.grey[400]!,
+                                    color: theme.dividerColor,
                                     width: 4,
                                   ),
                                 ),
@@ -608,8 +614,8 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
               const SizedBox(height: 8),
               const Center(child: LinearProgressIndicator()),
               const SizedBox(height: 8),
-              const Center(
-                child: Text("继续加载中...", style: TextStyle(color: Colors.grey)),
+              Center(
+                child: Text("继续加载中...", style: TextStyle(color: theme.textTheme.bodySmall?.color)),
               ),
             ],
           ],
@@ -620,13 +626,14 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
 
   // 字典内容UI
   Widget _buildDictionaryContent(WordLookupState state) {
+    final theme = Theme.of(context);
     return Expanded(
       child: Container(
         width: double.infinity,
         margin: const EdgeInsets.symmetric(horizontal: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.6),
+          color: theme.cardColor.withOpacity(0.6),
           borderRadius: BorderRadius.circular(12),
         ),
         child: state.isLoading
@@ -636,10 +643,10 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                 children: [
                   Expanded(
                     child: state.dictResult == null
-                        ? const Center(
+                        ? Center(
                             child: Text(
                               '没有找到该单词的释义',
-                              style: TextStyle(color: Colors.grey),
+                              style: TextStyle(color: theme.textTheme.bodyMedium?.color),
                             ),
                           )
                         : SingleChildScrollView(
@@ -656,14 +663,15 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
 
   // 构建字典结果视图
   Widget _buildDictionaryResult(DictionaryResult result) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: theme.shadowColor.withOpacity(0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -685,7 +693,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                 const SizedBox(width: 8),
                 Text(
                   "[${result.phonetic}]",
-                  style: const TextStyle(fontSize: 16, color: Colors.grey),
+                  style: TextStyle(fontSize: 16, color: theme.textTheme.bodyMedium?.color),
                 ),
               ],
             ],
@@ -694,7 +702,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
           if (result.translation != null && result.translation!.isNotEmpty) ...[
             Text(
               "中文释义：${result.translation}",
-              style: const TextStyle(fontSize: 16, color: Colors.blue),
+              style: TextStyle(fontSize: 16, color: theme.colorScheme.primary),
             ),
             const SizedBox(height: 8),
           ],
@@ -708,14 +716,14 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
           if (result.tag != null && result.tag!.isNotEmpty) ...[
             Text(
               "词汇分类：${result.tag}",
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 14, color: theme.textTheme.bodySmall?.color),
             ),
             const SizedBox(height: 4),
           ],
           if (result.exchange != null && result.exchange!.isNotEmpty) ...[
             Text(
               "变形：${result.exchange}",
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 14, color: theme.textTheme.bodySmall?.color),
             ),
             const SizedBox(height: 4),
           ],
@@ -730,12 +738,12 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blue[100],
+                    color: theme.colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     "柯林斯星级：${result.collins}",
-                    style: TextStyle(fontSize: 12, color: Colors.blue[800]),
+                    style: TextStyle(fontSize: 12, color: theme.colorScheme.onPrimaryContainer),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -749,12 +757,12 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.red[100],
+                    color: theme.colorScheme.errorContainer,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     "牛津核心：${result.oxford}",
-                    style: TextStyle(fontSize: 12, color: Colors.red[800]),
+                    style: TextStyle(fontSize: 12, color: theme.colorScheme.onErrorContainer),
                   ),
                 ),
               ],
@@ -768,6 +776,7 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
   // 构建搜索建议列表
   Widget _buildSearchSuggestions(
       WordLookupState state, WordLookupNotifier notifier) {
+    final theme = Theme.of(context);
     // 只在日语模式下显示建议
     if (state.selectedLanguage != SearchLanguage.japanese) {
       return const SizedBox.shrink();
@@ -781,11 +790,11 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
     return Container(
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 240),
+        color: theme.cardColor.withAlpha(240),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withValues(alpha: 30),
+            color: theme.shadowColor.withAlpha(30),
             spreadRadius: 0,
             blurRadius: 4,
             offset: const Offset(0, 2),
@@ -796,19 +805,19 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (state.isLoadingSuggestions) ...[
-            const Padding(
-              padding: EdgeInsets.all(12),
+            Padding(
+              padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
-                  SizedBox(
+                  const SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
                     '搜索中...',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: theme.textTheme.bodySmall?.color),
                   ),
                 ],
               ),
@@ -838,32 +847,32 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
-                        color: Colors.grey.withValues(alpha: 20),
+                        color: theme.dividerColor.withAlpha(20),
                         width: 0.5,
                       ),
                     ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.search,
                         size: 16,
-                        color: Colors.grey,
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           suggestion['headword'] ?? '',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
-                            color: Colors.black87,
+                            color: theme.textTheme.bodyMedium?.color,
                           ),
                         ),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.north_west,
                         size: 14,
-                        color: Colors.grey,
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
                       ),
                     ],
                   ),
@@ -877,11 +886,11 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
                   width: double.infinity,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: const Text(
+                  child: Text(
                     '收起建议',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey,
+                      color: theme.textTheme.bodySmall?.color,
                     ),
                     textAlign: TextAlign.center,
                   ),

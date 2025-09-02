@@ -7,7 +7,7 @@ import 'services/database_service.dart';
 import 'utils/logger.dart';
 
 import 'pages/word_lookup_page.dart';
-import 'pages/reading_page.dart';
+import 'package:mika_app/pages/reading_page.dart' as reading_page;
 import 'pages/profile_page.dart';
 
 void main() async {
@@ -53,22 +53,22 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       title: 'AI 语言助手',
       theme: ThemeData(
-        primarySwatch: Colors.pink,
+        primarySwatch: Colors.grey,
         visualDensity: VisualDensity.adaptivePlatformDensity,
-        scaffoldBackgroundColor: const Color(0xFFFCE4EC), // 淡粉色
+        scaffoldBackgroundColor: Colors.white,
         colorScheme: ColorScheme.fromSwatch(
-          primarySwatch: Colors.pink,
+          primarySwatch: Colors.grey,
           accentColor: const Color(0xFF6b4bbd),
-          backgroundColor: const Color(0xFFFCE4EC),
+          backgroundColor: Colors.white,
           brightness: Brightness.light,
         ),
       ),
       darkTheme: ThemeData(
-        primarySwatch: Colors.pink,
+        primarySwatch: Colors.grey,
         visualDensity: VisualDensity.adaptivePlatformDensity,
         scaffoldBackgroundColor: const Color(0xFF121212), // 标准的深色主题背景
         colorScheme: ColorScheme.fromSwatch(
-          primarySwatch: Colors.pink,
+          primarySwatch: Colors.grey,
           accentColor: const Color(0xFF9D82E8), // 稍亮的紫色以提高对比度
           backgroundColor: const Color(0xFF121212),
           brightness: Brightness.dark,
@@ -93,7 +93,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _pages = [
     const Center(child: Text('首页')),
-    const ReadingPage(),
+    reading_page.ReadingPage(),
     const Center(child: Text('占位符')),
     ProfilePage(),
   ];

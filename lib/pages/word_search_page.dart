@@ -138,7 +138,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: theme.shadowColor.withOpacity(0.1),
             spreadRadius: 0,
             blurRadius: 8,
             offset: const Offset(0, 2),
@@ -166,7 +166,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
                   widget.title ?? '日语词典',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.grey[500],
+                    color: theme.textTheme.bodySmall?.color,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

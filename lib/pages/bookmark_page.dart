@@ -12,19 +12,21 @@ class BookmarkPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFCE4EC),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           '我的收藏',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            color: theme.textTheme.titleLarge?.color,
           ),
         ),
-        backgroundColor: const Color(0xFFFCE4EC),
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
+        iconTheme: theme.appBarTheme.iconTheme,
         actions: [
           Obx(() {
             // 只有当有收藏时才显示按钮
@@ -438,3 +440,4 @@ class BookmarkPage extends StatelessWidget {
     );
   }
 }
+  

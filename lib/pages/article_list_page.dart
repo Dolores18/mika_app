@@ -265,15 +265,18 @@ class _ArticleListPageState extends State<ArticleListPage> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.blueGrey.withOpacity(0.2),
+                            color:
+                                Theme.of(context).colorScheme.secondaryContainer,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             article.sectionTitle ?? '未分类',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              color: Colors.blueGrey,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSecondaryContainer,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -284,7 +287,7 @@ class _ArticleListPageState extends State<ArticleListPage> {
                             article.issueDate ?? '未知日期',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: Theme.of(context).textTheme.bodySmall?.color,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -304,14 +307,14 @@ class _ArticleListPageState extends State<ArticleListPage> {
                             Icon(
                               Icons.timer_outlined,
                               size: 14,
-                              color: Colors.grey[600],
+                              color: Theme.of(context).textTheme.bodySmall?.color,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               '${article.analysis!.readingTime} 分钟',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[600],
+                                color: Theme.of(context).textTheme.bodySmall?.color,
                               ),
                             ),
                             const SizedBox(width: 8),

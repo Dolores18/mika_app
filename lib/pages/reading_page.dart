@@ -223,8 +223,9 @@ class _ReadingPageState extends State<ReadingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFFCE4EC),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -277,12 +278,8 @@ class _ReadingPageState extends State<ReadingPage> {
                                         });
                                       }
                                     },
-                                    backgroundColor: Colors.white.withOpacity(
-                                      0.7,
-                                    ),
-                                    selectedColor: const Color(
-                                      0xFF6b4bbd,
-                                    ).withOpacity(0.2),
+                                    backgroundColor: theme.chipTheme.backgroundColor?.withOpacity(0.7),
+                                    selectedColor: theme.chipTheme.selectedColor?.withOpacity(0.2),
                                   ),
                                 );
                               }).toList(),
@@ -333,12 +330,12 @@ class _ReadingPageState extends State<ReadingPage> {
                                     },
                                     child: Container(
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.8),
+                                        color: theme.cardColor.withOpacity(0.8),
                                         borderRadius: BorderRadius.circular(12),
                                         boxShadow: [
                                           BoxShadow(
                                             color:
-                                                Colors.black.withOpacity(0.05),
+                                                theme.shadowColor.withOpacity(0.05),
                                             blurRadius: 5,
                                             offset: const Offset(0, 2),
                                           ),
@@ -351,7 +348,7 @@ class _ReadingPageState extends State<ReadingPage> {
                                           Icon(
                                             _getTopicIcon(topic['topic']),
                                             size: 32,
-                                            color: const Color(0xFF6b4bbd),
+                                            color: theme.colorScheme.secondary,
                                           ),
                                           const SizedBox(height: 8),
                                           Text(
@@ -363,7 +360,7 @@ class _ReadingPageState extends State<ReadingPage> {
                                           Text(
                                             '${topic['count']} 篇',
                                             style: TextStyle(
-                                              color: Colors.grey[600],
+                                              color: theme.textTheme.bodySmall?.color,
                                               fontSize: 12,
                                             ),
                                           ),
@@ -418,6 +415,7 @@ class _ReadingPageState extends State<ReadingPage> {
   }
 
   Widget _buildArticleCard(Article article) {
+    final theme = Theme.of(context);
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: InkWell(
@@ -448,7 +446,7 @@ class _ReadingPageState extends State<ReadingPage> {
               if (article.analysis != null)
                 Text(
                   article.analysis!.summary.short,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 14, color: theme.textTheme.bodyMedium?.color),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -463,14 +461,14 @@ class _ReadingPageState extends State<ReadingPage> {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6b4bbd).withOpacity(0.2),
+                      color: theme.colorScheme.secondary.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       article.sectionTitle ?? '未分类',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF6b4bbd),
+                        color: theme.colorScheme.secondary,
                       ),
                     ),
                   ),
@@ -478,14 +476,14 @@ class _ReadingPageState extends State<ReadingPage> {
                   // 日期
                   Text(
                     article.issueDate ?? '未知日期',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 12, color: theme.textTheme.bodySmall?.color),
                   ),
                   const SizedBox(width: 8),
                   // 阅读时间
                   if (article.analysis != null)
                     Text(
                       '${article.analysis!.readingTime} 分钟',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 12, color: theme.textTheme.bodySmall?.color),
                     ),
                   const SizedBox(width: 8),
                   // 难度
