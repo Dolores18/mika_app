@@ -95,10 +95,16 @@ class _HistoryPageState extends State<HistoryPage> {
     final theme = Theme.of(context);
     final String? sectionTitle = item['sectionTitle'];
     final String issueDate = item['issueDate'] ?? '未知日期';
+    final int durationInSeconds = item['duration'] ?? 0;
 
     String subtitleText = issueDate;
     if (sectionTitle != null && sectionTitle.isNotEmpty) {
       subtitleText = '$sectionTitle - $issueDate';
+    }
+
+    int minutes = 0;
+    if (durationInSeconds > 0) {
+      minutes = (durationInSeconds / 60).ceil();
     }
 
     return Card(
@@ -107,6 +113,12 @@ class _HistoryPageState extends State<HistoryPage> {
         leading: Icon(Icons.article_outlined, color: theme.colorScheme.secondary),
         title: Text(item['title'] ?? '未知标题'),
         subtitle: Text(subtitleText),
+        trailing: minutes > 0
+            ? Text(
+                '$minutes 分钟',
+                style: TextStyle(color: theme.colorScheme.primary, fontSize: 12),
+              )
+            : null,
         onTap: () {
           final articleId = item['id'];
           if (articleId != null) {

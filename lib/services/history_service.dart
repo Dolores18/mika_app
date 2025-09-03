@@ -7,8 +7,9 @@ class HistoryService {
   static const _historyKey = 'reading_history';
   static const _maxHistoryCount = 10;
 
-  // Add an article to the history
-  Future<void> addArticleToHistory(Article article) async {
+  // Add an article to the history with duration
+  Future<void> addArticleToHistory(
+      Article article, int durationInSeconds) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final List<String> historyJson = prefs.getStringList(_historyKey) ?? [];
@@ -27,6 +28,7 @@ class HistoryService {
         'title': article.title,
         'issueDate': article.issueDate ?? '',
         'sectionTitle': article.sectionTitle,
+        'duration': durationInSeconds, // Store duration in seconds
       };
 
       // Add to the beginning of the list
@@ -38,12 +40,12 @@ class HistoryService {
       }
 
       // Encode back to a list of strings
-      final List<String> updatedHistoryJson = history
-          .map((item) => json.encode(item))
-          .toList();
+      final List<String> updatedHistoryJson =
+          history.map((item) => json.encode(item)).toList();
 
       await prefs.setStringList(_historyKey, updatedHistoryJson);
-      log.i('Article ${article.id} added to history.');
+      log.i(
+          'Article ${article.id} added to history. Duration: $durationInSeconds seconds.');
     } catch (e) {
       log.e('Failed to add article to history: $e');
     }

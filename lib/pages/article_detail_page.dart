@@ -33,16 +33,31 @@ class ArticleDetailPage extends ConsumerStatefulWidget {
 class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   OverlayEntry? _audioPlayerOverlay;
-  bool _historyHasBeenSaved = false;
+  late DateTime _startTime;
 
-  // GetX 收藏控制器
   final BookmarkController _bookmarkController = Get.put(BookmarkController());
   final HistoryService _historyService = HistoryService();
 
   @override
   void initState() {
     super.initState();
+    _startTime = DateTime.now();
     log.i('ArticleDetailPage初始化，文章ID: ${widget.articleId}');
+  }
+
+  @override
+  void deactivate() {
+    final duration = DateTime.now().difference(_startTime);
+    log.i(
+        'ArticleDetailPage即将销毁，文章ID: ${widget.articleId}, 停留时间: ${duration.inSeconds}秒');
+
+    if (duration.inSeconds >= 10) {
+      final article = ref.read(articleDetailProvider(widget.articleId)).article;
+      if (article != null) {
+        _historyService.addArticleToHistory(article, duration.inSeconds);
+      }
+    }
+    super.deactivate();
   }
 
   @override
@@ -93,12 +108,6 @@ class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
     final state = ref.watch(articleDetailProvider(widget.articleId));
     final notifier = ref.read(articleDetailProvider(widget.articleId).notifier);
     final article = state.article;
-
-    // 当文章数据成功加载时，添加到历史记录
-    if (article != null && !_historyHasBeenSaved) {
-      _historyService.addArticleToHistory(article);
-      _historyHasBeenSaved = true;
-    }
 
     // 只有当article不为null时才处理音频播放器
     if (article != null) {
