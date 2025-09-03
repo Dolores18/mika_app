@@ -337,6 +337,11 @@ class HtmlRendererState extends State<HtmlRenderer> {
               HtmlRenderer._controllerCache[widget.articleId!] = controller;
             }
 
+            // 缓存控制器，以便在属性变化时重用
+            if (widget.articleId != null) {
+              HtmlRenderer._controllerCache[widget.articleId!] = controller;
+            }
+
             // 首先添加CSS使内容初始不可见
             controller.evaluateJavascript(source: """
               // 强制禁用系统暗色模式

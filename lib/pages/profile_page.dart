@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../controllers/bookmark_controller.dart';
 import '../controllers/update_controller.dart';
 import 'bookmark_page.dart';
+import 'history_page.dart';
 import '../utils/logger.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -203,11 +204,8 @@ class ProfilePage extends StatelessWidget {
             subtitle: '查看学习历史',
             color: Colors.green,
             onTap: () {
-              Get.snackbar(
-                '功能开发中',
-                '学习记录功能即将上线',
-                snackPosition: SnackPosition.BOTTOM,
-              );
+              log.i('点击学习记录');
+              Get.to(() => HistoryPage());
             },
           ),
         ],
@@ -708,6 +706,25 @@ class ProfilePage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// 示例：主题切换按钮
+class ThemeToggleButton extends StatelessWidget {
+  const ThemeToggleButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(
+        Get.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+      ),
+      onPressed: () {
+        Get.changeThemeMode(
+          Get.isDarkMode ? ThemeMode.light : ThemeMode.dark,
+        );
+      },
     );
   }
 }
