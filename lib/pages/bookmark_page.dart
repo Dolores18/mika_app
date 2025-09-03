@@ -44,7 +44,7 @@ class BookmarkPage extends StatelessWidget {
                   // 清空按钮
                   IconButton(
                     icon: const Icon(Icons.clear_all),
-                    onPressed: () => _showClearDialog(),
+                    onPressed: () => _showClearDialog(context),
                     tooltip: '清空收藏',
                   ),
                 ],
@@ -60,20 +60,21 @@ class BookmarkPage extends StatelessWidget {
         final isLoading = bookmarkController.isLoadingArticles;
 
         if (bookmarkedIds.isEmpty) {
-          return _buildEmptyState();
+          return _buildEmptyState(context);
         }
 
         if (isLoading) {
-          return _buildLoadingState();
+          return _buildLoadingState(context);
         }
 
-        return _buildBookmarkList(bookmarkedArticles);
+        return _buildBookmarkList(context, bookmarkedArticles);
       }),
     );
   }
 
   // 空状态界面
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -81,14 +82,14 @@ class BookmarkPage extends StatelessWidget {
           Icon(
             Icons.bookmark_border,
             size: 80,
-            color: Colors.grey[400],
+            color: theme.textTheme.bodyLarge?.color?.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
           Text(
             '还没有收藏任何文章',
             style: TextStyle(
               fontSize: 18,
-              color: Colors.grey[600],
+              color: theme.textTheme.bodyLarge?.color?.withOpacity(0.8),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -97,7 +98,7 @@ class BookmarkPage extends StatelessWidget {
             '去发现一些有趣的文章吧！',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[500],
+              color: theme.textTheme.bodyLarge?.color?.withOpacity(0.6),
             ),
           ),
           const SizedBox(height: 24),
@@ -107,8 +108,8 @@ class BookmarkPage extends StatelessWidget {
               Get.back();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6b4bbd),
-              foregroundColor: Colors.white,
+              backgroundColor: theme.colorScheme.secondary,
+              foregroundColor: theme.colorScheme.onSecondary,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -122,20 +123,21 @@ class BookmarkPage extends StatelessWidget {
   }
 
   // 加载状态界面
-  Widget _buildLoadingState() {
-    return const Center(
+  Widget _buildLoadingState(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            color: Color(0xFF6b4bbd),
+            color: theme.colorScheme.secondary,
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
             '正在加载收藏文章...',
             style: TextStyle(
               fontSize: 16,
-              color: Colors.black54,
+              color: theme.textTheme.bodyLarge?.color?.withOpacity(0.8),
             ),
           ),
         ],
@@ -144,7 +146,9 @@ class BookmarkPage extends StatelessWidget {
   }
 
   // 收藏列表
-  Widget _buildBookmarkList(List<Article> bookmarkedArticles) {
+  Widget _buildBookmarkList(
+      BuildContext context, List<Article> bookmarkedArticles) {
+    final theme = Theme.of(context);
     return Column(
       children: [
         // 收藏统计信息
@@ -153,11 +157,11 @@ class BookmarkPage extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.8),
+            color: theme.cardColor,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: theme.shadowColor.withOpacity(0.05),
                 blurRadius: 5,
                 offset: const Offset(0, 2),
               ),
@@ -167,16 +171,16 @@ class BookmarkPage extends StatelessWidget {
             children: [
               Icon(
                 Icons.bookmark,
-                color: const Color(0xFF6b4bbd),
+                color: theme.colorScheme.secondary,
                 size: 24,
               ),
               const SizedBox(width: 12),
               Text(
                 '共收藏 ${bookmarkedArticles.length} 篇文章',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: theme.textTheme.bodyLarge?.color,
                 ),
               ),
             ],
@@ -190,7 +194,7 @@ class BookmarkPage extends StatelessWidget {
             itemCount: bookmarkedArticles.length,
             itemBuilder: (context, index) {
               final article = bookmarkedArticles[index];
-              return _buildBookmarkItem(article, index);
+              return _buildBookmarkItem(context, article, index);
             },
           ),
         ),
@@ -199,15 +203,16 @@ class BookmarkPage extends StatelessWidget {
   }
 
   // 收藏项目
-  Widget _buildBookmarkItem(Article article, int index) {
+  Widget _buildBookmarkItem(BuildContext context, Article article, int index) {
+    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: theme.shadowColor.withOpacity(0.05),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -230,12 +235,12 @@ class BookmarkPage extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6b4bbd).withOpacity(0.1),
+                  color: theme.colorScheme.secondary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.article,
-                  color: Color(0xFF6b4bbd),
+                  color: theme.colorScheme.secondary,
                   size: 24,
                 ),
               ),
@@ -249,10 +254,10 @@ class BookmarkPage extends StatelessWidget {
                     // 文章标题
                     Text(
                       article.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
-                        color: Colors.black87,
+                        color: theme.textTheme.bodyLarge?.color,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -264,7 +269,8 @@ class BookmarkPage extends StatelessWidget {
                       Text(
                         article.analysis!.summary.short,
                         style: TextStyle(
-                          color: Colors.grey[600],
+                          color:
+                              theme.textTheme.bodyMedium?.color?.withOpacity(0.8),
                           fontSize: 14,
                           height: 1.3,
                         ),
@@ -281,23 +287,26 @@ class BookmarkPage extends StatelessWidget {
                         // 来源
                         if (article.sectionTitle != null)
                           _buildInfoChip(
+                            context,
                             article.sectionTitle!,
-                            const Color(0xFF6b4bbd),
+                            theme.colorScheme.secondary,
                             Icons.book,
                           ),
 
                         // 难度
                         if (article.analysis?.difficulty.level != null)
                           _buildInfoChip(
+                            context,
                             article.analysis!.difficulty.level,
                             _getDifficultyColor(
-                                article.analysis!.difficulty.level),
+                                context, article.analysis!.difficulty.level),
                             Icons.trending_up,
                           ),
 
                         // 阅读时间
                         if (article.analysis?.readingTime != null)
                           _buildInfoChip(
+                            context,
                             '${article.analysis!.readingTime}分钟',
                             Colors.orange,
                             Icons.access_time,
@@ -306,8 +315,9 @@ class BookmarkPage extends StatelessWidget {
                         // 发布日期
                         if (article.issueDate != null)
                           _buildInfoChip(
+                            context,
                             article.issueDate!,
-                            Colors.grey[600]!,
+                            theme.textTheme.bodySmall?.color ?? Colors.grey,
                             Icons.calendar_today,
                           ),
                       ],
@@ -320,24 +330,25 @@ class BookmarkPage extends StatelessWidget {
               PopupMenuButton<String>(
                 onSelected: (value) {
                   if (value == 'remove') {
-                    _confirmRemoveBookmark(article.id.toString());
+                    _confirmRemoveBookmark(context, article.id.toString());
                   }
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'remove',
                     child: Row(
                       children: [
-                        Icon(Icons.bookmark_remove, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('取消收藏'),
+                        Icon(Icons.bookmark_remove,
+                            color: theme.colorScheme.error),
+                        const SizedBox(width: 8),
+                        const Text('取消收藏'),
                       ],
                     ),
                   ),
                 ],
                 child: Icon(
                   Icons.more_vert,
-                  color: Colors.grey[600],
+                  color: theme.textTheme.bodyMedium?.color,
                   size: 20,
                 ),
               ),
@@ -349,7 +360,8 @@ class BookmarkPage extends StatelessWidget {
   }
 
   // 构建信息标签
-  Widget _buildInfoChip(String text, Color color, IconData icon) {
+  Widget _buildInfoChip(
+      BuildContext context, String text, Color color, IconData icon) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -379,7 +391,8 @@ class BookmarkPage extends StatelessWidget {
   }
 
   // 获取难度颜色
-  Color _getDifficultyColor(String level) {
+  Color _getDifficultyColor(BuildContext context, String level) {
+    final theme = Theme.of(context);
     switch (level) {
       case 'A1-A2':
         return Colors.green;
@@ -388,12 +401,13 @@ class BookmarkPage extends StatelessWidget {
       case 'C1-C2':
         return Colors.red;
       default:
-        return Colors.grey;
+        return theme.disabledColor;
     }
   }
 
   // 确认移除收藏对话框
-  void _confirmRemoveBookmark(String articleId) {
+  void _confirmRemoveBookmark(BuildContext context, String articleId) {
+    final theme = Theme.of(context);
     Get.dialog(
       AlertDialog(
         title: const Text('取消收藏'),
@@ -401,14 +415,14 @@ class BookmarkPage extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text('取消'),
+            child: Text('取消', style: TextStyle(color: theme.colorScheme.secondary)),
           ),
           TextButton(
             onPressed: () {
               bookmarkController.toggleBookmark(articleId);
               Get.back();
             },
-            child: const Text('确定'),
+            child: Text('确定', style: TextStyle(color: theme.colorScheme.error)),
           ),
         ],
       ),
@@ -416,7 +430,8 @@ class BookmarkPage extends StatelessWidget {
   }
 
   // 显示清空收藏对话框
-  void _showClearDialog() {
+  void _showClearDialog(BuildContext context) {
+    final theme = Theme.of(context);
     Get.dialog(
       AlertDialog(
         title: const Text('清空收藏'),
@@ -425,14 +440,14 @@ class BookmarkPage extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text('取消'),
+            child: Text('取消', style: TextStyle(color: theme.colorScheme.secondary)),
           ),
           TextButton(
             onPressed: () {
               bookmarkController.clearAllBookmarks();
               Get.back();
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
             child: const Text('清空'),
           ),
         ],
