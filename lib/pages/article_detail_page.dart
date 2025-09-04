@@ -212,7 +212,10 @@ class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
             Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.remove),
+                  icon: Icon(
+                    Icons.remove,
+                    color: state.isDarkMode ? Colors.white : Colors.black87,
+                  ),
                   onPressed: () {
                     final newSize = (state.fontSize - 1).clamp(12.0, 24.0);
                     if (newSize != state.fontSize) {
@@ -231,7 +234,10 @@ class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.add),
+                  icon: Icon(
+                    Icons.add,
+                    color: state.isDarkMode ? Colors.white : Colors.black87,
+                  ),
                   onPressed: () {
                     final newSize = (state.fontSize + 1).clamp(12.0, 24.0);
                     if (newSize != state.fontSize) {
