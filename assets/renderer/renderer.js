@@ -4,11 +4,11 @@
 // 创建MIKA渲染器接口对象
 window.mikaRenderer = {
   // 设置字体大小
-  setFontSize: function(size) {
+  setFontSize: function (size) {
     // 更新CSS变量
     document.documentElement.style.setProperty('--font-size-base', size + 'px');
     document.documentElement.setAttribute('data-font-size', size);
-    
+
     // 更新动态样式
     var dynamicStyle = document.getElementById('dynamic-styles');
     if (dynamicStyle) {
@@ -20,20 +20,20 @@ window.mikaRenderer = {
     } else {
       console.log('[MIKA] 未找到dynamic-styles元素');
     }
-    
+
     console.log('[MIKA] 字体大小设置为: ' + size + 'px');
   },
-  
+
   // 设置暗色/亮色主题
-  setDarkMode: function(isDark) {
+  setDarkMode: function (isDark) {
     console.log('[MIKA] 设置主题: ' + (isDark ? '深色' : '浅色'));
-    
+
     // 1. 更新HTML根元素属性
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-    
+
     // 2. 更新meta标签
     this._updateColorSchemeMeta(isDark);
-    
+
     // 3. 修改文本选择菜单样式（如果存在）
     if (window.textSelectionMenu) {
       const menu = document.getElementById('text-selection-menu');
@@ -41,7 +41,7 @@ window.mikaRenderer = {
         // 根据主题设置菜单背景色
         menu.style.backgroundColor = isDark ? '#1e1e1e' : '#ffffff';
         menu.style.borderColor = isDark ? '#333333' : '#e0e0e0';
-        
+
         // 设置菜单按钮颜色
         const buttons = menu.querySelectorAll('button');
         buttons.forEach(button => {
@@ -50,12 +50,12 @@ window.mikaRenderer = {
         });
       }
     }
-    
+
     console.log('[MIKA] 主题更新完成');
   },
-  
+
   // 私有：更新颜色方案meta标签
-  _updateColorSchemeMeta: function(isDark) {
+  _updateColorSchemeMeta: function (isDark) {
     // 更新color-scheme meta标签
     var colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
     if (!colorSchemeMeta) {
@@ -64,7 +64,7 @@ window.mikaRenderer = {
       document.head.appendChild(colorSchemeMeta);
     }
     colorSchemeMeta.content = isDark ? 'dark' : 'light';
-    
+
     // 更新theme-color meta标签
     var themeColorMeta = document.querySelector('meta[name="theme-color"]');
     if (!themeColorMeta) {
@@ -73,28 +73,28 @@ window.mikaRenderer = {
       document.head.appendChild(themeColorMeta);
     }
     themeColorMeta.content = isDark ? '#121212' : '#ffffff';
-    
+
     // 更新CSS变量
     document.documentElement.style.setProperty('color-scheme', isDark ? 'dark' : 'light only', 'important');
   },
-  
+
   // 设置词汇显示状态
-  setVocabularyVisibility: function(show) {
+  setVocabularyVisibility: function (show) {
     console.log('[MIKA] 设置词汇显示: ' + (show ? '显示' : '隐藏'));
     document.documentElement.setAttribute('data-show-vocabulary', show);
   },
-  
+
   // 高亮相关函数
   // 存储已高亮文本的数组
   _highlightedTexts: [],
-  
+
   // 创建唯一标识符
-  _createHighlightId: function() {
+  _createHighlightId: function () {
     return 'mika-highlight-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
   },
-  
+
   // 计算文本节点在容器中的绝对偏移量
-  _getTextOffset: function(container, node, offset) {
+  _getTextOffset: function (container, node, offset) {
     let textOffset = 0;
     const walker = document.createTreeWalker(
       container,
@@ -102,7 +102,7 @@ window.mikaRenderer = {
       null,
       false
     );
-    
+
     let currentNode;
     while (currentNode = walker.nextNode()) {
       if (currentNode === node) {
@@ -112,9 +112,9 @@ window.mikaRenderer = {
     }
     return textOffset;
   },
-  
+
   // 获取指定位置的上下文文本
-  _getContextText: function(container, offset, length, isBefore) {
+  _getContextText: function (container, offset, length, isBefore) {
     const allText = container.textContent;
     if (isBefore) {
       const start = Math.max(0, offset - length);
@@ -123,9 +123,9 @@ window.mikaRenderer = {
       return allText.substring(offset, offset + length);
     }
   },
-  
+
   // 从文本偏移量恢复Range对象
-  _createRangeFromOffset: function(container, startOffset, endOffset) {
+  _createRangeFromOffset: function (container, startOffset, endOffset) {
     let currentOffset = 0;
     const walker = document.createTreeWalker(
       container,
@@ -133,74 +133,74 @@ window.mikaRenderer = {
       null,
       false
     );
-    
+
     let startNode = null, startPos = 0;
     let endNode = null, endPos = 0;
     let currentNode;
-    
+
     while (currentNode = walker.nextNode()) {
       const nodeLength = currentNode.textContent.length;
-      
+
       // 找到开始位置
       if (!startNode && currentOffset + nodeLength >= startOffset) {
         startNode = currentNode;
         startPos = startOffset - currentOffset;
       }
-      
+
       // 找到结束位置
       if (!endNode && currentOffset + nodeLength >= endOffset) {
         endNode = currentNode;
         endPos = endOffset - currentOffset;
         break;
       }
-      
+
       currentOffset += nodeLength;
     }
-    
+
     if (startNode && endNode) {
       const range = document.createRange();
       range.setStart(startNode, startPos);
       range.setEnd(endNode, endPos);
       return range;
     }
-    
+
     return null;
   },
 
   // 高亮当前选中的文本
-  highlightSelection: function() {
+  highlightSelection: function () {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) {
       console.log('[MIKA] 没有选中文本，无法高亮');
       return null;
     }
-    
+
     try {
       const text = selection.toString().trim();
       if (!text || text.length === 0) {
         console.log('[MIKA] 选中的文本为空，无法高亮');
         return null;
       }
-      
+
       // 获取选区范围
       const range = selection.getRangeAt(0);
-      
+
       // 计算文本偏移位置
       const container = document.body;
       const startOffset = this._getTextOffset(container, range.startContainer, range.startOffset);
       const endOffset = this._getTextOffset(container, range.endContainer, range.endOffset);
-      
+
       // 获取上下文
       const prefix = this._getContextText(container, startOffset, 50, true);
       const suffix = this._getContextText(container, endOffset, 50, false);
-      
+
       // 提取主要单词（简单实现）
       const words = text.trim().split(/\s+/);
       const mainWord = words[0] || text;
-      
+
       // 创建高亮标识符
       const highlightId = this._createHighlightId();
-      
+
       // 创建一个包含选区的span元素
       const highlightEl = document.createElement('span');
       highlightEl.id = highlightId;
@@ -211,7 +211,7 @@ window.mikaRenderer = {
       highlightEl.style.cursor = 'pointer';
       highlightEl.dataset.mikaHighlight = 'true';
       highlightEl.dataset.text = text;
-      
+
       // 添加点击事件处理器
       highlightEl.addEventListener('click', (e) => {
         // 调用Flutter方法显示高亮选项
@@ -223,13 +223,13 @@ window.mikaRenderer = {
         }
         e.stopPropagation();
       });
-      
+
       // 将选区内容包裹在span中
       range.surroundContents(highlightEl);
-      
+
       // 清除选择
       selection.removeAllRanges();
-      
+
       // 记录高亮信息（使用最通用的文本偏移方法）
       const highlightInfo = {
         id: highlightId,
@@ -242,14 +242,14 @@ window.mikaRenderer = {
         context: prefix + text + suffix,
         timestamp: Date.now()
       };
-      
+
       this._highlightedTexts.push(highlightInfo);
-      
+
       // 通知Flutter高亮已创建
       if (window.flutter_inappwebview) {
         window.flutter_inappwebview.callHandler('onHighlightCreated', highlightInfo);
       }
-      
+
       console.log('[MIKA] 文本高亮成功: ' + text);
       return highlightInfo;
     } catch (e) {
@@ -257,36 +257,36 @@ window.mikaRenderer = {
       return null;
     }
   },
-  
+
   // 恢复保存的高亮
-  restoreHighlight: function(highlightData) {
+  restoreHighlight: function (highlightData) {
     try {
       console.log('[MIKA] 开始恢复高亮:', highlightData);
-      
+
       // 验证数据完整性
       if (!highlightData || !highlightData.startOffset || !highlightData.endOffset) {
         console.error('[MIKA] 高亮数据不完整:', highlightData);
         return false;
       }
-      
+
       const container = document.body;
       const startOffset = parseInt(highlightData.startOffset);
       const endOffset = parseInt(highlightData.endOffset);
-      
+
       // 从偏移量创建Range
       const range = this._createRangeFromOffset(container, startOffset, endOffset);
       if (!range) {
         console.error('[MIKA] 无法从偏移量创建Range');
         return false;
       }
-      
+
       // 验证文本内容是否匹配（可选，增加可靠性）
       const actualText = range.toString();
       if (highlightData.text && actualText !== highlightData.text) {
         console.warn('[MIKA] 恢复的文本与保存的不匹配:', actualText, 'vs', highlightData.text);
         // 可以选择继续或放弃恢复
       }
-      
+
       // 创建高亮元素
       const highlightEl = document.createElement('span');
       highlightEl.id = highlightData.id;
@@ -297,7 +297,7 @@ window.mikaRenderer = {
       highlightEl.style.cursor = 'pointer';
       highlightEl.dataset.mikaHighlight = 'true';
       highlightEl.dataset.text = actualText;
-      
+
       // 添加点击事件
       highlightEl.addEventListener('click', (e) => {
         if (window.flutter_inappwebview) {
@@ -308,10 +308,10 @@ window.mikaRenderer = {
         }
         e.stopPropagation();
       });
-      
+
       // 应用高亮
       range.surroundContents(highlightEl);
-      
+
       // 记录到内存列表
       this._highlightedTexts.push({
         id: highlightData.id,
@@ -319,18 +319,18 @@ window.mikaRenderer = {
         startOffset: startOffset,
         endOffset: endOffset
       });
-      
+
       console.log('[MIKA] 高亮恢复成功:', highlightData.id);
       return true;
-      
+
     } catch (e) {
       console.error('[MIKA] 恢复高亮时出错:', e);
       return false;
     }
   },
-  
+
   // 获取颜色值
-  _getColorValue: function(colorName) {
+  _getColorValue: function (colorName) {
     const colors = {
       'yellow': 'rgba(255, 255, 0, 0.3)',
       'green': 'rgba(0, 255, 0, 0.3)',
@@ -340,28 +340,28 @@ window.mikaRenderer = {
     };
     return colors[colorName] || colors['yellow'];
   },
-  
+
   // 更新高亮ID（Flutter主导架构）
-  updateHighlightId: function(tempId, dbId) {
+  updateHighlightId: function (tempId, dbId) {
     console.log('[MIKA] 更新高亮ID: ' + tempId + ' -> ' + dbId);
-    
+
     // 查找临时ID的元素
     const highlightEl = document.getElementById(tempId);
     if (!highlightEl) {
       console.warn('[MIKA] 未找到临时ID为 ' + tempId + ' 的高亮元素');
       return false;
     }
-    
+
     try {
       // 更新DOM元素ID
       highlightEl.id = dbId;
-      
+
       // 更新内存中的记录
       const highlightIndex = this._highlightedTexts.findIndex(item => item.id === tempId);
       if (highlightIndex !== -1) {
         this._highlightedTexts[highlightIndex].id = dbId;
       }
-      
+
       console.log('[MIKA] 高亮ID更新成功: ' + tempId + ' -> ' + dbId);
       return true;
     } catch (e) {
@@ -371,29 +371,29 @@ window.mikaRenderer = {
   },
 
   // 移除指定ID的高亮（不再通知Flutter，由Flutter主导）
-  removeHighlight: function(highlightId) {
+  removeHighlight: function (highlightId) {
     const highlightEl = document.getElementById(highlightId);
     if (!highlightEl) {
       console.log('[MIKA] 未找到ID为 ' + highlightId + ' 的高亮元素');
       return false;
     }
-    
+
     try {
       // 获取父节点
       const parent = highlightEl.parentNode;
-      
+
       // 获取高亮元素中的所有子节点
       const fragment = document.createDocumentFragment();
       while (highlightEl.firstChild) {
         fragment.appendChild(highlightEl.firstChild);
       }
-      
+
       // 将子节点插入到高亮元素的位置
       parent.replaceChild(fragment, highlightEl);
-      
+
       // 从数组中移除高亮信息
       this._highlightedTexts = this._highlightedTexts.filter(item => item.id !== highlightId);
-      
+
       // 注意：不再通知Flutter，因为删除是由Flutter发起的
       console.log('[MIKA] 移除高亮成功: ' + highlightId);
       return true;
@@ -402,49 +402,49 @@ window.mikaRenderer = {
       return false;
     }
   },
-  
+
   // 获取所有高亮内容
-  getAllHighlights: function() {
+  getAllHighlights: function () {
     return this._highlightedTexts;
   },
-  
+
   // 移除所有高亮
-  removeAllHighlights: function() {
+  removeAllHighlights: function () {
     try {
       // 复制数组以避免在遍历过程中修改
       const highlights = [...this._highlightedTexts];
-      
+
       // 移除每个高亮
       for (const highlight of highlights) {
         this.removeHighlight(highlight.id);
       }
-      
+
       // 以防有遗漏，通过类名查找所有高亮元素
       const remainingHighlights = document.querySelectorAll('.mika-highlight');
       remainingHighlights.forEach(el => {
         // 获取父节点
         const parent = el.parentNode;
-        
+
         // 创建文档片段
         const fragment = document.createDocumentFragment();
-        
+
         // 将高亮元素的内容移至片段
         while (el.firstChild) {
           fragment.appendChild(el.firstChild);
         }
-        
+
         // 替换高亮元素
         parent.replaceChild(fragment, el);
       });
-      
+
       // 清空数组
       this._highlightedTexts = [];
-      
+
       // 通知Flutter所有高亮已移除
       if (window.flutter_inappwebview) {
         window.flutter_inappwebview.callHandler('onAllHighlightsRemoved');
       }
-      
+
       console.log('[MIKA] 所有高亮已移除');
       return true;
     } catch (e) {
@@ -457,13 +457,13 @@ window.mikaRenderer = {
 // 初始化渲染器
 function initializeRenderer(options) {
   const { isDarkMode, fontSize, showVocabulary, apiBaseUrl, baseCSS, typographyCSS, uiCSS, economistCSS } = options;
-  
+
   console.log('[MIKA] 开始初始化渲染器');
   console.log('[MIKA] 配置:', options);
-  
+
   // 确保在初始化时强制使用浅色主题
   document.documentElement.setAttribute('data-theme', 'light');
-  
+
   // 添加防止自动暗色模式的样式
   var preventAutoDarkStyle = document.createElement('style');
   preventAutoDarkStyle.id = 'prevent-auto-dark-style';
@@ -486,7 +486,7 @@ function initializeRenderer(options) {
     }
   `;
   document.head.appendChild(preventAutoDarkStyle);
-  
+
   // 更新META标签
   var colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
   if (!colorSchemeMeta) {
@@ -495,7 +495,7 @@ function initializeRenderer(options) {
     document.head.appendChild(colorSchemeMeta);
   }
   colorSchemeMeta.content = 'only light';
-  
+
   // 更新主题颜色META标签
   var themeColorMeta = document.querySelector('meta[name="theme-color"]');
   if (!themeColorMeta) {
@@ -504,10 +504,10 @@ function initializeRenderer(options) {
     document.head.appendChild(themeColorMeta);
   }
   themeColorMeta.content = '#ffffff';
-  
+
   // 处理HTML内容 - 移除第一个h1标签
   console.log('[MIKA] 开始处理HTML内容');
-  
+
   try {
     // 查找body下的第一个h1标签
     const body = document.body;
@@ -516,7 +516,7 @@ function initializeRenderer(options) {
       if (h1Tags && h1Tags.length > 0) {
         const firstH1 = h1Tags[0];
         console.log('[MIKA] 找到第一个h1标签: ' + firstH1.textContent);
-        
+
         // 移除该h1标签
         firstH1.parentNode.removeChild(firstH1);
         console.log('[MIKA] 已移除第一个h1标签');
@@ -538,25 +538,25 @@ function initializeRenderer(options) {
     baseStyle.id = 'base-style';
     baseStyle.textContent = baseCSS;
     document.head.appendChild(baseStyle);
-    
+
     // 添加排版样式
     var typographyStyle = document.createElement('style');
     typographyStyle.id = 'typography-style';
     typographyStyle.textContent = typographyCSS;
     document.head.appendChild(typographyStyle);
-    
+
     // 添加UI样式
     var uiStyle = document.createElement('style');
     uiStyle.id = 'ui-style';
     uiStyle.textContent = uiCSS;
     document.head.appendChild(uiStyle);
-    
+
     // 添加经济学人样式
     var economistStyle = document.createElement('style');
     economistStyle.id = 'economist-style';
     economistStyle.textContent = economistCSS;
     document.head.appendChild(economistStyle);
-    
+
     // 添加动态配置样式
     const cssContent = document.createElement('style');
     cssContent.id = 'dynamic-styles';
@@ -603,7 +603,7 @@ function initializeRenderer(options) {
   if (window.flutter_inappwebview) {
     window.flutter_inappwebview.callHandler('contentRendered');
   }
-                  
+
   // 确保内容在样式应用前不可见
   if (!document.getElementById('init-invisible-style')) {
     var style = document.createElement('style');
@@ -611,20 +611,20 @@ function initializeRenderer(options) {
     style.innerHTML = 'html, body { opacity: 0 !important; transition: opacity 0.3s ease; }';
     document.head.appendChild(style);
   }
-  
+
   // 处理所有图片，防止它们阻塞页面渲染
   (function prepareImages() {
     const images = document.querySelectorAll('img');
     console.log('处理图片延迟加载: 发现 ' + images.length + ' 张图片');
-    
+
     for (let i = 0; i < images.length; i++) {
       const img = images[i];
       const src = img.getAttribute('src');
-      
+
       if (src && !src.startsWith('data:')) {
         // 保存原始src
         img.setAttribute('data-src', src);
-        
+
         // 设置宽高属性，避免布局跳动
         if (!img.getAttribute('width') && !img.getAttribute('height')) {
           if (img.naturalWidth && img.naturalHeight) {
@@ -635,85 +635,85 @@ function initializeRenderer(options) {
             img.style.aspectRatio = '16/9';
           }
         }
-        
+
         // 替换为占位符
         img.setAttribute('src', 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 viewBox%3D%220 0 1 1%22%2F%3E');
-        
+
         // 设置背景色
         img.style.backgroundColor = isDarkMode ? "#333" : "#f0f0f0";
       }
     }
   })();
-  
+
   // 检查并准备所有图片路径
   (function prepareImagePaths() {
     console.log('准备图片路径: 使用基础URL ' + apiBaseUrl);
-    
+
     const images = document.querySelectorAll('img[data-src]');
     let preparedCount = 0;
-    
+
     for (let i = 0; i < images.length; i++) {
       const img = images[i];
       const src = img.getAttribute('data-src');
-      
+
       if (src && !src.startsWith('http') && !src.startsWith('data:') && !src.startsWith('//')) {
         // 修复相对路径
-        const newSrc = src.startsWith('/') 
-          ? apiBaseUrl + src 
+        const newSrc = src.startsWith('/')
+          ? apiBaseUrl + src
           : apiBaseUrl + '/' + src;
-        
+
         img.setAttribute('data-fixed-src', newSrc);
         preparedCount++;
       } else if (src) {
         img.setAttribute('data-fixed-src', src);
       }
     }
-    
+
     console.log('图片路径准备完成: 共 ' + preparedCount + ' 个图片路径已修复');
   })();
-  
+
   // 添加全局滚动事件处理，解决文本选择与滚动冲突
   (function setupScrollHandler() {
     let isScrolling = false;
     let scrollTimeout;
-    
+
     // 滚动开始时禁用文本选择
-    document.addEventListener('scroll', function() {
+    document.addEventListener('scroll', function () {
       clearTimeout(scrollTimeout);
-      
+
       if (!isScrolling) {
         isScrolling = true;
-        
+
         // 隐藏任何已显示的文本选择菜单
         if (window.textSelectionMenu) {
           window.textSelectionMenu.hide();
         }
-        
+
         // 禁用文本选择，防止在滚动时意外选择
         document.body.style.userSelect = 'none';
         document.body.style.webkitUserSelect = 'none';
       }
-      
+
       // 滚动停止后一段时间恢复文本选择功能
-      scrollTimeout = setTimeout(function() {
+      scrollTimeout = setTimeout(function () {
         isScrolling = false;
         document.body.style.userSelect = 'text';
         document.body.style.webkitUserSelect = 'text';
         console.log('滚动停止，恢复文本选择');
       }, 300);
     }, { passive: true });
-    
+
     console.log('滚动处理器已设置，将在滚动时暂时禁用文本选择');
   })();
-  
+
   // 修改文档属性来控制主题和词汇显示
   document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
   document.documentElement.setAttribute('data-show-vocabulary', showVocabulary);
   document.documentElement.setAttribute('data-font-size', fontSize);
   document.documentElement.style.setProperty('--font-size-base', fontSize + 'px');
-  
+
   // 注入JS函数来更新主题
-  window.setDarkMode = function(isDark) {
+  window.setDarkMode = function (isDark) {
     // 调用mikaRenderer中的方法，保持向后兼容
     if (window.mikaRenderer && window.mikaRenderer.setDarkMode) {
       window.mikaRenderer.setDarkMode(isDark);
@@ -723,9 +723,9 @@ function initializeRenderer(options) {
       console.warn('[MIKA] mikaRenderer.setDarkMode未找到，使用备用方法');
     }
   };
-  
+
   // 注入JS函数来更新词汇显示
-  window.highlightVocabulary = function(show) {
+  window.highlightVocabulary = function (show) {
     // 调用mikaRenderer中的方法，保持向后兼容
     if (window.mikaRenderer && window.mikaRenderer.setVocabularyVisibility) {
       window.mikaRenderer.setVocabularyVisibility(show);
@@ -735,9 +735,9 @@ function initializeRenderer(options) {
       console.warn('[MIKA] mikaRenderer.setVocabularyVisibility未找到，使用备用方法');
     }
   };
-  
+
   // 确保setVocabularyVisibility函数存在(与highlightVocabulary保持一致)
-  window.setVocabularyVisibility = function(show) {
+  window.setVocabularyVisibility = function (show) {
     // 调用mikaRenderer中的方法，保持向后兼容
     if (window.mikaRenderer && window.mikaRenderer.setVocabularyVisibility) {
       window.mikaRenderer.setVocabularyVisibility(show);
@@ -747,21 +747,21 @@ function initializeRenderer(options) {
       console.warn('[MIKA] mikaRenderer.setVocabularyVisibility未找到，使用备用方法');
     }
   };
-  
+
   // 移除所有已有的样式表
   Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).forEach(sheet => {
-    if (!sheet.hasAttribute('data-mika-custom') && 
-        sheet.id !== 'init-invisible-style' && 
-        sheet.id !== 'base-style' && 
-        sheet.id !== 'typography-style' && 
-        sheet.id !== 'ui-style' && 
-        sheet.id !== 'economist-style' && 
-        sheet.id !== 'dynamic-styles') {
+    if (!sheet.hasAttribute('data-mika-custom') &&
+      sheet.id !== 'init-invisible-style' &&
+      sheet.id !== 'base-style' &&
+      sheet.id !== 'typography-style' &&
+      sheet.id !== 'ui-style' &&
+      sheet.id !== 'economist-style' &&
+      sheet.id !== 'dynamic-styles') {
       sheet.disabled = true;
       sheet.remove();
     }
   });
-  
+
   // 添加禁用系统文本选择菜单的CSS，但允许文本选择
   var disableSelectionMenuStyle = document.createElement('style');
   disableSelectionMenuStyle.textContent = `
@@ -782,20 +782,20 @@ function initializeRenderer(options) {
     }
   `;
   document.head.appendChild(disableSelectionMenuStyle);
-  
+
   // 创建滚动容器并包裹所有内容
   var scrollableDiv = document.getElementById('scrollable-content');
   if (!scrollableDiv) {
     scrollableDiv = document.createElement('div');
     scrollableDiv.id = 'scrollable-content';
-    
+
     // 将body内容移动到滚动容器中
     while (document.body.firstChild) {
       scrollableDiv.appendChild(document.body.firstChild);
     }
     document.body.appendChild(scrollableDiv);
   }
-  
+
   // 为文章内容添加容器以提供适当的边距
   var articleContent = document.querySelector('article, .content, section, main');
   if (articleContent) {
@@ -807,22 +807,22 @@ function initializeRenderer(options) {
     // 如果没有找到文章容器，创建一个包裹所有内容
     var contentDiv = document.createElement('div');
     contentDiv.className = 'article-content';
-    
+
     // 将滚动容器内的内容移至文章容器
     while (scrollableDiv.firstChild) {
       contentDiv.appendChild(scrollableDiv.firstChild);
     }
     scrollableDiv.appendChild(contentDiv);
   }
-  
+
   // 修改selectionchange事件处理器 - 现在只负责检测选择和发送信息给Flutter
-  document.addEventListener('selectionchange', function() {
+  document.addEventListener('selectionchange', function () {
     // 如果对话框已打开，不处理文本选择
     if (window.mikaDialogOpen) {
       console.log('[MIKA] 对话框已打开，不处理文本选择');
       return;
     }
-    
+
     const selection = window.getSelection();
     if (selection.isCollapsed) {
       // 没有选择，通知Flutter清空选中的文本
@@ -832,13 +832,13 @@ function initializeRenderer(options) {
       }
     } else {
       // 有文本被选中，但延迟显示菜单，确保选择已完成
-      setTimeout(function() {
+      setTimeout(function () {
         // 再次检查对话框状态，因为可能在延迟期间打开了对话框
         if (window.mikaDialogOpen) {
           console.log('[MIKA] 检测到对话框已打开，不显示文本选择菜单');
           return;
         }
-        
+
         const selection = window.getSelection();
         if (selection && !selection.isCollapsed) {
           const selectedText = selection.toString().trim();
@@ -847,19 +847,19 @@ function initializeRenderer(options) {
               // 获取选区位置信息
               const range = selection.getRangeAt(0);
               const rect = range.getBoundingClientRect();
-              
+
               // 计算选中区域的位置
               const x = rect.left + (rect.width / 2);
               const y = rect.bottom;
               const top = rect.top;
               const width = rect.width;
               const height = rect.height;
-              
+
               // 向Flutter发送选中文本和坐标信息
               if (window.flutter_inappwebview) {
                 // 保存选中文本
                 window.flutter_inappwebview.callHandler('saveSelectedText', selectedText);
-                
+
                 // 发送选区坐标信息给Flutter处理
                 console.log('[MIKA] 发送文本选择坐标到Flutter:', {
                   text: selectedText,
@@ -872,7 +872,7 @@ function initializeRenderer(options) {
                   viewportWidth: window.innerWidth,
                   viewportHeight: window.innerHeight
                 });
-                
+
                 window.flutter_inappwebview.callHandler('textSelectionCoordinates', {
                   text: selectedText,
                   x: x,
@@ -884,9 +884,9 @@ function initializeRenderer(options) {
                   viewportWidth: window.innerWidth,
                   viewportHeight: window.innerHeight
                 });
-                
-                console.log('[MIKA] 选中文本: "' + selectedText + '", 长度: ' + selectedText.length + 
-                            ', 位置: x=' + x + ', y=' + y);
+
+                console.log('[MIKA] 选中文本: "' + selectedText + '", 长度: ' + selectedText.length +
+                  ', 位置: x=' + x + ', y=' + y);
               }
             } catch (e) {
               console.error('[MIKA] 处理文本选择时出错:', e);
@@ -896,9 +896,9 @@ function initializeRenderer(options) {
       }, 300); // 延迟以确保选择完全稳定
     }
   });
-  
+
   // 全局拦截上下文菜单事件，阻止默认的选择菜单显示
-  document.addEventListener('contextmenu', function(e) {
+  document.addEventListener('contextmenu', function (e) {
     const selection = window.getSelection();
     // 如果有文本选择，则阻止默认菜单显示
     if (selection && !selection.isCollapsed) {
@@ -908,30 +908,30 @@ function initializeRenderer(options) {
     // 否则允许默认菜单显示（例如链接右键菜单）
     return true;
   });
-  
+
   // 阻止ActionMode菜单出现 (Android)
-  document.addEventListener('touchstart', function(e) {
+  document.addEventListener('touchstart', function (e) {
     // 禁用长按选择文本的默认行为
     const target = e.target;
     if (target && (
-        target.tagName === 'P' || 
-        target.tagName === 'SPAN' || 
-        target.tagName === 'DIV' || 
-        target.tagName === 'ARTICLE'
+      target.tagName === 'P' ||
+      target.tagName === 'SPAN' ||
+      target.tagName === 'DIV' ||
+      target.tagName === 'ARTICLE'
     )) {
       // 只应用于正文区域，不影响按钮等交互元素
       e.target.style.webkitUserSelect = 'text';
       e.target.style.webkitTouchCallout = 'none';
     }
   }, { passive: false });
-  
+
   // 阻止默认选择行为 (iOS)
-  document.addEventListener('touchend', function(e) {
+  document.addEventListener('touchend', function (e) {
     // 如果有选择，使用Flutter的自定义菜单而非系统菜单
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) {
       // 允许选择完成，然后立即清除ActionMode
-      setTimeout(function() {
+      setTimeout(function () {
         if (window.getSelection().toString().trim().length > 0) {
           // 触发自定义事件处理
           document.dispatchEvent(new Event('selectionchange'));
@@ -939,64 +939,119 @@ function initializeRenderer(options) {
       }, 200); // 延迟时间给系统更多时间完成选择
     }
   }, { passive: false });
-  
-  // 添加点击处理，支持单词点击查询功能
-  document.addEventListener('dblclick', function(e) {
-    const selection = window.getSelection();
-    if (selection && !selection.isCollapsed) {
-      const selectedText = selection.toString().trim();
-      if (selectedText && !selectedText.includes(' ')) {
-        console.log('双击选择单词: ' + selectedText);
-        // 调用Flutter处理单词查询
-        if (window.flutter_inappwebview) {
-          window.flutter_inappwebview.callHandler('onWordSelected', selectedText);
-        }
-      }
+
+  // 添加双击处理，自动选中单词并触发菜单
+  document.addEventListener('dblclick', function (e) {
+    console.log('[MIKA] ===== 双击事件触发 =====');
+    console.log('[MIKA] 双击坐标: (' + e.clientX + ', ' + e.clientY + ')');
+    console.log('[MIKA] 事件目标: ' + e.target.tagName + ', 内容: "' + e.target.textContent.substring(0, 50) + '"');
+
+    // 防止默认的双击行为
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 获取双击位置的文本节点和偏移量
+    const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+    if (!range) {
+      console.log('[MIKA] 无法获取双击位置的range');
+      return;
     }
-  });
-  
+
+    const textNode = range.startContainer;
+    if (textNode.nodeType !== Node.TEXT_NODE) {
+      console.log('[MIKA] 双击位置不是文本节点，类型: ' + textNode.nodeType);
+      return;
+    }
+
+    const text = textNode.textContent;
+    const clickOffset = range.startOffset;
+    console.log('[MIKA] 文本内容: "' + text.substring(0, 100) + '", 偏移: ' + clickOffset);
+
+    // 查找单词边界
+    let start = clickOffset;
+    let end = clickOffset;
+
+    // 向前查找单词开始位置
+    while (start > 0 && /\w/.test(text[start - 1])) {
+      start--;
+    }
+
+    // 向后查找单词结束位置
+    while (end < text.length && /\w/.test(text[end])) {
+      end++;
+    }
+
+    // 如果找到了有效的单词
+    if (start < end) {
+      const word = text.substring(start, end);
+      console.log('[MIKA] 双击选中单词: "' + word + '" (位置: ' + start + '-' + end + ')');
+
+      // 创建新的选择范围
+      const newRange = document.createRange();
+      newRange.setStart(textNode, start);
+      newRange.setEnd(textNode, end);
+
+      // 应用选择
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+
+      console.log('[MIKA] 选择已应用，当前选中文本: "' + selection.toString() + '"');
+
+      // 手动触发 selectionchange 事件
+      setTimeout(function () {
+        console.log('[MIKA] 手动触发 selectionchange 事件');
+        document.dispatchEvent(new Event('selectionchange'));
+      }, 100);
+
+      console.log('[MIKA] 双击处理完成');
+    } else {
+      console.log('[MIKA] 未找到有效单词，start: ' + start + ', end: ' + end);
+    }
+  }, true); // 使用捕获阶段，优先处理
+
   // 添加词汇点击处理
-  document.addEventListener('click', function(e) {
+  document.addEventListener('click', function (e) {
     // 检查是否点击了词汇元素
     if (e.target && e.target.classList && e.target.classList.contains('vocabulary-word')) {
       e.preventDefault();
       e.stopPropagation();
       const word = e.target.getAttribute('data-word');
       console.log('词汇点击:', word);
-      
+
       // 调用Flutter处理函数
       if (window.flutter_inappwebview && word) {
         window.flutter_inappwebview.callHandler('onWordSelected', word);
       }
     }
   });
-  
+
   // 添加viewport元标签确保适当缩放
   var viewportMeta = document.createElement('meta');
   viewportMeta.name = 'viewport';
   viewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes, viewport-fit=cover';
   document.head.appendChild(viewportMeta);
-  
+
   // 应用初始设置
   window.mikaRenderer.setDarkMode(isDarkMode);
   window.mikaRenderer.setFontSize(fontSize);
   window.mikaRenderer.setVocabularyVisibility(showVocabulary);
-  
+
   console.log('[MIKA] 渲染器初始化完成');
-  
+
   return {
-    showContent: function() {
+    showContent: function () {
       // 显示文本内容
       var invisibleStyle = document.getElementById('init-invisible-style');
       if (invisibleStyle) {
         invisibleStyle.innerHTML = 'html, body { opacity: 1 !important; transition: opacity 0.3s ease; }';
         console.log('文本内容显示中，添加淡入效果');
-        
+
         // 监听过渡动画完成
         document.body.addEventListener('transitionend', function fadeInComplete() {
           // 移除监听器，避免重复触发
           document.body.removeEventListener('transitionend', fadeInComplete);
-          
+
           invisibleStyle.remove();
           console.log('初始渲染完成，样式元素已移除');
 
@@ -1005,36 +1060,36 @@ function initializeRenderer(options) {
           const images = document.querySelectorAll('img[data-fixed-src]');
           let loadedCount = 0;
           const totalImages = images.length;
-          
+
           if (totalImages === 0) {
             console.log('没有需要加载的图片');
             return;
           }
-          
+
           console.log('开始加载 ' + totalImages + ' 张图片');
-          
+
           // 设置图片加载完成的检查
-          const checkAllImagesLoaded = function() {
+          const checkAllImagesLoaded = function () {
             if (loadedCount >= totalImages) {
               console.log('所有图片加载完成');
             }
           };
-          
+
           for (let i = 0; i < images.length; i++) {
             const img = images[i];
             const fixedSrc = img.getAttribute('data-fixed-src');
-            
+
             if (fixedSrc) {
               // 添加图片加载完成事件
-              img.onload = function() {
+              img.onload = function () {
                 loadedCount++;
                 img.style.backgroundColor = 'transparent';
                 img.style.transition = 'background-color 0.3s ease';
                 console.log('图片加载完成 (' + loadedCount + '/' + totalImages + ')');
                 checkAllImagesLoaded();
               };
-              
-              img.onerror = function() {
+
+              img.onerror = function () {
                 loadedCount++;
                 console.error('图片加载失败: ' + fixedSrc);
                 // 添加错误提示样式
@@ -1042,7 +1097,7 @@ function initializeRenderer(options) {
                 img.style.border = '1px solid ' + (isDarkMode ? "#8c3b3b" : "#ffcdd2");
                 checkAllImagesLoaded();
               };
-              
+
               // 开始加载图片
               img.setAttribute('src', fixedSrc);
               img.removeAttribute('data-fixed-src');

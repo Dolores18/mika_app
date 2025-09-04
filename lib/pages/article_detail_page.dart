@@ -180,16 +180,28 @@ class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
           ),
         ],
       ),
-      body: Builder(
-        builder: (context) {
+      body: Consumer(
+        builder: (context, ref, child) {
+          // 只监听 HtmlRenderer 需要的状态
+          final isDarkMode = ref.watch(
+            articleDetailProvider(widget.articleId).select((state) => state.isDarkMode)
+          );
+          final fontSize = ref.watch(
+            articleDetailProvider(widget.articleId).select((state) => state.fontSize)
+          );
+          final showVocabulary = ref.watch(
+            articleDetailProvider(widget.articleId).select((state) => state.showVocabulary)
+          );
+          
           return HtmlRenderer(
             articleId: widget.articleId,
-            isDarkMode: state.isDarkMode,
-            fontSize: state.fontSize,
-            showVocabulary: state.showVocabulary,
+            isDarkMode: isDarkMode,
+            fontSize: fontSize,
+            showVocabulary: showVocabulary,
             onWordSelected: (word) {},
             onFontSizeChanged: (newSize) {
-              notifier.setFontSize(newSize.clamp(12.0, 24.0));
+              ref.read(articleDetailProvider(widget.articleId).notifier)
+                  .setFontSize(newSize.clamp(12.0, 24.0));
             },
           );
         },
