@@ -949,6 +949,9 @@ class HtmlRendererState extends State<HtmlRenderer> {
                           console.log('[MIKA] 已设置对话框关闭标志');
                         """);
                       }
+
+                      // 自动高亮查询的单词
+                      _autoHighlightWord();
                     },
                     isCompact: true,
                     onLookupMore: () {
@@ -969,6 +972,9 @@ class HtmlRendererState extends State<HtmlRenderer> {
                   console.log('[MIKA] 对话框关闭后重置标志');
                 """);
               }
+
+              // 自动高亮查询的单词
+              _autoHighlightWord();
             });
 
             log.i('翻译结果对话框已显示');
@@ -1320,6 +1326,38 @@ class HtmlRendererState extends State<HtmlRenderer> {
         log.e('执行高亮JavaScript时出错', error);
       });
     }
+  }
+
+  // 自动高亮查询的单词（在翻译对话框关闭后调用）
+  void _autoHighlightWord() {
+    if (_selectedText == null || _selectedText!.isEmpty) {
+      log.w('无法自动高亮：文本为空');
+      return;
+    }
+
+    log.i('自动高亮查询的单词: $_selectedText');
+
+    // 延迟执行，确保对话框已完全关闭
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (_webViewController != null && mounted) {
+        _webViewController!.evaluateJavascript(source: """
+          if (window.mikaRenderer && window.mikaRenderer.highlightSelection) {
+            const result = window.mikaRenderer.highlightSelection();
+            if (result) {
+              console.log('[MIKA] 自动高亮成功: ' + JSON.stringify(result));
+            } else {
+              console.log('[MIKA] 自动高亮失败：可能没有选中文本');
+            }
+          } else {
+            console.error('[MIKA] 高亮函数不可用');
+          }
+        """).then((value) {
+          log.i('自动高亮JavaScript执行结果: $value');
+        }).catchError((error) {
+          log.e('执行自动高亮JavaScript时出错', error);
+        });
+      }
+    });
   }
 
   // 显示高亮操作对话框
