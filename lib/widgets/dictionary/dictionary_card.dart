@@ -19,6 +19,7 @@ class DictionaryCard extends StatelessWidget {
   final String? exchange;
   final String? collins;
   final String? oxford;
+  final List<WordFrequency>? frequencies; // 词频信息
 
   const DictionaryCard({
     Key? key,
@@ -36,6 +37,7 @@ class DictionaryCard extends StatelessWidget {
     this.exchange,
     this.collins,
     this.oxford,
+    this.frequencies,
   }) : super(key: key);
 
   // 从Vocabulary模型创建词典卡片的工厂构造函数
@@ -77,6 +79,7 @@ class DictionaryCard extends StatelessWidget {
       exchange: result.exchange,
       collins: result.collins,
       oxford: result.oxford,
+      frequencies: result.frequencies,
       onClose: onClose,
       onAddToVocabulary: onAddToVocabulary,
       onLookupMore: onLookupMore,
@@ -229,6 +232,63 @@ class DictionaryCard extends StatelessWidget {
               style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
             const SizedBox(height: 4),
+          ],
+
+          // 词频信息
+          if (frequencies != null && frequencies!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              "词频统计：",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 4),
+            ...frequencies!.map((freq) {
+              return Padding(
+                padding: const EdgeInsets.only(left: 8, top: 2),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.purple[100],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        freq.pos,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.purple[800],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "频次: ${freq.frequency}",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "排名: ${freq.rank}",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+            const SizedBox(height: 8),
           ],
 
           // 柯林斯星级和牛津核心

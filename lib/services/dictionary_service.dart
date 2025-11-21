@@ -45,7 +45,23 @@ class DictionaryService {
           '英语字典返回结果: ${json.toString().substring(0, min(100, json.toString().length))}...',
         );
 
-        return DictionaryResult.fromJson(json);
+        final result = DictionaryResult.fromJson(json);
+        
+        // 获取词频信息
+        final frequencies = await _fetchWordFrequency(word);
+        
+        // 返回包含词频的结果
+        return DictionaryResult(
+          word: result.word,
+          phonetic: result.phonetic,
+          translation: result.translation,
+          definition: result.definition,
+          collins: result.collins,
+          oxford: result.oxford,
+          tag: result.tag,
+          exchange: result.exchange,
+          frequencies: frequencies,
+        );
       } catch (e) {
         log.e('英语字典结果解析失败', e);
         throw Exception('解析结果出错: $e');
@@ -54,6 +70,30 @@ class DictionaryService {
       log.w('英语字典查询失败: HTTP ${response.statusCode}');
       throw Exception('查询失败: HTTP ${response.statusCode}');
     }
+  }
+
+  // 获取词频信息
+  Future<List<WordFrequency>?> _fetchWordFrequency(String word) async {
+    try {
+      final uri = Uri.parse('$baseUrl/words/frequency/$word');
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        log.i('词频查询成功: $word');
+        final json = jsonDecode(response.body);
+        
+        if (json['entries'] != null && json['entries'] is List) {
+          final entries = json['entries'] as List;
+          return entries.map((e) => WordFrequency.fromJson(e)).toList();
+        }
+      } else {
+        log.w('词频查询失败: HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      log.w('词频查询异常: $e');
+    }
+    
+    return null;
   }
 
   // 日语前缀搜索（用于实时搜索建议）

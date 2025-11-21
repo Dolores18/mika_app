@@ -7,6 +7,7 @@ class DictionaryResult {
   final String? oxford;
   final String? tag;
   final String? exchange;
+  final List<WordFrequency>? frequencies; // 词频信息
 
   DictionaryResult({
     required this.word,
@@ -17,6 +18,7 @@ class DictionaryResult {
     this.oxford,
     this.tag,
     this.exchange,
+    this.frequencies,
   });
 
   factory DictionaryResult.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class DictionaryResult {
       oxford: json['oxford']?.toString(),
       tag: json['tag']?.toString(),
       exchange: json['exchange']?.toString(),
+      frequencies: null, // 词频需要单独获取
     );
   }
 
@@ -36,5 +39,29 @@ class DictionaryResult {
   @override
   String toString() {
     return 'DictionaryResult{word: $word, phonetic: $phonetic, translation: $translation}';
+  }
+}
+
+// 词频信息模型
+class WordFrequency {
+  final int frequency;
+  final String pos; // 词性
+  final int rank; // 排名
+  final String word;
+
+  WordFrequency({
+    required this.frequency,
+    required this.pos,
+    required this.rank,
+    required this.word,
+  });
+
+  factory WordFrequency.fromJson(Map<String, dynamic> json) {
+    return WordFrequency(
+      frequency: json['frequency'] ?? 0,
+      pos: json['pos'] ?? '',
+      rank: json['rank'] ?? 0,
+      word: json['word'] ?? '',
+    );
   }
 }

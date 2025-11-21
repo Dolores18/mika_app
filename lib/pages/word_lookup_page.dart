@@ -727,6 +727,62 @@ class _WordLookupPageState extends ConsumerState<WordLookupPage> {
             ),
             const SizedBox(height: 4),
           ],
+          // 词频信息
+          if (result.frequencies != null && result.frequencies!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              "词频统计：",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: theme.textTheme.bodyMedium?.color,
+              ),
+            ),
+            const SizedBox(height: 4),
+            ...result.frequencies!.map((freq) {
+              return Padding(
+                padding: const EdgeInsets.only(left: 8, top: 2),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        freq.pos,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "频次: ${freq.frequency}",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: theme.textTheme.bodySmall?.color,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "排名: ${freq.rank}",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: theme.textTheme.bodySmall?.color,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+            const SizedBox(height: 8),
+          ],
           Row(
             children: [
               if (result.collins != null &&
