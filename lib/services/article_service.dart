@@ -11,7 +11,7 @@ class ArticleService {
   // iOS模拟器可以直接使用localhost或127.0.0.1
   //static const String _baseUrl = 'http://10.0.2.2:8000/api';
   //static const String _baseUrl = 'http://127.0.0.1:8000/api';
-  static const String _baseUrl = 'http://47.79.39.75:7000/api';
+  static const String _baseUrl = 'http://47.79.145.69:7000/api';
   static final Map<String, Article> _articleCache = {};
   static const Duration _requestTimeout = Duration(seconds: 10);
 
