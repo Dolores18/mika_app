@@ -67,7 +67,7 @@ class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
     super.dispose();
   }
 
-  void _showAudioPlayerOverlay(String audioUrl) {
+  void _showAudioPlayerOverlay(String localAudioPath) {
     _removeAudioPlayerOverlay();
 
     _audioPlayerOverlay = OverlayEntry(
@@ -81,7 +81,7 @@ class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: AudioPlayer(
-              url: audioUrl,
+              localPath: localAudioPath,
               articleId: widget.articleId,
               onClose: () {
                 _removeAudioPlayerOverlay();
@@ -103,6 +103,20 @@ class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
     _audioPlayerOverlay = null;
   }
 
+  /// 下载音频到本地缓存后再显示播放器
+  Future<void> _downloadAndShowPlayer(String audioUrl) async {
+    final notifier = ref.read(articleDetailProvider(widget.articleId).notifier);
+    final localPath = await notifier.downloadAudioToCache(audioUrl);
+    if (localPath != null && mounted) {
+      _showAudioPlayerOverlay(localPath);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('音频下载失败')),
+      );
+      notifier.toggleAudioPlayer();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(articleDetailProvider(widget.articleId));
@@ -115,7 +129,8 @@ class _ArticleDetailPageState extends ConsumerState<ArticleDetailPage> {
         if (article.audioUrl != null &&
             state.showAudioPlayer &&
             _audioPlayerOverlay == null) {
-          _showAudioPlayerOverlay(article.audioUrl!);
+          // 先下载音频到本地缓存，再显示播放器
+          _downloadAndShowPlayer(article.audioUrl!);
         } else if (!state.showAudioPlayer && _audioPlayerOverlay != null) {
           _removeAudioPlayerOverlay();
         }

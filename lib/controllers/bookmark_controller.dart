@@ -104,12 +104,12 @@ class BookmarkController extends GetxController {
       } else {
         // 添加收藏
         await _bookmarkService.addBookmark(articleId);
-        _bookmarkedIds.add(articleId);
+        _bookmarkedIds.insert(0, articleId);
 
         // 尝试将文章添加到详情列表（如果缓存中有的话）
         try {
           final article = await _articleService.getArticleById(articleId);
-          _bookmarkedArticles.add(article);
+          _bookmarkedArticles.insert(0, article);
         } catch (e) {
           log.w('添加收藏时获取文章详情失败: $e，将在下次访问收藏页面时重新加载');
         }

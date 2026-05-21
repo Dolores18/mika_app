@@ -9,8 +9,10 @@ class BookmarkService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final bookmarks = prefs.getStringList(_bookmarkKey) ?? [];
-      log.d('从本地存储获取收藏列表: $bookmarks');
-      return bookmarks;
+      // 反转列表，确保最新收藏在最前面（兼容旧数据）
+      final reversed = bookmarks.reversed.toList();
+      log.d('从本地存储获取收藏列表: $reversed');
+      return reversed;
     } catch (e) {
       log.e('获取收藏列表失败: $e');
       return [];

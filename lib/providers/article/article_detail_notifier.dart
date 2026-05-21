@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import '../../services/article_service.dart';
 import '../../utils/logger.dart';
 import 'article_detail_state.dart';
@@ -78,4 +81,41 @@ class ArticleDetailNotifier extends StateNotifier<ArticleDetailState> {
   void clearCache() {
     state = state.copyWith(htmlContent: null);
   }
+
+  /// 下载音频到本地缓存目录
+  /// 如果已有缓存则直接返回路径，不重复下载
+  Future<String?> downloadAudioToCache(String audioUrl) async {
+    // 已有缓存，直接返回
+    if (state.cachedAudioPath != null) {
+      final file = File(state.cachedAudioPath!);
+      if (await file.exists()) {
+        log.i('[AudioPlayer] 音频缓存已存在: ${state.cachedAudioPath}');
+        return state.cachedAudioPath;
+      }
+    }
+
+    try {
+      log.i('[AudioPlayer] 开始下载音频到本地缓存: $audioUrl');
+      final tempDir = await getTemporaryDirectory();
+      final filePath = '${tempDir.path}/audio_$articleId.mp3';
+
+      final response = await http.get(Uri.parse(audioUrl));
+      if (response.statusCode == 200) {
+        final file = File(filePath);
+        await file.writeAsBytes(response.bodyBytes);
+        log.i('[AudioPlayer] 音频下载完成，缓存路径: $filePath, 大小: ${response.bodyBytes.length} bytes');
+
+        state = state.copyWith(cachedAudioPath: filePath);
+        return filePath;
+      } else {
+        log.e('[AudioPlayer] 音频下载失败: HTTP ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      log.e('[AudioPlayer] 音频下载异常: $e');
+      return null;
+    }
+  }
+
 }
+

@@ -3,15 +3,16 @@ import 'package:just_audio/just_audio.dart' as just_audio;
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/article/article_detail_provider.dart';
+import '../utils/logger.dart';
 
 class AudioPlayer extends ConsumerStatefulWidget {
-  final String url;
+  final String localPath; // 改为本地文件路径
   final VoidCallback onClose;
   final String? articleId;
 
   const AudioPlayer({
     Key? key,
-    required this.url,
+    required this.localPath,
     required this.onClose,
     this.articleId,
   }) : super(key: key);
@@ -24,13 +25,11 @@ class _AudioPlayerState extends ConsumerState<AudioPlayer> {
   late just_audio.AudioPlayer _audioPlayer;
   bool _isPlaying = false;
   bool _isLoading = false;
-  bool _isBuffering = false;
+  bool _isCompleted = false;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
-  Duration _bufferedPosition = Duration.zero;
   StreamSubscription? _durationSubscription;
   StreamSubscription? _positionSubscription;
-  StreamSubscription? _bufferedPositionSubscription;
   StreamSubscription? _playerStateSubscription;
 
   @override
@@ -41,31 +40,23 @@ class _AudioPlayerState extends ConsumerState<AudioPlayer> {
 
   Future<void> _initAudioPlayer() async {
     _audioPlayer = just_audio.AudioPlayer();
+    log.i('[AudioPlayer] 初始化播放器，本地文件: ${widget.localPath}');
 
     try {
       setState(() {
         _isLoading = true;
       });
 
-      // 配置音频源，启用流式播放
-      final duration = await _audioPlayer.setUrl(
-        widget.url,
-        preload: false, // 不预先加载整个文件
-      );
+      // 直接从本地文件加载，不需要网络请求
+      log.i('[AudioPlayer] 从本地文件加载音频');
+      final duration = await _audioPlayer.setFilePath(widget.localPath);
+      log.i('[AudioPlayer] 本地音频加载完成，时长: $duration');
 
       if (duration != null) {
         setState(() {
           _duration = duration;
         });
       }
-
-      // 监听缓冲位置
-      _bufferedPositionSubscription =
-          _audioPlayer.bufferedPositionStream.listen((bufferedPosition) {
-        setState(() {
-          _bufferedPosition = bufferedPosition;
-        });
-      });
 
       _durationSubscription = _audioPlayer.durationStream.listen((duration) {
         setState(() {
@@ -80,16 +71,15 @@ class _AudioPlayerState extends ConsumerState<AudioPlayer> {
       });
 
       _playerStateSubscription = _audioPlayer.playerStateStream.listen((state) {
+        log.d('[AudioPlayer] 播放器状态变化: playing=${state.playing}, processingState=${state.processingState}');
         setState(() {
           _isPlaying = state.playing;
-          // 检测是否正在缓冲
-          _isBuffering =
-              state.processingState == just_audio.ProcessingState.buffering;
 
           if (state.processingState == just_audio.ProcessingState.completed) {
             _isPlaying = false;
-            _position = Duration.zero;
-            _audioPlayer.seek(Duration.zero);
+            _isCompleted = true;
+            log.i('[AudioPlayer] 播放完成，暂停播放器');
+            _audioPlayer.pause();
           }
         });
       });
@@ -101,7 +91,7 @@ class _AudioPlayerState extends ConsumerState<AudioPlayer> {
       setState(() {
         _isLoading = false;
       });
-      // 显示加载错误
+      log.e('[AudioPlayer] 音频加载失败: $e');
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -114,7 +104,6 @@ class _AudioPlayerState extends ConsumerState<AudioPlayer> {
   void dispose() {
     _durationSubscription?.cancel();
     _positionSubscription?.cancel();
-    _bufferedPositionSubscription?.cancel();
     _playerStateSubscription?.cancel();
     _audioPlayer.dispose();
     super.dispose();
@@ -167,7 +156,7 @@ class _AudioPlayerState extends ConsumerState<AudioPlayer> {
                 ),
               ),
               const Spacer(),
-              if (_isLoading || _isBuffering)
+              if (_isLoading)
                 SizedBox(
                   width: 24,
                   height: 24,
@@ -188,10 +177,17 @@ class _AudioPlayerState extends ConsumerState<AudioPlayer> {
                   iconSize: 36,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  onPressed: () {
+                  onPressed: () async {
                     if (_isPlaying) {
+                      log.i('[AudioPlayer] 用户点击暂停');
                       _audioPlayer.pause();
                     } else {
+                      if (_isCompleted) {
+                        log.i('[AudioPlayer] 播放已完成，seek回起点重新播放');
+                        await _audioPlayer.seek(Duration.zero);
+                        _isCompleted = false;
+                      }
+                      log.i('[AudioPlayer] 用户点击播放');
                       _audioPlayer.play();
                     }
                   },
@@ -218,71 +214,45 @@ class _AudioPlayerState extends ConsumerState<AudioPlayer> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Stack(
-                  children: [
-                    // 缓冲进度条背景
-                    Container(
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 4,
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 8,
                     ),
-                    // 缓冲进度条
-                    FractionallySizedBox(
-                      widthFactor: _duration.inMilliseconds > 0
-                          ? _bufferedPosition.inMilliseconds /
-                              _duration.inMilliseconds
-                          : 0,
-                      child: Container(
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color:
-                              isDarkMode ? Colors.grey[600] : Colors.grey[400],
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
+                    overlayShape: const RoundSliderOverlayShape(
+                      overlayRadius: 16,
                     ),
-                    // 播放进度滑块
-                    SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 4,
-                        thumbShape: const RoundSliderThumbShape(
-                          enabledThumbRadius: 8,
+                    activeTrackColor: isDarkMode
+                        ? Colors.white70
+                        : const Color(0xFF6b4bbd),
+                    inactiveTrackColor:
+                        isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                    thumbColor:
+                        isDarkMode ? Colors.white : const Color(0xFF6b4bbd),
+                    overlayColor: (isDarkMode
+                            ? Colors.white
+                            : const Color(0xFF6b4bbd))
+                        .withOpacity(0.2),
+                  ),
+                  child: Slider(
+                    min: 0,
+                    max: _duration.inMilliseconds.toDouble() == 0
+                        ? 1
+                        : _duration.inMilliseconds.toDouble(),
+                    value: _position.inMilliseconds.toDouble().clamp(
+                          0,
+                          _duration.inMilliseconds.toDouble() == 0
+                              ? 1
+                              : _duration.inMilliseconds.toDouble(),
                         ),
-                        overlayShape: const RoundSliderOverlayShape(
-                          overlayRadius: 16,
-                        ),
-                        activeTrackColor: isDarkMode
-                            ? Colors.white70
-                            : const Color(0xFF6b4bbd),
-                        inactiveTrackColor: Colors.transparent,
-                        thumbColor:
-                            isDarkMode ? Colors.white : const Color(0xFF6b4bbd),
-                        overlayColor: (isDarkMode
-                                ? Colors.white
-                                : const Color(0xFF6b4bbd))
-                            .withOpacity(0.2),
-                      ),
-                      child: Slider(
-                        min: 0,
-                        max: _duration.inMilliseconds.toDouble() == 0
-                            ? 1
-                            : _duration.inMilliseconds.toDouble(),
-                        value: _position.inMilliseconds.toDouble().clamp(
-                              0,
-                              _duration.inMilliseconds.toDouble() == 0
-                                  ? 1
-                                  : _duration.inMilliseconds.toDouble(),
-                            ),
-                        onChanged: (value) {
-                          _audioPlayer.seek(
-                            Duration(milliseconds: value.toInt()),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                    onChanged: (value) {
+                      log.i('[AudioPlayer] 用户拖动进度条 seek 到: ${Duration(milliseconds: value.toInt())}');
+                      _audioPlayer.seek(
+                        Duration(milliseconds: value.toInt()),
+                      );
+                    },
+                  ),
                 ),
               ),
               const SizedBox(width: 8),

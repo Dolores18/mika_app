@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get/get.dart';
+import 'package:path_provider/path_provider.dart';
 import 'server/local_server.dart';
 import 'services/database_service.dart';
 import 'utils/logger.dart';
@@ -31,6 +32,24 @@ void main() async {
     log.i('数据库初始化成功');
   } catch (e) {
     log.e('数据库初始化失败: $e');
+  }
+
+  // 启动时清理上次遗留的音频缓存文件
+  try {
+    final tempDir = await getTemporaryDirectory();
+    final files = tempDir.listSync();
+    int count = 0;
+    for (final file in files) {
+      if (file is File && file.path.contains('audio_') && file.path.endsWith('.mp3')) {
+        await file.delete();
+        count++;
+      }
+    }
+    if (count > 0) {
+      log.i('[AudioCache] 启动时清理了 $count 个音频缓存文件');
+    }
+  } catch (e) {
+    log.w('[AudioCache] 清理音频缓存失败: $e');
   }
 
   runApp(const ProviderScope(child: MyApp()));

@@ -10,6 +10,7 @@ class ArticleDetailState {
   final bool showAudioPlayer;
   final bool showVocabulary;
   final Article? article;
+  final String? cachedAudioPath; // 本地缓存的音频文件路径
 
   const ArticleDetailState({
     this.contentError,
@@ -19,6 +20,7 @@ class ArticleDetailState {
     this.showAudioPlayer = false,
     this.showVocabulary = true,
     this.article,
+    this.cachedAudioPath,
   });
 
   ArticleDetailState copyWith({
@@ -29,6 +31,7 @@ class ArticleDetailState {
     bool? showAudioPlayer,
     bool? showVocabulary,
     Article? article,
+    String? cachedAudioPath,
   }) {
     return ArticleDetailState(
       contentError: contentError ?? this.contentError,
@@ -38,6 +41,7 @@ class ArticleDetailState {
       showAudioPlayer: showAudioPlayer ?? this.showAudioPlayer,
       showVocabulary: showVocabulary ?? this.showVocabulary,
       article: article ?? this.article,
+      cachedAudioPath: cachedAudioPath ?? this.cachedAudioPath,
     );
   }
 }
