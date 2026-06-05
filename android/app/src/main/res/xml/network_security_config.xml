@@ -5,10 +5,10 @@
         <domain includeSubdomains="true">127.0.0.1</domain>
         <domain includeSubdomains="true">10.0.2.2</domain>
         <!-- 添加远程服务器地址 -->
-        <domain includeSubdomains="true">47.79.145.69</domain>
+        <domain includeSubdomains="true">47.254.242.83</domain>
         <!-- 如果需要允许其他域名的明文通信，可以在此添加 -->
     </domain-config>
-    <base-config cleartextTrafficPermitted="false">
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
